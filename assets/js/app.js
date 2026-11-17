@@ -100,7 +100,7 @@
     disposals: ["Pemusnahan Barang", "Kelola pengajuan pemusnahan aset rusak.", "archive-x"],
     depreciations: ["Penyusutan", "Catat perubahan nilai aset secara berkala.", "trending-down"],
     reports: ["Laporan", "Rekap inventaris dan transaksi sarana prasarana sekolah.", "files"],
-    accounts: ["Pengaturan Akun", "Kelola akun pengguna dan hak akses menu.", "users-round"],
+    accounts: ["Pengaturan", "Kelola akun pengguna, hak akses, dan identitas aplikasi.", "settings-2"],
     backup: ["Backup & Telegram", "Unduh dan pulihkan data, serta atur backup otomatis ke Telegram.", "database-backup"]
   };
 
@@ -111,7 +111,7 @@
       { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["items", "Data Item"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] }
     ] },
-    { section: "LAINNYA", links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan Akun", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
+    { section: "LAINNYA", links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
   ];
 
   const collectionConfig = {
@@ -179,14 +179,64 @@
 
   function syncProfile() {
     if (!activeUser) return;
-    $("#profileName").textContent = activeUser.name;
-    $$(".profile-info small").forEach((node) => { node.textContent = activeUser.role; });
-    $$("#profileButton .avatar, #topbarUser .avatar").forEach((node) => {
+    $$("#topbarUser .avatar").forEach((node) => {
       node.textContent = initials(activeUser.name);
       node.classList.toggle("avatar-photo", Boolean(activeUser.avatar));
       node.style.backgroundImage = activeUser.avatar ? `url("${activeUser.avatar}")` : "";
     });
+    renderTopbarProfileMenu();
     sessionStorage.setItem("sarprah-user", JSON.stringify({ id: activeUser.id }));
+  }
+
+  function renderTopbarProfileMenu() {
+    const menu = $("#topbarProfileMenu");
+    if (!menu || !activeUser) return;
+    const avatar = activeUser.avatar
+      ? `<img class="topbar-profile-avatar" src="${esc(activeUser.avatar)}" alt="">`
+      : `<span class="avatar">${esc(initials(activeUser.name))}</span>`;
+    menu.innerHTML = `<div class="topbar-profile-summary">${avatar}<div><b>${esc(activeUser.name)}</b><small>${esc(activeUser.role)}</small></div></div><div class="topbar-profile-email">${esc(activeUser.email)}</div><button class="topbar-profile-action" type="button" role="menuitem" data-profile-action="edit-profile"><i data-lucide="user-round-pen"></i>Edit profil</button><button class="topbar-profile-action topbar-profile-logout" type="button" role="menuitem" data-profile-action="logout"><i data-lucide="log-out"></i>Keluar</button>`;
+    if (window.lucide) lucide.createIcons({ nodes: [menu] });
+  }
+
+  function closeTopbarProfileMenu() {
+    const menu = $("#topbarProfileMenu");
+    menu?.classList.add("hidden");
+    $("#topbarUser")?.setAttribute("aria-expanded", "false");
+  }
+
+  function openTopbarSearch() {
+    $("#topbarSearch").classList.add("open");
+    $("#searchTrigger").classList.add("hidden");
+    $("#searchTrigger").setAttribute("aria-expanded", "true");
+    $("#topbarSearchBox").classList.remove("hidden");
+    $("#globalSearch").focus();
+  }
+
+  function closeTopbarSearch() {
+    $("#topbarSearch").classList.remove("open");
+    $("#topbarSearchBox").classList.add("hidden");
+    $("#searchTrigger").classList.remove("hidden");
+    $("#searchTrigger").setAttribute("aria-expanded", "false");
+    $("#globalSearch").value = "";
+    $("#searchResults").innerHTML = "";
+    $("#searchResults").classList.add("hidden");
+  }
+
+  function updateTopbarSearchResults() {
+    const query = $("#globalSearch").value.trim().toLowerCase();
+    const results = $("#searchResults");
+    if (!query) {
+      results.innerHTML = "";
+      results.classList.add("hidden");
+      return;
+    }
+    const matches = Object.entries(meta)
+      .filter(([, value]) => value[0].toLowerCase().includes(query) || value[1].toLowerCase().includes(query))
+      .filter(([key]) => canViewPage(key))
+      .slice(0, 7);
+    results.innerHTML = matches.map(([key, value]) => `<button class="topbar-search-result" type="button" role="option" data-page="${key}"><i data-lucide="${value[2]}"></i><span>${esc(value[0])}</span><i class="search-result-arrow" data-lucide="arrow-up-right"></i></button>`).join("") || `<div class="topbar-search-empty">Menu tidak ditemukan.</div>`;
+    results.classList.remove("hidden");
+    if (window.lucide) lucide.createIcons({ nodes: [results] });
   }
 
   function ensureBrandingDefaults() {
@@ -229,6 +279,7 @@
     document.title = `${appName} — Manajemen Sarana & Prasarana`;
     $$("[data-app-name]").forEach((node) => { node.textContent = appName; });
     $$("[data-app-brand]").forEach((node) => {
+      node.classList.toggle("has-app-logo", Boolean(appLogo));
       node.innerHTML = appLogo ? `<img class="app-brand-logo" src="${esc(appLogo)}" alt="${esc(appName)}">` : `<i data-lucide="boxes"></i>`;
     });
     const favicon = $("#appFavicon");
@@ -422,7 +473,7 @@
     page = next;
     selectedFilter = "Semua";
     searchTerm = "";
-    $("#breadcrumbCurrent").textContent = meta[next]?.[0] || "Akses terbatas";
+    closeTopbarSearch();
     renderNavigation();
     renderPage();
     $("#sidebar").classList.remove("open");
@@ -526,16 +577,19 @@
         ${formInput("npsn", "NPSN", school.npsn, "text")}
         ${formInput("phone", "Telepon", school.phone, "tel")}
         ${formInput("email", "Email", school.email, "email")}
-        ${formInput("website", "Website", school.website, "url")}
+        <div class="form-field"><label>Website</label><input name="website" type="text" inputmode="url" autocomplete="url" placeholder="contoh: https://sekolah.sch.id" value="${esc(school.website)}"></div>
         <div class="form-field full"><label>Alamat</label><textarea name="address" ${canEditPage("school") ? "" : "disabled"}>${esc(school.address)}</textarea></div>
         <div class="form-field full"><label>Unggah Logo Sekolah</label><input name="logoFile" type="file" accept="image/*">${school.logo ? `<img src="${esc(school.logo)}" alt="Logo sekolah" style="max-width:90px;max-height:70px;object-fit:contain;margin-top:8px">` : ""}<small class="form-help">Format gambar, maksimal 2 MB.</small></div>
         <div class="form-field full"><label>Footer Laporan</label><input name="footer" value="${esc(school.footer)}"></div>
-        </div></form>
-      <form id="appBrandingForm" class="settings-card"><h3>Identitas Aplikasi</h3><p>Atur nama dan logo yang tampil di aplikasi, judul tab browser, dan favicon.</p><div class="form-grid">
-        ${formInput("appName", "Nama Aplikasi", state.settings.appName, "text", true)}
-        <div class="form-field full"><label for="appLogoFile">Logo Aplikasi</label><div class="app-branding-upload"><div id="appLogoPreview" class="app-logo-preview">${state.settings.appLogo ? `<img src="${esc(state.settings.appLogo)}" alt="Logo aplikasi">` : `<i data-lucide="boxes"></i>`}</div><div><input id="appLogoFile" name="appLogoFile" type="file" accept="image/png,image/jpeg,image/webp"><small class="form-help">PNG, JPG, atau WEBP · maksimal 2 MB. Logo juga digunakan sebagai favicon.</small><label class="app-logo-remove"><input name="removeAppLogo" type="checkbox"> Gunakan ikon bawaan</label></div></div></div>
-        <div class="form-field full"><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan identitas aplikasi</button></div>
         </div></form>`;
+  }
+
+  function renderAppBranding() {
+    return `<form id="appBrandingForm" class="settings-card"><h3>Identitas Aplikasi</h3><p>Atur nama dan logo yang tampil di aplikasi, judul tab browser, dan favicon.</p><div class="form-grid">
+      ${formInput("appName", "Nama Aplikasi", state.settings.appName, "text", true)}
+      <div class="form-field full"><label for="appLogoFile">Logo Aplikasi</label><div class="app-branding-upload"><div id="appLogoPreview" class="app-logo-preview">${state.settings.appLogo ? `<img src="${esc(state.settings.appLogo)}" alt="Logo aplikasi">` : `<i data-lucide="boxes"></i>`}</div><div><input id="appLogoFile" name="appLogoFile" type="file" accept="image/png,image/jpeg,image/webp"><small class="form-help">PNG, JPG, atau WEBP · maksimal 2 MB. Logo juga digunakan sebagai favicon.</small><label class="app-logo-remove"><input name="removeAppLogo" type="checkbox"> Gunakan ikon bawaan</label></div></div></div>
+      <div class="form-field full"><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan identitas aplikasi</button></div>
+      </div></form>`;
   }
 
   function renderCollection(key) {
@@ -653,6 +707,7 @@
         </div>
       </div>`).join("");
     return `${pageHeading(canEditPage("accounts") ? `<button class="btn-primary" data-action="add"><i data-lucide="user-plus"></i>Tambah Akun</button>` : "")}
+      ${renderAppBranding()}
       <section class="settings-card"><h3>Akun Pengguna</h3><p>Kelola akses dan status akun yang menggunakan aplikasi.</p>${state.accounts.map((account) => `<div class="settings-row"><div style="display:flex;align-items:center;gap:10px"><span class="avatar">${esc(account.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase())}</span><div><b>${esc(account.name)} <span class="badge ${account.role === "Administrator" ? "info" : "neutral"}">${esc(account.role)}</span></b><small>${esc(account.email)}</small></div></div><div class="action-buttons">${canEditPage("accounts") ? `<button class="toggle ${account.active ? "on" : ""}" title="${account.active ? "Nonaktifkan" : "Aktifkan"}" data-action="toggle-account" data-id="${account.id}"></button><button class="mini-action" title="Ubah" data-action="edit" data-id="${account.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("accounts") ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${account.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></div>`).join("")}</section>
       <section class="settings-card role-permissions-card"><h3>Hak Akses Menu</h3><p>Atur hak akses setiap role untuk masing-masing menu. Administrator selalu memiliki akses penuh.</p>${accessMenus}${adminOnlyMenus}</section>
       <section class="settings-card"><h3>Navigasi Mobile</h3><p>Pilih hingga 5 pintasan yang ditampilkan di navbar perangkat seluler.</p><div class="form-grid">${available.map((key) => `<label class="settings-row" style="justify-content:flex-start;border:0;padding:7px"><input class="mobile-nav-check" type="checkbox" value="${key}" ${mobile.includes(key) ? "checked" : ""} ${mobile.length >= 5 && !mobile.includes(key) || !canEditPage("accounts") ? "disabled" : ""} style="accent-color:#f27622"><b>${labels[key]}</b></label>`).join("")}</div>${canEditPage("accounts") ? `<button class="btn-primary" data-action="save-mobile"><i data-lucide="save"></i>Simpan navigasi</button>` : ""}</section>`;
@@ -1270,8 +1325,14 @@
       const file = form.elements.logoFile.files?.[0];
       delete data.logoFile;
       const commit = () => {
+        const website = String(data.website || "").trim();
+        if (website && !/^https?:\/\//i.test(website)) data.website = `https://${website}`;
         Object.assign(state.school, data);
-        saveState(); $("#sidebarSchool").textContent = state.school.name; showToast("Profil sekolah berhasil disimpan."); renderPage();
+        saveState();
+        $("#sidebarSchool").textContent = state.school.name;
+        $("#headerSchoolName").textContent = state.school.name;
+        showToast("Profil sekolah berhasil disimpan.");
+        renderPage();
       };
       if (!file) return commit();
       if (file.size > 2_000_000) return showToast("Ukuran logo maksimal 2 MB.", true);
@@ -1640,20 +1701,45 @@
     $("#mobileMenuToggle").addEventListener("click", () => { $("#sidebar").classList.add("open"); $("#sidebarOverlay").classList.add("visible"); });
     $("#closeSidebar").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });
     $("#sidebarOverlay").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });
-    $("#searchTrigger").addEventListener("click", () => {
-      showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal"><div class="modal-header"><div><h2>Pencarian cepat</h2><p>Cari halaman untuk membuka fitur Sarprah.</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><label class="search-field" style="height:40px"><i data-lucide="search"></i><input id="globalSearch" placeholder="Ketik nama menu..." autofocus></label><div id="searchResults" style="margin-top:12px"></div></div></section></div>`);
-      const input = $("#globalSearch");
-      const update = () => {
-        const query = input.value.toLowerCase();
-        const results = Object.entries(meta).filter(([, value]) => value[0].toLowerCase().includes(query)).slice(0, 7);
-        $("#searchResults").innerHTML = results.map(([key, value]) => `<button class="settings-row global-result" data-page="${key}" style="width:100%;text-align:left;border:0;background:white;cursor:pointer"><i data-lucide="${value[2]}" style="color:#ed741f"></i><b>${value[0]}</b><i data-lucide="arrow-up-right" style="margin-left:auto;color:#9aa3b0"></i></button>`).join("") || `<div class="empty-state">Menu tidak ditemukan.</div>`;
-        if (window.lucide) lucide.createIcons({ nodes: [$("#searchResults")] });
-        $$("#searchResults [data-page]").forEach((button) => button.addEventListener("click", () => { closeModal(); navigate(button.dataset.page); }));
-      };
-      input.addEventListener("input", update); update(); input.focus();
+    $("#searchTrigger").addEventListener("click", openTopbarSearch);
+    $("#searchClose").addEventListener("click", closeTopbarSearch);
+    $("#globalSearch").addEventListener("input", updateTopbarSearchResults);
+    $("#globalSearch").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        const firstResult = $("#searchResults [data-page]");
+        if (firstResult) navigate(firstResult.dataset.page);
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        $("#searchResults [data-page]")?.focus();
+      }
     });
-    $("#profileButton").addEventListener("click", showAccountPreview);
-    $("#topbarUser").addEventListener("click", showAccountPreview);
+    $("#searchResults").addEventListener("click", (event) => {
+      const result = event.target.closest("[data-page]");
+      if (result) navigate(result.dataset.page);
+    });
+    document.addEventListener("click", (event) => {
+      if (!$("#topbarSearch").contains(event.target)) closeTopbarSearch();
+    });
+    $("#topbarUser").addEventListener("click", () => {
+      const menu = $("#topbarProfileMenu");
+      const isOpen = !menu.classList.contains("hidden");
+      if (isOpen) closeTopbarProfileMenu();
+      else {
+        menu.classList.remove("hidden");
+        $("#topbarUser").setAttribute("aria-expanded", "true");
+      }
+    });
+    $("#topbarProfileMenu").addEventListener("click", (event) => {
+      const action = event.target.closest("[data-profile-action]")?.dataset.profileAction;
+      if (!action) return;
+      closeTopbarProfileMenu();
+      if (action === "edit-profile") showProfileEditor();
+      else if (action === "logout") logout();
+    });
+    document.addEventListener("click", (event) => {
+      if (!$("#topbarProfile")?.contains(event.target)) closeTopbarProfileMenu();
+    });
     $("#loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = $("#loginEmail").value.trim().toLowerCase(), password = $("#loginPassword").value;
@@ -1691,8 +1777,8 @@
       enterApp();
     });
     document.addEventListener("keydown", (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#searchTrigger").click(); }
-      if (event.key === "Escape") closeModal();
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openTopbarSearch(); }
+      if (event.key === "Escape") { closeModal(); closeTopbarProfileMenu(); closeTopbarSearch(); }
     });
     window.addEventListener("resize", () => { if (page === "dashboard") drawChart(); });
     window.addEventListener("beforeprint", () => {
@@ -1715,6 +1801,7 @@
     applyAppBranding();
     syncProfile();
     $("#sidebarSchool").textContent = state.school.name;
+    $("#headerSchoolName").textContent = state.school.name;
     renderNavigation(); navigate(page);
   }
 

@@ -44,14 +44,11 @@
       </div>
       <div class="school-switch"><div class="school-avatar">S</div><div><b id="sidebarSchool">SMA Negeri 1 Bandung</b><small>Tahun ajaran 2025/2026</small></div><i data-lucide="chevrons-up-down"></i></div>
       <nav id="sideNav" class="side-nav"></nav>
-      <div class="sidebar-bottom">
-        <button id="profileButton" class="profile-button"><span class="avatar">AD</span><span class="profile-info"><b id="profileName">Admin Sekolah</b><small>Administrator</small></span><i data-lucide="ellipsis"></i></button>
-      </div>
     </aside>
     <div id="sidebarOverlay" class="sidebar-overlay"></div>
     <main class="main-area">
-      <header class="topbar"><div class="topbar-left"><button id="mobileMenuToggle" class="icon-btn mobile-menu-toggle" aria-label="Buka menu"><i data-lucide="panel-left"></i></button><div class="breadcrumb"><span>Menu</span><i data-lucide="chevron-right"></i><b id="breadcrumbCurrent">Dashboard</b></div></div>
-        <div class="topbar-actions"><button class="search-trigger" id="searchTrigger"><i data-lucide="search"></i><span>Cari apa saja...</span><kbd>⌘ K</kbd></button><button class="icon-btn notification-btn" aria-label="Notifikasi"><i data-lucide="bell"></i><span></span></button><div class="topbar-divider"></div><button class="topbar-user" id="topbarUser"><span class="avatar">AD</span><i data-lucide="chevron-down"></i></button></div>
+      <header class="topbar"><div class="topbar-left"><button id="mobileMenuToggle" class="icon-btn mobile-menu-toggle" aria-label="Buka menu"><i data-lucide="panel-left"></i></button><b id="headerSchoolName" class="header-school-name">SMA Negeri 1 Bandung</b></div>
+        <div class="topbar-actions"><div class="topbar-search" id="topbarSearch"><button class="search-icon-trigger" id="searchTrigger" type="button" aria-label="Cari menu" aria-expanded="false"><i data-lucide="search"></i></button><div class="topbar-search-box hidden" id="topbarSearchBox"><i data-lucide="search"></i><input id="globalSearch" type="search" placeholder="Cari menu..." autocomplete="off" aria-label="Cari menu"><button class="search-close" id="searchClose" type="button" aria-label="Tutup pencarian"><i data-lucide="x"></i></button><div class="topbar-search-results hidden" id="searchResults" role="listbox"></div></div></div><button class="icon-btn notification-btn" aria-label="Notifikasi"><i data-lucide="bell"></i><span></span></button><div class="topbar-divider"></div><div class="topbar-profile" id="topbarProfile"><button class="topbar-user" id="topbarUser" aria-label="Menu profil" aria-haspopup="menu" aria-expanded="false"><span class="avatar">AD</span><i data-lucide="chevron-down"></i></button><div class="topbar-profile-menu hidden" id="topbarProfileMenu" role="menu"></div></div></div>
       </header>
       <section id="pageContent" class="page-content"></section>
     </main>
