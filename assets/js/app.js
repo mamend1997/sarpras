@@ -134,7 +134,7 @@
     academicYears: { title: "Tahun Pelajaran", description: "Daftar tahun pelajaran yang berlaku di sekolah.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
     goods: { title: "Data Barang", description: "Informasi barang, kepemilikan, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["owner", "Milik"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["owner", "Milik", "select", true, ["Yayasan", "Sekolah", "Pribadi", "Lainnya"]], ["ownerOther", "Nama pemilik lainnya", "text"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
-    usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengaju"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["applicant", "Nama Pengaju", "text", true], ["goodId", "Barang BHP", "select", true, "bhpGoods"], ["quantity", "Jumlah Barang", "number", true], ["date", "Tanggal", "date", true]] },
+    usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"]] },
     loans: { title: "Peminjaman Barang", description: "Pengajuan dan status peminjaman aset sekolah.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "goods"], ["locationId", "Lokasi", "select", true, "locations"], ["itemIds", "Pilih Item Inventaris", "text"], ["startDate", "Tanggal Sewa", "date", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
@@ -1297,13 +1297,18 @@
 
   function modalForm(key, record = null) {
     const config = collectionConfig[key];
-    const scanPanel = !record && ["loans", "procurements", "disposals", "depreciations", "stocktakes"].includes(key)
-      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode item</b><small>Gunakan kamera atau masukkan kode QR/barcode item.</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="Contoh: E.1-T.1-L1-KS.1"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
+    const scanPanel = !record && ["usages", "loans", "procurements", "disposals", "depreciations", "stocktakes"].includes(key)
+      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "item"}</b><small>${key === "usages" ? "Pindai barcode BHP atau pilih barang secara manual dari daftar." : "Gunakan kamera atau masukkan kode QR/barcode item."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh: E.1-T.1-L1-KS.1"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const fields = config.fields.map(([name, label, type, required, source]) => {
       let value = record?.[name] ?? (key === "accounts" && name === "active" ? true : type === "date" ? dateOffset(0) : "");
       const idAttr = `${key}-${name}`;
       if (name === "itemIds" && ["loans", "disposals"].includes(key)) return `<div class="form-field full"><label>${esc(label)}${required ? " *" : ""}</label><div id="loanItemOptions" class="item-choice-list"></div><small class="form-help">${key === "loans" ? "Pilih unit berkondisi baik yang belum dipinjam." : "Pilih unit dengan kondisi rusak untuk diajukan."}</small></div>`;
+      if (key === "usages" && name === "unitId") {
+        const unitId = record?.unitId || getById("goods", record?.goodId)?.unitId || "";
+        const unitName = relatedName("units", unitId);
+        return `<div class="form-field"><label for="usages-unitName">Satuan</label><input id="usages-unitName" type="text" value="${esc(unitName === "—" ? "" : unitName)}" readonly><input type="hidden" name="unitId" value="${esc(unitId)}"></div>`;
+      }
       if (key === "goods" && name === "ownerOther") return `<div id="goodsOwnerOtherField" class="form-field ${record?.owner === "Lainnya" ? "" : "hidden"}"><label for="${idAttr}">${esc(label)}${record?.owner === "Lainnya" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" ${record?.owner === "Lainnya" ? "required" : ""}></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
@@ -1313,7 +1318,10 @@
       const money = moneyFields.has(name);
       const inputType = money ? "text" : type;
       const inputValue = money ? formatThousands(value) : value;
-      return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : type === "number" ? 'min="0"' : ""}></div>`;
+      const numberAttributes = type === "number"
+        ? key === "usages" && name === "quantity" ? 'min="0.01" step="any"' : 'min="0"'
+        : "";
+      return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : numberAttributes}></div>`;
     }).join("");
     return `<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>${record ? "Edit" : "Tambah"} ${config.singular}</h2><p>Lengkapi informasi berikut dengan benar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="recordForm" data-collection="${key}" data-record="${record?.id || ""}"><div class="form-grid">${scanPanel}${fields}</div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan data</button></div></form></section></div>`;
   }
@@ -1328,6 +1336,7 @@
     if (form) setupMoneyInputs(form);
     if (form && form.dataset.collection === "goods") setupGoodsOwnershipForm(form);
     if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
+    if (form && form.dataset.collection === "usages") setupUsageForm(form);
     if (form && ["loans", "disposals"].includes(form.dataset.collection)) setupItemChoices(form);
     if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
     const fileInput = $(".form-file", $("#modalRoot"));
@@ -1388,6 +1397,20 @@
     updateOldStock();
   }
 
+  function setupUsageForm(form) {
+    const goodSelect = form.elements.goodId;
+    const unitIdInput = form.elements.unitId;
+    const unitNameInput = $("#usages-unitName", form);
+    const updateUnit = () => {
+      const good = getById("goods", goodSelect.value);
+      const unitId = good?.unitId || "";
+      unitIdInput.value = unitId;
+      unitNameInput.value = unitId ? relatedName("units", unitId) : "";
+    };
+    goodSelect.addEventListener("change", updateUnit);
+    updateUnit();
+  }
+
   function setupItemChoices(form) {
     const key = form.dataset.collection;
     const record = form.dataset.record ? getById(key, form.dataset.record) : null;
@@ -1430,15 +1453,34 @@
     const applyCode = (value) => {
       const code = String(value || "").trim();
       const item = state.items.find((row) => row.code.toLowerCase() === code.toLowerCase());
+      const normalizedCode = code.toLowerCase();
+      const scannedBhpGood = key === "usages"
+        ? state.goods.find((row) => isBhp(row) && [row.barcode, row.id, row.name].some((candidate) => String(candidate || "").trim().toLowerCase() === normalizedCode))
+        : null;
+      const good = item ? getById("goods", item.goodId) : scannedBhpGood;
+      if (!good) {
+        const message = key === "usages" ? "Barcode BHP tidak dikenali. Pilih barang secara manual." : `Kode "${code}" tidak ditemukan di data item.`;
+        setStatus(message, true);
+        showToast(key === "usages" ? message : `Barcode "${code}" tidak dikenali.`, true);
+        return false;
+      }
+      if (key === "usages") {
+        if (!isBhp(good)) {
+          setStatus("Barang pada barcode bukan barang habis pakai (BHP).", true);
+          showToast("Pindai barcode barang BHP atau pilih barang BHP secara manual.", true);
+          return false;
+        }
+        const goodSelect = form.elements.goodId;
+        const changed = goodSelect.value !== good.id;
+        goodSelect.value = good.id;
+        if (changed) goodSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        const stock = `${good.quantity} ${relatedName("units", good.unitId)}`;
+        setStatus(`${code} · ${good.name} · Stok saat ini: ${stock}.`);
+        return true;
+      }
       if (!item) {
         setStatus(`Kode "${code}" tidak ditemukan di data item.`, true);
         showToast(`Barcode "${code}" tidak dikenali.`, true);
-        return false;
-      }
-      const good = getById("goods", item.goodId);
-      if (!good) {
-        setStatus("Data barang untuk item ini tidak ditemukan.", true);
-        showToast("Data barang pada barcode tidak ditemukan.", true);
         return false;
       }
       if (key === "loans") {
@@ -1634,9 +1676,22 @@
       if (password && password !== confirmPassword) { showToast("Konfirmasi kata sandi tidak cocok.", true); return; }
       if (password) Object.assign(data, await passwordCredentials(password));
     }
-    if (key === "usages") data.status = "Pengajuan";
     if (key === "usages") {
-      const stock = Number(getById("goods", data.goodId)?.quantity || 0);
+      const good = getById("goods", data.goodId);
+      if (!good || !isBhp(good)) {
+        showToast("Pilih barang habis pakai (BHP) yang valid.", true);
+        return;
+      }
+      if (!good.unitId) {
+        showToast("Atur satuan barang terlebih dahulu pada Data Barang.", true);
+        return;
+      }
+      if (data.quantity <= 0) {
+        showToast("Jumlah barang harus lebih dari 0.", true);
+        return;
+      }
+      data.unitId = good.unitId;
+      const stock = Number(good.quantity || 0);
       if (data.quantity > stock) {
         showToast(`Maksimal stok adalah ${stock}.`, true);
         return;
@@ -1663,10 +1718,21 @@
     }
     if (key === "procurements") data.status = old?.status || "Pengajuan";
     if (key === "disposals") data.status = old?.status || "Pengajuan";
+    let stocktakeGood = null;
     if (key === "stocktakes") {
-      data.total = data.newStock;
-      const good = getById("goods", data.goodId);
-      if (good) good.quantity = data.newStock;
+      stocktakeGood = getById("goods", data.goodId);
+      if (!stocktakeGood) {
+        showToast("Pilih barang yang valid untuk stock opname.", true);
+        return;
+      }
+      const newStock = Number(data.newStock);
+      if (!Number.isFinite(newStock) || newStock < 0) {
+        showToast("Stok baru harus berupa angka nol atau lebih.", true);
+        return;
+      }
+      data.newStock = newStock;
+      data.total = newStock;
+      if (!old) data.oldStock = Number(stocktakeGood.quantity || 0);
     }
     if (key === "depreciations") {
       data.finalValue = Math.max(0, data.initialValue - data.amount);
@@ -1674,6 +1740,7 @@
     const previous = key === "accounts" && old ? { ...old } : null;
     if (old) Object.assign(old, data);
     else state[key].unshift(data);
+    if (stocktakeGood) stocktakeGood.quantity = data.newStock;
     if (key === "accounts") {
       try {
         await persistState();
