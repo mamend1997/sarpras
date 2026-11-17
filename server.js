@@ -218,7 +218,7 @@ async function handleApi(req, res) {
     const input = await readJsonBody(req, 32_000);
     const email = String(input.email || "").trim().toLowerCase();
     const password = String(input.password || "");
-    const state = currentState();
+    let state = currentState();
     let account = state?.accounts?.find((row) => row.email.toLowerCase() === email && row.active);
     const isDemoAdmin = email === "admin@sarprah.id" && password === "sarprah123";
     let valid = Boolean(account && account.passwordSalt && account.passwordHash && hashPassword(password, account.passwordSalt) === account.passwordHash);
@@ -228,7 +228,21 @@ async function handleApi(req, res) {
       saveState.run(JSON.stringify(state));
       valid = true;
     }
-    if (!account && !state && isDemoAdmin) account = { id: "ac1", name: "Admin Sekolah", role: "Administrator" }, valid = true;
+    if (!account && !state && isDemoAdmin) {
+      const passwordSalt = crypto.randomBytes(16).toString("hex");
+      account = {
+        id: "ac1",
+        name: "Admin Sekolah",
+        role: "Administrator",
+        email,
+        active: true,
+        passwordSalt,
+        passwordHash: hashPassword(password, passwordSalt)
+      };
+      state = { accounts: [account] };
+      saveState.run(JSON.stringify(state));
+      valid = true;
+    }
     if (!valid || !account) return send(res, 401, JSON.stringify({ error: "Email atau kata sandi tidak sesuai." }));
     const token = crypto.randomBytes(32).toString("base64url");
     const expiresAt = Date.now() + 7 * 86400_000;

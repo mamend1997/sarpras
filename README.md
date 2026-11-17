@@ -25,7 +25,9 @@ Data contoh dimuat otomatis saat database masih kosong. Jika server tidak tersed
 
 ## Pemindaian barcode dan supplier
 
-- Formulir tambah peminjaman, pengadaan, pemusnahan, dan penyusutan menyediakan pemindaian melalui kamera atau input kode manual. Pemindaian kamera membutuhkan browser yang mendukung `BarcodeDetector` dan akses kamera; scanner USB juga dapat digunakan melalui kolom kode.
+- Formulir tambah peminjaman, pengadaan, pemusnahan, penyusutan, dan stock opname menyediakan pemindaian melalui kamera atau input kode manual. Pemindaian kamera membutuhkan browser yang mendukung `BarcodeDetector` dan akses kamera; scanner USB juga dapat digunakan melalui kolom kode.
+- Di **Barang → Data Barang**, unduh **Template CSV** sebelum impor. Isi nama sumber dana, jenis, kategori, satuan, dan supplier sesuai data master yang sudah terdaftar. Nilai harga boleh ditulis seperti `1.000.000`; impor dibatalkan jika ada referensi atau nilai yang tidak valid, sedangkan nama barang duplikat dilewati.
+- Pada form harga, pemisah ribuan menggunakan titik dan nilai tetap disimpan sebagai angka. Pada stock opname, pilih barang manual atau pindai kode item; stok lama terisi otomatis dari stok saat ini, stok baru wajib diisi, dan total stok tetap ditampilkan sebagai jumlah tanpa awalan Rp.
 - Data supplier mencakup nama, alamat, nomor telepon, serta email opsional.
 - Grup navigasi sidebar bekerja sebagai accordion: hanya satu grup submenu yang terbuka pada satu waktu.
 - Buat bot melalui `@BotFather`, mulai percakapan dengan bot, lalu masukkan chat ID serta token bot di pengaturan. Token disimpan terenkripsi di server dan tidak dikirim balik ke browser.
@@ -35,3 +37,5 @@ Data contoh dimuat otomatis saat database masih kosong. Jika server tidak tersed
 ## Pengguna dan keamanan
 
 Kelola satu akun Administrator dan role Kepala Sekolah, Wakasek Sarpras, serta Guru dari Pengaturan Akun. Akun baru memerlukan kata sandi minimal 8 karakter. Ubah kata sandi dan avatar aktif melalui pratinjau akun di header/sidebar. Server menggunakan sesi HttpOnly dan verifikasi kata sandi PBKDF2; API backup dan Telegram dibatasi untuk Administrator.
+
+Hak akses menu dapat ditentukan terpisah untuk setiap role dengan tingkat tidak terlihat, lihat saja, lihat/edit, atau lihat/edit/hapus. Perubahan email dan kata sandi akun menunggu konfirmasi penyimpanan sebelum ditampilkan berhasil. Login tidak mengisi kredensial demo secara otomatis.

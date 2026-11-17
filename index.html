@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/mobile-nav.css">
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -28,9 +29,8 @@
     <div class="login-form-wrap"><form id="loginForm" class="login-form">
       <div class="mobile-login-brand"><span class="brand-mark" data-app-brand><i data-lucide="boxes"></i></span><b data-app-name>Sarprah</b></div>
       <p class="eyebrow text-orange-600">SELAMAT DATANG KEMBALI</p><h2>Masuk ke akun Anda</h2><p class="muted mb-8">Kelola inventaris sekolah dengan lebih mudah.</p>
-      <label class="field-label">Alamat email<input id="loginEmail" type="email" value="admin@sarprah.id" autocomplete="username" required></label>
-      <label class="field-label mt-5">Kata sandi<input id="loginPassword" type="password" value="sarprah123" autocomplete="current-password" required></label>
-      <div class="login-hint"><i data-lucide="info"></i> Demo: admin@sarprah.id · sarprah123</div>
+      <label class="field-label">Alamat email<input id="loginEmail" type="email" placeholder="nama@sekolah.sch.id" autocomplete="username" required></label>
+      <label class="field-label mt-5">Kata sandi<input id="loginPassword" type="password" placeholder="Masukkan kata sandi" autocomplete="current-password" required></label>
       <button class="btn-primary w-full mt-7" type="submit"><span>Masuk ke dashboard</span><i data-lucide="arrow-right"></i></button>
       <p id="loginError" class="login-error"></p>
     </form></div>

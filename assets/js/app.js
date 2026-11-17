@@ -8,6 +8,23 @@
   const id = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   const rupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0);
+  const moneyFields = new Set(["price", "unitPrice", "initialValue", "amount"]);
+  const goodsImportHeaders = ["Nama Barang", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Barang Habis Pakai (Ya/Tidak)"];
+  const formatThousands = (value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const parseThousands = (value) => Number(String(value ?? "").replace(/\D/g, "")) || 0;
+  const parseGroupedInteger = (value) => {
+    const text = String(value ?? "").trim();
+    if (!/^\d+(?:\.\d{3})*$/.test(text)) return null;
+    const number = Number(text.replace(/\./g, ""));
+    return Number.isSafeInteger(number) ? number : null;
+  };
+  const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
+  const permissionPages = ["dashboard", "school", "types", "categories", "units", "locations", "suppliers", "funds", "goods", "items", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
+  const defaultMenuPermissions = { dashboard: "view", goods: "edit", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
+  const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
+    role,
+    Object.fromEntries(permissionPages.map((key) => [key, defaultMenuPermissions[key] || "hidden"]))
+  ]));
   const niceDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
   const seed = {
@@ -51,7 +68,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", itemIds: ["it3"], reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), itemId: "it1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), itemId: "it4", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appLogo: "", mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: { dashboard: "view", goods: "edit", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" } },
+    settings: { appName: "Sarprah", appLogo: "", mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: createDefaultPermissions() },
     months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
   };
 
@@ -186,6 +203,25 @@
     return changed;
   }
 
+  function ensurePermissionDefaults() {
+    const settings = state.settings || (state.settings = {});
+    const stored = settings.permissions || {};
+    const roleBased = permissionRoles.some((role) => stored[role] && typeof stored[role] === "object");
+    const allowed = new Set(["hidden", "view", "edit", "delete"]);
+    const permissions = Object.fromEntries(permissionRoles.map((role) => {
+      const current = roleBased ? stored[role] || {} : stored;
+      const menuPermissions = Object.fromEntries(permissionPages.map((key) => {
+        const saved = current[key];
+        const fallback = defaultMenuPermissions[key] || "hidden";
+        return [key, allowed.has(saved) ? saved : fallback];
+      }));
+      return [role, menuPermissions];
+    }));
+    const changed = JSON.stringify(stored) !== JSON.stringify(permissions);
+    settings.permissions = permissions;
+    return changed;
+  }
+
   function applyAppBranding() {
     ensureBrandingDefaults();
     const appName = state.settings.appName.trim() || "Sarprah";
@@ -282,12 +318,16 @@
   }
 
   async function loadState() {
+    let needsBootstrap = false;
     try {
       const response = await fetch("/api/state", { headers: { Accept: "application/json" } });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       apiAvailable = true;
-      if (result.state) Object.assign(state, result.state);
+      if (result.state) {
+        needsBootstrap = !Array.isArray(result.state.goods) || !Array.isArray(result.state.items) || !Array.isArray(result.state.accounts);
+        Object.assign(state, result.state);
+      }
       else {
         const cached = localStorage.getItem(STORE_KEY);
         if (cached) Object.assign(state, JSON.parse(cached));
@@ -302,8 +342,15 @@
       } catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
     }
     const rolesChanged = normalizeAccountRoles();
+    const permissionsChanged = ensurePermissionDefaults();
     const brandingChanged = ensureBrandingDefaults();
-    if (rolesChanged || brandingChanged) saveState();
+    if (needsBootstrap && apiAvailable) {
+      try { await persistState(); }
+      catch (error) {
+        apiAvailable = false;
+        showToast(`Data awal gagal disimpan ke SQLite: ${error.message}`, true);
+      }
+    } else if (rolesChanged || permissionsChanged || brandingChanged) saveState();
   }
 
   function normalizeAccountRoles() {
@@ -354,17 +401,28 @@
 
   function renderMobileNav() {
     const links = (state.settings?.mobileNav || seed.settings.mobileNav).filter(canViewPage);
-    $("#mobileNav").innerHTML = links.slice(0, 5).map((key) => `<button class="mobile-nav-item ${page === key ? "active" : ""}" data-page="${key}"><i data-lucide="${meta[key]?.[2] || "circle"}"></i><span>${meta[key]?.[0] || key}</span></button>`).join("");
+    const visibleLinks = links.slice(0, 5);
+    const shortLabels = {
+      dashboard: "Beranda", school: "Sekolah", types: "Jenis", categories: "Kategori",
+      units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana",
+      goods: "Barang", items: "Item", usages: "BHP", stocktakes: "Opname", barcode: "QR",
+      loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
+      depreciations: "Susut", reports: "Laporan", accounts: "Akun", backup: "Backup"
+    };
+    $("#mobileNav").innerHTML = visibleLinks.map((key, index) => {
+      const center = visibleLinks.length > 1 && index === Math.floor(visibleLinks.length / 2);
+      return `<button class="mobile-nav-item ${page === key ? "active" : ""} ${center ? "mobile-nav-center" : ""}" aria-label="${meta[key]?.[0] || key}" data-page="${key}"><i data-lucide="${meta[key]?.[2] || "circle"}"></i><span>${shortLabels[key] || meta[key]?.[0] || key}</span></button>`;
+    }).join("");
     $$("#mobileNav [data-page]").forEach((el) => el.addEventListener("click", () => navigate(el.dataset.page)));
   }
 
   function navigate(next) {
     if (!meta[next]) return;
-    if (!canViewPage(next)) next = "dashboard";
+    if (!canViewPage(next)) next = permissionPages.find(canViewPage) || "";
     page = next;
     selectedFilter = "Semua";
     searchTerm = "";
-    $("#breadcrumbCurrent").textContent = meta[next][0];
+    $("#breadcrumbCurrent").textContent = meta[next]?.[0] || "Akses terbatas";
     renderNavigation();
     renderPage();
     $("#sidebar").classList.remove("open");
@@ -379,14 +437,16 @@
 
   function canViewPage(key) {
     if (key === "backup" && activeUser?.role !== "Administrator") return false;
-    const permission = state.settings?.permissions?.[key] ?? (key === "accounts" || key === "school" ? "hidden" : "view");
-    return activeUser?.role === "Administrator" || permission !== "hidden";
+    return activeUser?.role === "Administrator" || pagePermission(activeUser?.role, key) !== "hidden";
   }
   function canEditPage(key = page) {
-    return activeUser?.role === "Administrator" || ["edit", "delete"].includes(state.settings?.permissions?.[key]);
+    return activeUser?.role === "Administrator" || ["edit", "delete"].includes(pagePermission(activeUser?.role, key));
   }
   function canDeletePage(key = page) {
-    return activeUser?.role === "Administrator" || state.settings?.permissions?.[key] === "delete";
+    return activeUser?.role === "Administrator" || pagePermission(activeUser?.role, key) === "delete";
+  }
+  function pagePermission(role, key) {
+    return role === "Administrator" ? "delete" : state.settings?.permissions?.[role]?.[key] || "hidden";
   }
 
   function renderPage() {
@@ -394,6 +454,10 @@
     root.classList.remove("page-enter");
     void root.offsetWidth;
     root.classList.add("page-enter");
+    if (!page || !canViewPage(page)) {
+      root.innerHTML = `<section class="settings-card"><h3>Akses tidak tersedia</h3><p>Akun Anda belum memiliki akses ke menu mana pun. Hubungi Administrator untuk mendapatkan hak akses.</p></section>`;
+      return;
+    }
     if (page === "dashboard") root.innerHTML = renderDashboard();
     else if (page === "school") root.innerHTML = renderSchool();
     else if (page === "barcode") root.innerHTML = renderBarcode();
@@ -478,7 +542,10 @@
     const config = collectionConfig[key];
     const rows = state[key] || [];
     const actions = `<button class="btn-secondary" data-action="export"><i data-lucide="download"></i>Ekspor</button>${canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : ""}`;
-    let toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div><div class="table-toolbar-right">${key === "units" ? `<label class="btn-quiet" for="unitImport"><i data-lucide="upload"></i>Impor</label><input type="file" id="unitImport" accept=".csv,text/csv" class="hidden">` : ""}<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel / CSV</button></div></div>`;
+    const importControls = key === "goods"
+      ? `<button class="btn-quiet" data-action="goods-template"><i data-lucide="download"></i>Template CSV</button>${canEditPage(key) ? `<label class="btn-quiet" for="goodsImport"><i data-lucide="upload"></i>Impor Barang</label><input type="file" id="goodsImport" accept=".csv,text/csv" class="hidden">` : ""}`
+      : key === "units" ? `<label class="btn-quiet" for="unitImport"><i data-lucide="upload"></i>Impor</label><input type="file" id="unitImport" accept=".csv,text/csv" class="hidden">` : "";
+    let toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div><div class="table-toolbar-right">${importControls}<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel / CSV</button></div></div>`;
     const filtered = rows.filter((row) => matchesSearch(key, row, searchTerm) && (!statusPages.has(key) || selectedFilter === "Semua" || row.status === selectedFilter));
     const headers = config.cols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
     const body = filtered.length ? filtered.map((row) => `<tr>${config.cols.map(([field]) => `<td>${formatCell(key, field, row)}</td>`).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`).join("") : `<tr><td colspan="${config.cols.length + 1}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
@@ -518,7 +585,7 @@
       const late = row.dueDate < dateOffset(0) && ["Diterima", "Pengajuan"].includes(row.status);
       return late ? `<span class="badge danger">${Math.max(1, Math.floor((today - new Date(`${row.dueDate}T00:00:00`)) / 86400000))} hari</span>` : `<span class="badge success">Tepat waktu</span>`;
     }
-    if (field === "total") return rupiah(row.quantity ? row.quantity * row.unitPrice : value);
+    if (field === "total") return key === "procurements" ? rupiah(row.quantity * row.unitPrice) : esc(value ?? "—");
     if (["price", "unitPrice", "initialValue", "amount", "finalValue"].includes(field)) return rupiah(value);
     if (field === "consumable" || field === "active") return `<span class="badge ${value ? "success" : "neutral"}">${value ? (field === "active" ? "Aktif" : "Ya") : (field === "active" ? "Nonaktif" : "Tidak")}</span>`;
     if (field === "name" && key === "accounts") return `<span class="table-title">${esc(value)}</span>`;
@@ -567,11 +634,27 @@
 
   function renderAccounts() {
     const available = ["dashboard", "goods", "items", "loans", "procurements", "disposals", "reports", "backup"];
-    const labels = Object.fromEntries(available.map((key) => [key, meta[key][0]]));
     const mobile = state.settings.mobileNav || [];
+    const labels = Object.fromEntries([...available, ...permissionPages, "accounts"].map((key) => [key, meta[key][0]]));
+    const accessMenus = permissionPages.map((key) => `
+      <div class="role-permission-menu">
+        <h4>${esc(labels[key])}</h4>
+        <div class="role-permission-list">
+          <div class="role-permission-row role-permission-admin"><span class="role-permission-name">Administrator</span><span class="role-permission-level">Lihat, edit & hapus</span></div>
+          ${permissionRoles.map((role) => `<div class="role-permission-row"><span class="role-permission-name">${esc(role)}</span><select class="table-filter permission-select role-permission-select" data-menu="${key}" data-role="${esc(role)}" ${canEditPage("accounts") ? "" : "disabled"}><option value="hidden" ${state.settings.permissions[role][key] === "hidden" ? "selected" : ""}>Tidak terlihat</option><option value="view" ${state.settings.permissions[role][key] === "view" ? "selected" : ""}>Lihat saja</option><option value="edit" ${state.settings.permissions[role][key] === "edit" ? "selected" : ""}>Lihat & edit</option><option value="delete" ${state.settings.permissions[role][key] === "delete" ? "selected" : ""}>Lihat, edit & hapus</option></select></div>`).join("")}
+        </div>
+      </div>`).join("");
+    const adminOnlyMenus = ["accounts", "backup"].map((key) => `
+      <div class="role-permission-menu">
+        <h4>${esc(labels[key])}</h4>
+        <div class="role-permission-list">
+          <div class="role-permission-row role-permission-admin"><span class="role-permission-name">Administrator</span><span class="role-permission-level">Akses penuh</span></div>
+          ${permissionRoles.map((role) => `<div class="role-permission-row"><span class="role-permission-name">${esc(role)}</span><span class="role-permission-level">Khusus Administrator</span></div>`).join("")}
+        </div>
+      </div>`).join("");
     return `${pageHeading(canEditPage("accounts") ? `<button class="btn-primary" data-action="add"><i data-lucide="user-plus"></i>Tambah Akun</button>` : "")}
       <section class="settings-card"><h3>Akun Pengguna</h3><p>Kelola akses dan status akun yang menggunakan aplikasi.</p>${state.accounts.map((account) => `<div class="settings-row"><div style="display:flex;align-items:center;gap:10px"><span class="avatar">${esc(account.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase())}</span><div><b>${esc(account.name)} <span class="badge ${account.role === "Administrator" ? "info" : "neutral"}">${esc(account.role)}</span></b><small>${esc(account.email)}</small></div></div><div class="action-buttons">${canEditPage("accounts") ? `<button class="toggle ${account.active ? "on" : ""}" title="${account.active ? "Nonaktifkan" : "Aktifkan"}" data-action="toggle-account" data-id="${account.id}"></button><button class="mini-action" title="Ubah" data-action="edit" data-id="${account.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("accounts") ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${account.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></div>`).join("")}</section>
-      <section class="settings-card"><h3>Hak Akses Menu</h3><p>Atur apakah menu dapat dilihat saja atau dapat dikelola pengguna.</p>${available.map((key) => `<div class="settings-row"><div><b>${labels[key]}</b><small>Hak akses untuk akun non-administrator</small></div><select class="table-filter permission-select" data-menu="${key}" ${canEditPage("accounts") ? "" : "disabled"}><option value="hidden" ${state.settings.permissions[key] === "hidden" ? "selected" : ""}>Tidak terlihat</option><option value="view" ${state.settings.permissions[key] === "view" ? "selected" : ""}>Lihat saja</option><option value="edit" ${state.settings.permissions[key] === "edit" ? "selected" : ""}>Lihat & edit</option><option value="delete" ${state.settings.permissions[key] === "delete" ? "selected" : ""}>Lihat, edit & hapus</option></select></div>`).join("")}</section>
+      <section class="settings-card role-permissions-card"><h3>Hak Akses Menu</h3><p>Atur hak akses setiap role untuk masing-masing menu. Administrator selalu memiliki akses penuh.</p>${accessMenus}${adminOnlyMenus}</section>
       <section class="settings-card"><h3>Navigasi Mobile</h3><p>Pilih hingga 5 pintasan yang ditampilkan di navbar perangkat seluler.</p><div class="form-grid">${available.map((key) => `<label class="settings-row" style="justify-content:flex-start;border:0;padding:7px"><input class="mobile-nav-check" type="checkbox" value="${key}" ${mobile.includes(key) ? "checked" : ""} ${mobile.length >= 5 && !mobile.includes(key) || !canEditPage("accounts") ? "disabled" : ""} style="accent-color:#f27622"><b>${labels[key]}</b></label>`).join("")}</div>${canEditPage("accounts") ? `<button class="btn-primary" data-action="save-mobile"><i data-lucide="save"></i>Simpan navigasi</button>` : ""}</section>`;
   }
 
@@ -686,6 +769,7 @@
       Object.keys(state).forEach((key) => { if (!(key in backupState)) delete state[key]; });
       Object.assign(state, backupState);
       ensureBrandingDefaults();
+      ensurePermissionDefaults();
       await persistState();
       activeUser = getById("accounts", activeUser.id) || activeUser;
       applyAppBranding();
@@ -710,7 +794,7 @@
 
   function modalForm(key, record = null) {
     const config = collectionConfig[key];
-    const scanPanel = !record && ["loans", "procurements", "disposals", "depreciations"].includes(key)
+    const scanPanel = !record && ["loans", "procurements", "disposals", "depreciations", "stocktakes"].includes(key)
       ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode item</b><small>Gunakan kamera atau masukkan kode QR/barcode item.</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="Contoh: E.1-T.1-L1-KS.1"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const fields = config.fields.map(([name, label, type, required, source]) => {
@@ -722,7 +806,10 @@
       if (type === "textarea") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><textarea id="${idAttr}" name="${name}" ${required ? "required" : ""}>${esc(value)}</textarea></div>`;
       if (type === "password") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${key === "accounts" && !record && name === "password" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="password" autocomplete="new-password" ${key === "accounts" && !record && name === "password" ? "required minlength=\"8\"" : ""}></div>`;
       if (type === "file") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}</label><div class="file-drop"><i data-lucide="image-plus"></i><span>Pilih foto bukti</span><input id="${idAttr}" name="${name}" type="file" accept="image/*" class="form-file"><img class="file-preview ${record?.[name] ? "" : "hidden"}" src="${esc(record?.[name] || "")}" alt="Pratinjau bukti"></div><small class="form-help">Pratinjau 120 × 120 px · maksimal 2 MB.</small></div>`;
-      return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "number" ? 'min="0"' : ""}></div>`;
+      const money = moneyFields.has(name);
+      const inputType = money ? "text" : type;
+      const inputValue = money ? formatThousands(value) : value;
+      return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : type === "number" ? 'min="0"' : ""}></div>`;
     }).join("");
     return `<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>${record ? "Edit" : "Tambah"} ${config.singular}</h2><p>Lengkapi informasi berikut dengan benar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="recordForm" data-collection="${key}" data-record="${record?.id || ""}"><div class="form-grid">${scanPanel}${fields}</div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan data</button></div></form></section></div>`;
   }
@@ -734,6 +821,8 @@
     if (wide) $(".modal", $("#modalRoot"))?.classList.add("modal-wide");
     if (window.lucide) lucide.createIcons({ nodes: [$("#modalRoot")] });
     const form = $("#recordForm");
+    if (form) setupMoneyInputs(form);
+    if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
     if (form && ["loans", "disposals"].includes(form.dataset.collection)) setupItemChoices(form);
     if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
     const fileInput = $(".form-file", $("#modalRoot"));
@@ -746,6 +835,38 @@
     });
     $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
     $("#recordForm")?.addEventListener("submit", saveRecord);
+  }
+
+  function setupMoneyInputs(form) {
+    $$(".money-input", form).forEach((input) => {
+      input.addEventListener("input", () => {
+        const cursor = input.selectionStart ?? input.value.length;
+        const digitsBeforeCursor = input.value.slice(0, cursor).replace(/\D/g, "").length;
+        const formatted = formatThousands(input.value);
+        input.value = formatted;
+        let nextCursor = 0;
+        let digitsSeen = 0;
+        while (nextCursor < formatted.length && digitsSeen < digitsBeforeCursor) {
+          if (/\d/.test(formatted[nextCursor])) digitsSeen += 1;
+          nextCursor += 1;
+        }
+        input.setSelectionRange(nextCursor, nextCursor);
+      });
+    });
+  }
+
+  function setupStocktakeForm(form) {
+    const goodSelect = form.elements.goodId;
+    const oldStockInput = form.elements.oldStock;
+    if (!goodSelect || !oldStockInput) return;
+    oldStockInput.readOnly = true;
+    if (form.dataset.record) return;
+    const updateOldStock = () => {
+      const good = getById("goods", goodSelect.value);
+      oldStockInput.value = good ? String(good.quantity ?? 0) : "";
+    };
+    goodSelect.addEventListener("change", updateOldStock);
+    updateOldStock();
   }
 
   function setupItemChoices(form) {
@@ -845,6 +966,7 @@
       if (key === "depreciations") {
         form.elements.itemId.value = item.id;
         form.elements.initialValue.value = String(good.price || 0);
+        form.elements.initialValue.dispatchEvent(new Event("input", { bubbles: true }));
       }
       const stock = `${good.quantity} ${relatedName("units", good.unitId)}`;
       const amount = key === "procurements" ? ` Jumlah pengadaan: ${scannedProcurementItems.size}.` : "";
@@ -960,6 +1082,7 @@
       const input = form.elements[name];
       if (!input) continue;
       if (type === "checkbox") data[name] = input.checked;
+      else if (moneyFields.has(name)) data[name] = parseThousands(input.value);
       else if (type === "number") data[name] = Number(input.value || 0);
       else if (type === "password") continue;
       else if (type === "file") {
@@ -972,7 +1095,7 @@
             reader.readAsDataURL(input.files[0]);
           }); } catch (error) { showToast(`File bukti tidak dapat dibaca: ${error.message}`, true); return; }
         }
-      } else data[name] = input.value.trim();
+      } else data[name] = name === "email" ? input.value.trim().toLowerCase() : input.value.trim();
     }
     if (key === "accounts") {
       const emailTaken = state.accounts.some((account) => account.id !== old?.id && account.email.toLowerCase() === data.email.toLowerCase());
@@ -1024,10 +1147,29 @@
     if (key === "depreciations") {
       data.finalValue = Math.max(0, data.initialValue - data.amount);
     }
+    const previous = key === "accounts" && old ? { ...old } : null;
     if (old) Object.assign(old, data);
     else state[key].unshift(data);
-    if (key === "accounts" && old?.id === activeUser?.id) syncProfile();
-    saveState();
+    if (key === "accounts") {
+      try {
+        await persistState();
+      } catch (error) {
+        if (old && previous) Object.assign(old, previous);
+        else state.accounts = state.accounts.filter((account) => account.id !== data.id);
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+        catch (storageError) { showToast(`Perubahan akun gagal disimpan dan data lokal tidak dapat dipulihkan: ${storageError.message}`, true); }
+        if (old?.id === activeUser?.id) {
+          activeUser = old;
+          syncProfile();
+        }
+        showToast(`Perubahan akun gagal disimpan: ${error.message}`, true);
+        return;
+      }
+      if (old?.id === activeUser?.id) {
+        activeUser = old;
+        syncProfile();
+      }
+    } else saveState();
     closeModal();
     showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
     renderPage();
@@ -1064,6 +1206,7 @@
     else if (action === "print") window.print();
     else if (action === "export-report") exportReport();
     else if (action === "export" || action === "export-dashboard") exportRows(page);
+    else if (action === "goods-template") downloadCsv("template-impor-barang.csv", [goodsImportHeaders]);
     else if (action === "barcode-options") barcodeOptionsModal();
     else if (action === "download-backup") downloadBackup();
     else if (action === "telegram-test") testTelegram();
@@ -1178,6 +1321,7 @@
       event.target.value = "";
     });
     $("#unitImport")?.addEventListener("change", importUnits);
+    $("#goodsImport")?.addEventListener("change", importGoods);
     const updateReport = () => {
       const type = $("#reportType")?.value;
       if (type) $("#reportBody").innerHTML = reportTable(type, $("#reportStart")?.value, $("#reportEnd")?.value);
@@ -1186,7 +1330,9 @@
     $("#reportStart")?.addEventListener("change", updateReport);
     $("#reportEnd")?.addEventListener("change", updateReport);
     $$(".permission-select").forEach((input) => input.addEventListener("change", () => {
-      state.settings.permissions[input.dataset.menu] = input.value;
+      const { menu, role } = input.dataset;
+      if (!permissionPages.includes(menu) || !permissionRoles.includes(role)) return;
+      state.settings.permissions[role][menu] = input.value;
       saveState(); showToast("Hak akses berhasil diperbarui.");
     }));
     $$(".mobile-nav-check").forEach((input) => input.addEventListener("change", () => {
@@ -1197,6 +1343,165 @@
       const query = event.target.value.toLowerCase();
       $$(".barcode-card").forEach((card) => { card.hidden = !card.textContent.toLowerCase().includes(query); });
     });
+  }
+
+  function parseCsvRows(text) {
+    const source = String(text || "").replace(/^\uFEFF/, "");
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let quoted = false;
+    for (let index = 0; index < source.length; index += 1) {
+      const character = source[index];
+      if (character === '"') {
+        if (quoted && source[index + 1] === '"') {
+          cell += '"';
+          index += 1;
+        } else quoted = !quoted;
+      } else if (character === "," && !quoted) {
+        row.push(cell);
+        cell = "";
+      } else if ((character === "\n" || character === "\r") && !quoted) {
+        if (character === "\r" && source[index + 1] === "\n") index += 1;
+        row.push(cell);
+        if (row.some((value) => value.trim())) rows.push(row);
+        row = [];
+        cell = "";
+      } else cell += character;
+    }
+    if (quoted) throw new Error("CSV memiliki tanda kutip yang tidak berpasangan.");
+    if (cell.length || row.length) {
+      row.push(cell);
+      if (row.some((value) => value.trim())) rows.push(row);
+    }
+    return rows;
+  }
+
+  function importGoods(event) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!canEditPage("goods")) {
+      input.value = "";
+      showToast("Akun Anda tidak memiliki izin mengimpor barang.", true);
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      input.value = "";
+      showToast("Pilih file CSV sesuai template impor barang.", true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseCsvRows(reader.result);
+        if (rows.length < 2) throw new Error("File harus berisi header dan minimal satu baris data.");
+        const normalize = (value) => String(value || "").trim().toLocaleLowerCase("id-ID");
+        const headers = rows[0].map(normalize);
+        const column = (...names) => headers.findIndex((header) => names.some((name) => header === normalize(name)));
+        const columns = {
+          name: column("Nama Barang"),
+          fund: column("Sumber Dana"),
+          type: column("Jenis Barang", "Jenis"),
+          category: column("Kategori Barang", "Kategori"),
+          unit: column("Satuan"),
+          supplier: column("Supplier", "Nama Supplier"),
+          quantity: column("Jumlah Barang", "Jumlah"),
+          price: column("Harga Barang (Rp)", "Harga Barang", "Tarif Barang"),
+          consumable: column("Barang Habis Pakai (Ya/Tidak)", "Habis Pakai", "BHP")
+        };
+        const requiredColumns = ["name", "fund", "type", "category", "unit", "supplier", "quantity", "price", "consumable"];
+        const columnLabels = {
+          name: "Nama Barang", fund: "Sumber Dana", type: "Jenis Barang", category: "Kategori Barang",
+          unit: "Satuan", supplier: "Supplier", quantity: "Jumlah Barang", price: "Harga Barang (Rp)",
+          consumable: "Barang Habis Pakai (Ya/Tidak)"
+        };
+        const missingColumns = requiredColumns.filter((name) => columns[name] < 0).map((name) => columnLabels[name]);
+        if (missingColumns.length) throw new Error(`Kolom template tidak lengkap: ${missingColumns.join(", ")}.`);
+
+        const valueAt = (row, name) => String(row[columns[name]] || "").trim();
+        const findByName = (collection, name) => state[collection].find((record) => normalize(record.name) === normalize(name));
+        const existingNames = new Set(state.goods.map((good) => normalize(good.name)));
+        const imported = [];
+        const errors = [];
+        let duplicates = 0;
+        rows.slice(1).forEach((row, index) => {
+          const rowNumber = index + 2;
+          const name = valueAt(row, "name");
+          if (!name) return;
+          const normalizedName = normalize(name);
+          if (existingNames.has(normalizedName)) {
+            duplicates += 1;
+            return;
+          }
+          const fundName = valueAt(row, "fund");
+          const typeName = valueAt(row, "type");
+          const categoryName = valueAt(row, "category");
+          const unitName = valueAt(row, "unit");
+          const supplierName = valueAt(row, "supplier");
+          const fund = findByName("funds", fundName);
+          const type = findByName("types", typeName);
+          const category = findByName("categories", categoryName);
+          const unit = findByName("units", unitName);
+          const supplier = findByName("suppliers", supplierName);
+          const quantityText = valueAt(row, "quantity");
+          const priceText = valueAt(row, "price");
+          const quantity = parseGroupedInteger(quantityText);
+          const price = parseGroupedInteger(priceText);
+          const consumableText = normalize(valueAt(row, "consumable"));
+          const yesValues = ["ya", "yes", "true", "1"];
+          const noValues = ["tidak", "no", "false", "0"];
+          const rowErrors = [];
+          if (!fund) rowErrors.push(`Sumber dana "${fundName || "kosong"}" tidak ditemukan`);
+          if (!type) rowErrors.push(`jenis barang "${typeName || "kosong"}" tidak ditemukan`);
+          if (!category) rowErrors.push(`kategori "${categoryName || "kosong"}" tidak ditemukan`);
+          else if (type && category.typeId !== type.id) rowErrors.push("kategori tidak sesuai dengan jenis barang");
+          if (!unit) rowErrors.push(`satuan "${unitName || "kosong"}" tidak ditemukan`);
+          if (!supplier) rowErrors.push(`supplier "${supplierName || "kosong"}" tidak ditemukan`);
+          if (quantity === null) rowErrors.push("jumlah barang harus berupa bilangan bulat");
+          if (price === null) rowErrors.push("harga barang harus berupa bilangan bulat");
+          if (consumableText && !yesValues.includes(consumableText) && !noValues.includes(consumableText)) rowErrors.push('BHP harus diisi "Ya" atau "Tidak"');
+          if (rowErrors.length) {
+            errors.push(`Baris ${rowNumber}: ${rowErrors.join(", ")}.`);
+            return;
+          }
+          imported.push({
+            id: id(),
+            name,
+            fundId: fund.id,
+            typeId: type.id,
+            categoryId: category.id,
+            unitId: unit.id,
+            supplierId: supplier.id,
+            quantity,
+            price,
+            consumable: yesValues.includes(consumableText)
+          });
+          existingNames.add(normalizedName);
+        });
+        if (errors.length) {
+          showToast(`Impor dibatalkan. ${errors.slice(0, 3).join(" ")}`, true);
+          return;
+        }
+        if (!imported.length) {
+          showToast(duplicates ? `Tidak ada barang baru; ${duplicates} nama duplikat dilewati.` : "Tidak ada baris barang untuk diimpor.", !!duplicates);
+          return;
+        }
+        state.goods.push(...imported);
+        saveState();
+        showToast(`${imported.length} barang berhasil diimpor${duplicates ? `; ${duplicates} duplikat dilewati` : ""}.`);
+        renderPage();
+      } catch (error) {
+        showToast(`Impor barang gagal: ${error.message}`, true);
+      } finally {
+        input.value = "";
+      }
+    };
+    reader.onerror = () => {
+      input.value = "";
+      showToast("File CSV tidak dapat dibaca.", true);
+    };
+    reader.readAsText(file);
   }
 
   function importUnits(event) {
@@ -1415,6 +1720,7 @@
 
   async function logout() {
     if (!window.confirm(`Keluar dari aplikasi ${state.settings.appName}?`)) return;
+    closeModal();
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* Local mode has no server session. */ }
     sessionStorage.removeItem("sarprah-user"); activeUser = null;
     $("#appShell").classList.add("hidden"); $("#loginScreen").classList.remove("hidden");
