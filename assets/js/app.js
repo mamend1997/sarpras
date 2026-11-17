@@ -189,7 +189,7 @@
   const bulkDeletePages = new Set(["goods", "usages", "stocktakes", "loans", "procurements", "disposals", "depreciations"]);
   const statusOptions = {
     usages: ["Semua", "Pengajuan", "Disetujui", "Ditolak"],
-    loans: ["Semua", "Pengajuan", "Diterima", "Ditolak", "Selesai"],
+    loans: ["Semua", "Pengajuan", "Dipinjam", "Ditolak", "Selesai"],
     procurements: ["Semua", "Pengajuan", "Diterima", "Ditolak"],
     disposals: ["Semua", "Pengajuan", "Diterima", "Ditolak", "Selesai"]
   };
@@ -1045,7 +1045,7 @@
     const saranaAvailable = yearItems.filter((row) => row.condition === "Baik" && sarana.includes(goodsById.get(row.goodId)?.typeId)).length;
     const prasaranaAvailable = yearItems.filter((row) => row.condition === "Baik" && prasarana.includes(goodsById.get(row.goodId)?.typeId)).length;
     const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-    const lateRows = state.loans.filter((row) => ["Diterima", "Pengajuan"].includes(row.status) && row.dueDate < dateOffset(0)).slice(0, 4);
+    const lateRows = state.loans.filter((row) => row.status === "Diterima" && loanLateDays(row) > 0).slice(0, 4);
     const procurements = state.procurements.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const stat = (label, value, icon, tone, foot) => `<div class="summary-card"><div class="summary-top">${label}<span class="summary-icon ${tone}"><i data-lucide="${icon}"></i></span></div><div class="summary-value">${value}</div><div class="summary-foot"><span class="trend-up">${foot}</span> bulan ini</div><div class="summary-spark"><svg viewBox="0 0 80 28" fill="none"><path d="M1 22 C12 20 12 16 22 18S34 6 43 12s12 0 20 3 10-8 16-11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div></div>`;
     return `${pageHeading()}
@@ -1062,7 +1062,7 @@
         <div style="margin-top:20px;padding:12px;border-radius:9px;background:#fff8f1;display:flex;gap:10px;align-items:flex-start"><i data-lucide="lightbulb" style="color:#e98939;width:17px;height:17px"></i><div><b style="font-size:10px">Catatan inventaris</b><p style="font-size:9px;color:#8d95a2;margin:4px 0 0;line-height:1.55">Periksa berkala item rusak agar pemeliharaan dan pengadaan dapat direncanakan tepat waktu.</p></div></div>
       </section></div>
       <div class="dashboard-tables">
-        <section class="panel"><div class="panel-heading"><div><h3>Daftar Barang Belum Kembali</h3><p>Peminjaman yang melewati tanggal pengembalian</p></div><button class="btn-quiet" data-nav="loans">Lihat semua <i data-lucide="arrow-right"></i></button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>PEMINJAM</th><th>BARANG</th><th>TERLAMBAT</th><th>STATUS</th></tr></thead><tbody>${lateRows.length ? lateRows.map((row) => `<tr><td><span class="table-title">${esc(row.borrower)}</span></td><td>${esc(titleOfGood(row.goodId))}</td><td><span class="badge danger">${Math.max(1, Math.floor((today - new Date(`${row.dueDate}T00:00:00`)) / 86400000))} hari</span></td><td>${statusBadge(row.status)}</td></tr>`).join("") : `<tr><td colspan="4" class="empty-state">Tidak ada barang yang terlambat dikembalikan.</td></tr>`}</tbody></table></div></section>
+        <section class="panel"><div class="panel-heading"><div><h3>Daftar Barang Belum Kembali</h3><p>Peminjaman yang melewati tanggal pengembalian</p></div><button class="btn-quiet" data-nav="loans">Lihat semua <i data-lucide="arrow-right"></i></button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>PEMINJAM</th><th>BARANG</th><th>TERLAMBAT</th><th>STATUS</th></tr></thead><tbody>${lateRows.length ? lateRows.map((row) => `<tr><td><span class="table-title">${esc(row.borrower)}</span></td><td>${esc(titleOfGood(row.goodId))}</td><td><span class="badge danger">Terlambat ${loanLateDays(row)} hari</span></td><td>${statusBadge(displayedStatus("loans", row.status))}</td></tr>`).join("") : `<tr><td colspan="4" class="empty-state">Tidak ada barang yang terlambat dikembalikan.</td></tr>`}</tbody></table></div></section>
         <section class="panel"><div class="panel-heading"><div><h3>Pengadaan</h3><p>Ringkasan usulan terbaru</p></div><select class="chart-select" id="dashboardProcFilter"><option value="Semua">Semua</option><option value="Mendesak">Mendesak</option><option value="Normal">Normal</option></select></div><div class="table-wrap"><table class="data-table"><thead><tr><th>NAMA PENGADAAN</th><th>PRIORITAS</th><th>NOMINAL</th></tr></thead><tbody id="dashboardProcRows">${procurementDashboardRows(procurements)}</tbody></table></div></section>
       </div>`;
   }
@@ -1367,7 +1367,7 @@
     const toolbar = `<div class="table-toolbar${key === "goods" ? " goods-toolbar" : ""}"><div class="table-toolbar-left${key === "goods" ? " goods-filter-controls" : ""}"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}${goodsFilterControls}</div>${toolbarRight}</div>`;
     const filtered = rows.filter((row) => {
       if (!matchesSearch(key, row, searchTerm)) return false;
-      if (statusPages.has(key) && selectedFilter !== "Semua" && row.status !== selectedFilter) return false;
+      if (statusPages.has(key) && selectedFilter !== "Semua" && displayedStatus(key, row.status) !== selectedFilter) return false;
       if (key !== "goods") return true;
       return goodsFilterFields.every(([field]) => !goodsFilters[field] || String(row[field] ?? "") === goodsFilters[field])
         && (!goodsFilters.consumable || (goodsFilters.consumable === "true" ? isBhp(row) : !isBhp(row)));
@@ -1410,14 +1410,15 @@
     if (field === "fundId" || field === "typeId" || field === "categoryId" || field === "unitId" || field === "supplierId" || field === "goodId" || field === "locationId" || field === "ownershipId") return esc(relatedName(({ fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations", ownershipId: "ownerships" })[field], value));
     if (field === "image") return value ? `<img src="${esc(value)}" alt="Gambar supplier" style="width:34px;height:34px;object-fit:cover;border-radius:7px">` : `<span class="badge neutral">—</span>`;
     if (field === "evidence") return value ? `<a href="${esc(value)}" target="_blank" rel="noopener" class="badge info">Lihat foto</a>` : `<span class="badge neutral">—</span>`;
-    if (field === "status") return statusBadge(value);
+    if (field === "status") return statusBadge(displayedStatus(key, value));
     if (field === "priority") return value === "Mendesak" ? `<span class="badge danger">Mendesak</span>` : `<span class="badge neutral">${esc(value || "Normal")}</span>`;
     if (field === "condition") return value === "Rusak" ? `<span class="badge danger">Rusak</span>` : value === "Dihapus" ? `<span class="badge neutral">Dihapus</span>` : `<span class="badge success">Baik</span>`;
     if (field === "type") return `<span class="badge ${value === "prasarana" ? "info" : "warning"}">${esc(value)}</span>`;
     if (["date", "received", "startDate", "endDate", "dueDate"].includes(field)) return esc(niceDate(value));
     if (field === "late") {
-      const late = row.dueDate < dateOffset(0) && ["Diterima", "Pengajuan"].includes(row.status);
-      return late ? `<span class="badge danger">${Math.max(1, Math.floor((today - new Date(`${row.dueDate}T00:00:00`)) / 86400000))} hari</span>` : `<span class="badge success">Tepat waktu</span>`;
+      const lateDays = loanLateDays(row);
+      if (lateDays === null) return `<span class="badge neutral">—</span>`;
+      return lateDays > 0 ? `<span class="badge danger">Terlambat ${lateDays} hari</span>` : `<span class="badge success">Tepat waktu</span>`;
     }
     if (field === "total") return key === "procurements" ? currencyCell(row.quantity * row.unitPrice) : esc(value ?? "—");
     if (key === "goods" && ["price", "totalPrice"].includes(field)) {
@@ -1433,8 +1434,21 @@
   }
 
   function statusBadge(value) {
-    const tone = ["Diterima", "Disetujui", "Selesai"].includes(value) ? "success" : ["Pengajuan", "Pending"].includes(value) ? "warning" : value === "Ditolak" ? "danger" : "neutral";
+    const tone = ["Diterima", "Dipinjam", "Disetujui", "Selesai"].includes(value) ? "success" : ["Pengajuan", "Pending"].includes(value) ? "warning" : value === "Ditolak" ? "danger" : "neutral";
     return `<span class="badge ${tone}">${esc(value || "—")}</span>`;
+  }
+
+  function displayedStatus(key, value) {
+    return key === "loans" && value === "Diterima" ? "Dipinjam" : value;
+  }
+
+  function loanLateDays(loan) {
+    if (!loan.dueDate) return null;
+    const comparisonDate = loan.status === "Diterima"
+      ? dateOffset(0)
+      : loan.status === "Selesai" ? loan.returnedDate : "";
+    if (!comparisonDate) return null;
+    return Math.max(0, daysBetweenDates(loan.dueDate, comparisonDate));
   }
 
   function renderBarcode() {
@@ -2803,14 +2817,17 @@
           : `<span class="badge neutral">Tidak ada aksi lanjutan</span>`;
     const fundChoice = page === "procurements" && ["Pengajuan", "Pending"].includes(record.status)
       ? `<div class="form-field" style="margin-top:14px"><label for="statusFund">Konfirmasi sumber dana</label><select id="statusFund">${optionsFor("funds", getById("goods", record.goodId)?.academicYearId || currentAcademicYearId()).replace(`value="${esc(record.fundId)}"`, `value="${esc(record.fundId)}" selected`)}</select></div>` : "";
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal"><div class="modal-header"><div><h2>Perbarui status</h2><p>${esc(actionLabel)} · ${esc(record.borrower || record.title || record.applicant || titleOfGood(record.goodId))}</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fafbfc;border-radius:8px"><span class="muted">Status saat ini</span>${statusBadge(record.status)}</div>${fundChoice}<div class="modal-footer">${buttons}</div></div></section></div>`);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal"><div class="modal-header"><div><h2>Perbarui status</h2><p>${esc(actionLabel)} · ${esc(record.borrower || record.title || record.applicant || titleOfGood(record.goodId))}</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fafbfc;border-radius:8px"><span class="muted">Status saat ini</span>${statusBadge(displayedStatus(page, record.status))}</div>${fundChoice}<div class="modal-footer">${buttons}</div></div></section></div>`);
     $$("[data-status-choice]", $("#modalRoot")).forEach((button) => button.addEventListener("click", () => {
       const next = button.dataset.statusChoice;
       if (next === "Selesai" && !window.confirm(page === "disposals" ? "Tandai pengajuan pemusnahan barang ini sebagai selesai?" : "Peminjaman barang sudah dikembalikan?")) return;
       record.status = next;
-      if (page === "loans" && next === "Selesai" && record.stockAdjusted === true) {
-        restoreLoanStock(record);
-        record.stockAdjusted = false;
+      if (page === "loans" && next === "Selesai") {
+        record.returnedDate = dateOffset(0);
+        if (record.stockAdjusted === true) {
+          restoreLoanStock(record);
+          record.stockAdjusted = false;
+        }
       }
       if (page === "procurements" && next === "Diterima" && $("#statusFund")) record.fundId = $("#statusFund").value;
       if (page === "usages" && next === "Disetujui") {
