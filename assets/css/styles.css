@@ -52,3 +52,11 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .report-title-block p{margin:5px 0 0;color:var(--muted);font-size:11px}
 .report-title-block+.table-wrap .goods-price-value{min-width:130px}
 @media(max-width:700px){.report-date-range{flex-wrap:wrap}.report-toolbar{align-items:flex-start;flex-direction:column}.report-toolbar .table-toolbar-right{align-self:flex-end}}
+.goods-toolbar{align-items:flex-start;flex-wrap:wrap;gap:8px}
+.goods-toolbar .goods-filter-controls{display:grid;flex:1 1 100%;width:100%;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px}
+.goods-toolbar .goods-filter-controls .search-field{width:100%;min-width:0;height:30px}
+.goods-toolbar .goods-filter-controls .goods-filter{width:100%;min-width:0;height:30px;padding:6px 8px;font-size:10px}
+.goods-toolbar .goods-toolbar-actions{flex:1 1 100%;width:100%;justify-content:flex-end;flex-wrap:wrap;gap:5px}
+.goods-toolbar-actions>.btn-quiet,.goods-toolbar-actions>.btn-danger{min-height:28px;padding:5px 8px;font-size:9px;gap:5px;white-space:nowrap}
+.goods-toolbar-actions>.btn-quiet i,.goods-toolbar-actions>.btn-danger i{width:14px;height:14px}
+@media(max-width:520px){.goods-toolbar .goods-filter-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.goods-toolbar-actions>.btn-quiet,.goods-toolbar-actions>.btn-danger{padding:5px 6px;font-size:9px}}

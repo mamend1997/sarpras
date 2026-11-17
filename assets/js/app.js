@@ -13,6 +13,15 @@
   const integerId = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
   const moneyFields = new Set(["price", "unitPrice", "initialValue", "amount"]);
   const goodsImportHeaders = ["Nama Barang", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Barang Habis Pakai (Ya/Tidak)"];
+  const goodsFilterFields = [
+    ["ownershipId", "Kepemilikan", "ownerships"],
+    ["fundId", "Sumber Dana", "funds"],
+    ["typeId", "Jenis Barang", "types"],
+    ["categoryId", "Kategori", "categories"],
+    ["locationId", "Ruang / Lokasi", "locations"],
+    ["unitId", "Satuan", "units"],
+    ["supplierId", "Supplier", "suppliers"]
+  ];
   const formatThousands = (value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const parseThousands = (value) => Number(String(value ?? "").replace(/\D/g, "")) || 0;
   const parseGroupedInteger = (value) => {
@@ -89,6 +98,7 @@
   let pendingStateRecovery = null;
   let searchTerm = "";
   let selectedFilter = "Semua";
+  let goodsFilters = {};
   let chartPeriod = "12";
 
   const meta = {
@@ -726,6 +736,7 @@
       mobileNavHighlightDraft = null;
     }
     if (page === "checkGoods" && next !== "checkGoods") stopGoodsCheckCamera();
+    if (page === "goods" && next !== "goods") goodsFilters = {};
     page = next;
     selectedFilter = "Semua";
     searchTerm = "";
@@ -1112,9 +1123,18 @@
       : "";
     const bulkControls = bulkDeletable ? `<button class="btn-quiet" data-action="select-visible"><i data-lucide="check-check"></i>Pilih semua</button><button class="btn-danger" id="deleteSelectedRecords" data-action="delete-selected" disabled><i data-lucide="trash-2"></i>Hapus terpilih <span id="selectedRecordCount"></span></button>` : "";
     const exportControls = hideExportControls ? "" : `<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel</button>`;
-    const toolbarRight = importControls || bulkControls || exportControls ? `<div class="table-toolbar-right">${importControls}${bulkControls}${exportControls}</div>` : "";
-    const toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div>${toolbarRight}</div>`;
-    const filtered = rows.filter((row) => matchesSearch(key, row, searchTerm) && (!statusPages.has(key) || selectedFilter === "Semua" || row.status === selectedFilter));
+    const toolbarRight = importControls || bulkControls || exportControls ? `<div class="table-toolbar-right${key === "goods" ? " goods-toolbar-actions" : ""}">${importControls}${bulkControls}${exportControls}</div>` : "";
+    const goodsFilterControls = key === "goods"
+      ? `${goodsFilterFields.map(([field, label, source]) => `<select class="table-filter goods-filter" data-goods-filter="${field}" aria-label="Filter ${esc(label)}" title="Filter ${esc(label)}"><option value="">Semua ${esc(label.toLowerCase())}</option>${(state[source] || []).map((option) => `<option value="${esc(option.id)}" ${goodsFilters[field] === option.id ? "selected" : ""}>${esc(option.name)}</option>`).join("")}</select>`).join("")}<select class="table-filter goods-filter" data-goods-filter="consumable" aria-label="Filter BHP" title="Filter BHP"><option value="">BHP / bukan BHP</option><option value="true" ${goodsFilters.consumable === "true" ? "selected" : ""}>BHP</option><option value="false" ${goodsFilters.consumable === "false" ? "selected" : ""}>Bukan BHP</option></select>`
+      : "";
+    const toolbar = `<div class="table-toolbar${key === "goods" ? " goods-toolbar" : ""}"><div class="table-toolbar-left${key === "goods" ? " goods-filter-controls" : ""}"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}${goodsFilterControls}</div>${toolbarRight}</div>`;
+    const filtered = rows.filter((row) => {
+      if (!matchesSearch(key, row, searchTerm)) return false;
+      if (statusPages.has(key) && selectedFilter !== "Semua" && row.status !== selectedFilter) return false;
+      if (key !== "goods") return true;
+      return goodsFilterFields.every(([field]) => !goodsFilters[field] || String(row[field] ?? "") === goodsFilters[field])
+        && (!goodsFilters.consumable || (goodsFilters.consumable === "true" ? isBhp(row) : !isBhp(row)));
+    });
     const selectHeader = bulkDeletable ? `<th class="bulk-select-column"><input id="selectAllRecords" type="checkbox" aria-label="Pilih semua data yang tampil"></th>` : "";
     const headers = displayCols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
     const body = filtered.length ? filtered.map((row) => {
@@ -1985,6 +2005,10 @@
     $$(".record-select", $("#pageContent")).forEach((check) => check.addEventListener("change", updateBulkSelection));
     $("#tableSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#tableSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#statusFilter")?.addEventListener("change", (event) => { selectedFilter = event.target.value; renderPage(); });
+    $$(".goods-filter", $("#pageContent")).forEach((filter) => filter.addEventListener("change", (event) => {
+      goodsFilters[event.target.dataset.goodsFilter] = event.target.value;
+      renderPage();
+    }));
     $("#chartPeriod")?.addEventListener("change", (event) => { chartPeriod = event.target.value; drawChart(); });
     $("#dashboardProcFilter")?.addEventListener("change", (event) => {
       const filter = event.target.value;
