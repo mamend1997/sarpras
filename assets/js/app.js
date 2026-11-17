@@ -1884,7 +1884,13 @@
       const good = getById("goods", goodSelect.value);
       initialValue.value = good ? formatThousands(good.price) : "";
     };
-    const updatePeriodDate = () => { periodDate.value = depreciationPeriodEnd(periodType.value); };
+    const updatePeriodDate = () => {
+      periodDate.value = depreciationPeriodEnd(
+        periodType.value,
+        savedRecord?.date || dateOffset(0),
+        savedRecord?.academicYearId || ""
+      );
+    };
     const updateCalculation = () => {
       updateInitialValue();
       const calculation = calculateDepreciation(
@@ -1904,17 +1910,20 @@
     residualValue.addEventListener("input", updateCalculation);
     usefulLifeYears.addEventListener("input", updateCalculation);
     periodType.addEventListener("change", () => { updatePeriodDate(); updateCalculation(); });
-    if (!form.dataset.record) updatePeriodDate();
+    const savedRecord = form.dataset.record ? getById("depreciations", form.dataset.record) : null;
+    if (!savedRecord || !savedRecord.periodType) updatePeriodDate();
     updateCalculation();
   }
 
-  function depreciationPeriodEnd(periodType, referenceDate = dateOffset(0)) {
+  function depreciationPeriodEnd(periodType, referenceDate = dateOffset(0), academicYearId = "") {
     const match = String(referenceDate || "").match(/^(\d{4})-(\d{2})-\d{2}$/);
     if (!match) return "";
     const year = Number(match[1]);
     const month = Number(match[2]);
     if (periodType === "Tahunan") {
-      const academicYear = state.academicYears?.find((row) => row.id === currentAcademicYearId());
+      const academicYear = state.academicYears?.find((row) => row.id === academicYearId)
+        || state.academicYears?.find((row) => row.startDate <= referenceDate && row.endDate >= referenceDate)
+        || state.academicYears?.find((row) => row.id === currentAcademicYearId());
       if (academicYear?.endDate) return academicYear.endDate;
       return `${year}-12-31`;
     }
@@ -1926,11 +1935,11 @@
     const good = getById("goods", goodId);
     const initialValue = Number(good?.price) || 0;
     const residual = Number(residualValue) || 0;
-    const priorAccumulated = (state.depreciations || []).reduce((total, record) => {
+    const depreciableBasis = Math.max(0, initialValue - residual);
+    const priorAccumulated = Math.min((state.depreciations || []).reduce((total, record) => {
       if (record.id === excludeRecordId || record.goodId !== goodId || !record.date || record.date >= periodDate) return total;
       return total + Math.max(0, Number(record.amount) || 0);
-    }, 0);
-    const depreciableBasis = Math.max(0, initialValue - residual);
+    }, 0), depreciableBasis);
     const plannedAnnual = usefulLifeYears > 0 ? depreciableBasis / usefulLifeYears : 0;
     const plannedAmount = periodType === "Bulanan" ? Math.round(plannedAnnual / 12) : Math.round(plannedAnnual);
     const remaining = Math.max(0, depreciableBasis - priorAccumulated);
@@ -2478,6 +2487,10 @@
         showToast("Metode penyusutan yang dipilih belum didukung.", true);
         return;
       }
+      if (!["Bulanan", "Tahunan"].includes(data.periodType)) {
+        showToast("Pilih periode penyusutan bulanan atau tahunan.", true);
+        return;
+      }
       if (!Number.isInteger(data.usefulLifeYears) || data.usefulLifeYears < 1) {
         showToast("Umur ekonomis harus berupa bilangan bulat minimal 1 tahun.", true);
         return;
@@ -2486,7 +2499,7 @@
         showToast("Nilai residu harus berada di antara Rp0 dan harga awal barang.", true);
         return;
       }
-      const expectedPeriodEnd = depreciationPeriodEnd(data.periodType, data.date);
+      const expectedPeriodEnd = depreciationPeriodEnd(data.periodType, data.date, data.academicYearId);
       if (!expectedPeriodEnd || data.date !== expectedPeriodEnd) {
         showToast("Tanggal penyusutan harus berada pada akhir periode yang dipilih.", true);
         return;
