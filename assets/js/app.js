@@ -2158,6 +2158,7 @@
       Object.keys(state).forEach((key) => { if (!(key in backupState)) delete state[key]; });
       Object.assign(state, backupState);
       ensureAcademicYearDefaults();
+      ensureLocationDefaults();
       ensureBrandingDefaults();
       ensurePermissionDefaults();
       ensureWorkspaceCollections();
@@ -3023,7 +3024,7 @@
         return;
       }
       data.area = calculatedRoomArea(data.length, data.width);
-      data.code = old?.code || nextLocationCode(data.academicYearId);
+      data.code = old?.code || String(data.code || "").trim() || nextLocationCode(data.academicYearId);
       const codeTaken = recordsForAcademicYear("locations", data.academicYearId).some((room) =>
         room.id !== old?.id && String(room.code || "").trim().toUpperCase() === data.code.toUpperCase());
       if (codeTaken) {
