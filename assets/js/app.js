@@ -2330,13 +2330,25 @@
       });
     }
     (state.loans || []).filter((row) => row.goodId === good.id && ["Diterima", "Dipinjam", "Selesai"].includes(row.status))
-      .forEach((row) => events.push({
-        date: row.startDate || "",
-        event: row.status === "Selesai" ? "Peminjaman selesai" : "Peminjaman",
-        detail: `${row.quantity || 1} ${relatedName("units", good.unitId)} · ${row.note || "—"}${row.returnedDate ? ` · kembali ${niceDate(row.returnedDate)}` : ""}`,
-        related: row.borrower || "—",
-        actor: row.status
-      }));
+      .forEach((row) => {
+        const quantity = `${row.quantity || 1} ${relatedName("units", good.unitId)}`;
+        events.push({
+          date: row.startDate || "",
+          event: "Peminjaman",
+          detail: `${quantity} · ${row.note || "—"}`,
+          related: row.borrower || "—",
+          actor: "Dipinjam"
+        });
+        if (row.status === "Selesai") {
+          events.push({
+            date: row.returnedDate || "",
+            event: "Pengembalian barang",
+            detail: row.returnedDate ? quantity : `${quantity} · Tanggal pengembalian belum tercatat`,
+            related: row.borrower || "—",
+            actor: "Dikembalikan / Selesai"
+          });
+        }
+      });
     (state.assetMovements || []).filter((row) => row.goodId === good.id)
       .forEach((row) => events.push({
         date: row.date || "",
@@ -2354,6 +2366,7 @@
         actor: row.status
       }));
     events.sort((a, b) => {
+      if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
       return String(a.date).localeCompare(String(b.date));
