@@ -2814,13 +2814,14 @@
         : page === "disposals" && record.status === "Diterima"
           ? `<button class="btn-primary" data-status-choice="Selesai"><i data-lucide="check"></i>Tandai selesai</button>`
           : `<span class="badge neutral">Tidak ada aksi lanjutan</span>`;
-    const fundChoice = page === "procurements" && ["Pengajuan", "Pending"].includes(record.status)
-      ? `<div class="form-field" style="margin-top:14px"><label for="statusFund">Konfirmasi sumber dana</label><select id="statusFund">${optionsFor("funds", getById("goods", record.goodId)?.academicYearId || currentAcademicYearId()).replace(`value="${esc(record.fundId)}"`, `value="${esc(record.fundId)}" selected`)}</select></div>` : "";
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal"><div class="modal-header"><div><h2>Perbarui status</h2><p>${esc(actionLabel)} · ${esc(record.borrower || record.title || record.applicant || titleOfGood(record.goodId))}</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fafbfc;border-radius:8px"><span class="muted">Status saat ini</span>${statusBadge(displayedStatus(page, record.status))}</div>${fundChoice}<div class="modal-footer">${buttons}</div></div></section></div>`);
+    const approvalNote = page === "procurements" && ["Pengajuan", "Pending"].includes(record.status)
+      ? `<div class="form-field full" style="margin-top:14px"><label for="procurementApprovalNote">Catatan</label><textarea id="procurementApprovalNote" rows="3" placeholder="Tambahkan catatan keputusan (opsional)">${esc(record.approvalNote || "")}</textarea></div>` : "";
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal"><div class="modal-header"><div><h2>Perbarui status</h2><p>${esc(actionLabel)} · ${esc(record.borrower || record.title || record.applicant || titleOfGood(record.goodId))}</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fafbfc;border-radius:8px"><span class="muted">Status saat ini</span>${statusBadge(displayedStatus(page, record.status))}</div>${approvalNote}<div class="modal-footer">${buttons}</div></div></section></div>`);
     $$("[data-status-choice]", $("#modalRoot")).forEach((button) => button.addEventListener("click", () => {
       const next = button.dataset.statusChoice;
       if (next === "Selesai" && !window.confirm(page === "disposals" ? "Tandai pengajuan pemusnahan barang ini sebagai selesai?" : "Peminjaman barang sudah dikembalikan?")) return;
       record.status = next;
+      if (page === "procurements") record.approvalNote = $("#procurementApprovalNote")?.value.trim() || "";
       if (page === "loans" && next === "Selesai") {
         record.returnedDate = dateOffset(0);
         if (record.stockAdjusted === true) {
@@ -2828,7 +2829,6 @@
           record.stockAdjusted = false;
         }
       }
-      if (page === "procurements" && next === "Diterima" && $("#statusFund")) record.fundId = $("#statusFund").value;
       if (page === "usages" && next === "Disetujui") {
         const good = getById("goods", record.goodId);
         if (good && good.quantity < record.quantity) { showToast(`Stok tidak cukup. Maksimal stok adalah ${good.quantity}.`, true); return; }
