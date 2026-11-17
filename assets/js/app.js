@@ -16,7 +16,7 @@
     categories: [{ id: "ct1", name: "Peralatan TIK", typeId: "tp1", note: "Perangkat teknologi informasi" }, { id: "ct2", name: "Perabot Kelas", typeId: "tp2", note: "Perlengkapan ruang kelas" }, { id: "ct3", name: "Peralatan Olahraga", typeId: "tp4", note: "Alat olahraga dan kebugaran" }, { id: "ct4", name: "Gedung & Ruang", typeId: "tp3", note: "Bangunan dan ruang sekolah" }],
     units: [{ id: "un1", name: "unit" }, { id: "un2", name: "pcs" }, { id: "un3", name: "set" }, { id: "un4", name: "rim" }],
     locations: [{ id: "lo1", name: "Ruang Kepala Sekolah" }, { id: "lo2", name: "Ruang Kelas" }, { id: "lo3", name: "Laboratorium Komputer" }, { id: "lo4", name: "Ruang Olahraga" }, { id: "lo5", name: "Ruang Tata Usaha" }, { id: "lo6", name: "Aula" }],
-    suppliers: [{ id: "sp1", name: "CV Sumber Teknologi" }, { id: "sp2", name: "PT Maju Jaya Abadi" }, { id: "sp3", name: "Koperasi Sekolah" }],
+    suppliers: [{ id: "sp1", name: "CV Sumber Teknologi", address: "Jl. Asia Afrika No. 18, Bandung", phone: "(022) 4201188", email: "info@sumberteknologi.id" }, { id: "sp2", name: "PT Maju Jaya Abadi", address: "Jl. Soekarno Hatta No. 210, Bandung", phone: "(022) 7302210", email: "kontak@majujaya.id" }, { id: "sp3", name: "Koperasi Sekolah", address: "Jl. Ir. H. Juanda No. 93, Bandung", phone: "(022) 4204152", email: "" }],
     funds: [{ id: "fd1", name: "BOS", description: "Bantuan Operasional Sekolah" }, { id: "fd2", name: "Komite Sekolah", description: "Dana partisipasi komite" }, { id: "fd3", name: "Kenang-kenangan Siswa", description: "Hibah dan kenang-kenangan" }],
     goods: [
       { id: "gd1", name: "Laptop Lenovo ThinkPad", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un1", supplierId: "sp1", quantity: 24, price: 8750000, consumable: false },
@@ -59,6 +59,7 @@
   let page = "dashboard";
   let activeUser = null;
   let apiAvailable = false;
+  let activeBarcodeScanner = null;
   let searchTerm = "";
   let selectedFilter = "Semua";
   let chartPeriod = "12";
@@ -70,7 +71,7 @@
     categories: ["Kategori Barang", "Atur kategori agar pendataan aset lebih terstruktur.", "tags"],
     units: ["Satuan", "Kelola satuan untuk pencatatan barang dan stok.", "ruler"],
     locations: ["Ruang / Lokasi", "Daftar ruang dan lokasi penempatan inventaris.", "map-pin"],
-    suppliers: ["Penyedia / Supplier", "Kelola informasi penyedia barang sekolah.", "truck"],
+    suppliers: ["Penyedia / Supplier", "Kelola supplier sekolah beserta alamat dan informasi kontak.", "truck"],
     funds: ["Sumber Dana", "Kelola sumber pendanaan dan hibah aset.", "wallet"],
     goods: ["Data Barang", "Daftar master barang dan informasi pengadaan aset.", "package"],
     items: ["Data Item", "Pantau kondisi, lokasi, dan kode unik setiap unit inventaris.", "scan-line"],
@@ -101,7 +102,7 @@
     categories: { title: "Kategori Barang", description: "Kategori membantu mengelompokkan barang.", singular: "Kategori", cols: [["name", "Nama Kategori"], ["typeId", "Jenis Barang"], ["note", "Keterangan"]], fields: [["name", "Nama Kategori", "text", true], ["typeId", "Jenis Barang", "select", true, "types"], ["note", "Keterangan", "text"]] },
     units: { title: "Satuan", description: "Satuan untuk mencatat jumlah barang.", singular: "Satuan", cols: [["name", "Nama Satuan"]], fields: [["name", "Nama Satuan", "text", true]] },
     locations: { title: "Ruang / Lokasi", description: "Daftar ruang penyimpanan dan penggunaan barang.", singular: "Lokasi", cols: [["name", "Nama Ruang / Lokasi"]], fields: [["name", "Nama Ruang / Lokasi", "text", true]] },
-    suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia dan supplier sekolah.", singular: "Supplier", cols: [["image", "Gambar"], ["name", "Nama Supplier"]], fields: [["image", "URL Gambar (opsional)", "url"], ["name", "Nama Supplier", "text", true]] },
+    suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     goods: { title: "Data Barang", description: "Informasi barang, nilai, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
@@ -337,9 +338,15 @@
     }).join("");
     $("#sideNav").querySelectorAll("[data-page]").forEach((el) => el.addEventListener("click", () => navigate(el.dataset.page)));
     $("#sideNav").querySelectorAll("[data-group]").forEach((el) => el.addEventListener("click", () => {
+      const wasOpen = el.classList.contains("open");
+      $$("#sideNav .nav-group-toggle").forEach((toggle) => {
+        toggle.classList.remove("open");
+        toggle.nextElementSibling.classList.remove("open");
+      });
+      if (wasOpen) return;
       const child = el.nextElementSibling;
-      el.classList.toggle("open");
-      child.classList.toggle("open");
+      el.classList.add("open");
+      child.classList.add("open");
     }));
     renderMobileNav();
     if (window.lucide) lucide.createIcons({ nodes: [$("#sideNav"), $("#mobileNav")] });
@@ -703,6 +710,9 @@
 
   function modalForm(key, record = null) {
     const config = collectionConfig[key];
+    const scanPanel = !record && ["loans", "procurements", "disposals", "depreciations"].includes(key)
+      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode item</b><small>Gunakan kamera atau masukkan kode QR/barcode item.</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="Contoh: E.1-T.1-L1-KS.1"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
+      : "";
     const fields = config.fields.map(([name, label, type, required, source]) => {
       let value = record?.[name] ?? (type === "date" ? dateOffset(0) : "");
       const idAttr = `${key}-${name}`;
@@ -714,16 +724,18 @@
       if (type === "file") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}</label><div class="file-drop"><i data-lucide="image-plus"></i><span>Pilih foto bukti</span><input id="${idAttr}" name="${name}" type="file" accept="image/*" class="form-file"><img class="file-preview ${record?.[name] ? "" : "hidden"}" src="${esc(record?.[name] || "")}" alt="Pratinjau bukti"></div><small class="form-help">Pratinjau 120 × 120 px · maksimal 2 MB.</small></div>`;
       return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "number" ? 'min="0"' : ""}></div>`;
     }).join("");
-    return `<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>${record ? "Edit" : "Tambah"} ${config.singular}</h2><p>Lengkapi informasi berikut dengan benar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="recordForm" data-collection="${key}" data-record="${record?.id || ""}"><div class="form-grid">${fields}</div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan data</button></div></form></section></div>`;
+    return `<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>${record ? "Edit" : "Tambah"} ${config.singular}</h2><p>Lengkapi informasi berikut dengan benar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="recordForm" data-collection="${key}" data-record="${record?.id || ""}"><div class="form-grid">${scanPanel}${fields}</div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan data</button></div></form></section></div>`;
   }
 
   function showModal(content, wide = false) {
+    stopBarcodeScanner();
     $("#modalRoot").innerHTML = content;
     $("#modalRoot").onclick = recordActions;
     if (wide) $(".modal", $("#modalRoot"))?.classList.add("modal-wide");
     if (window.lucide) lucide.createIcons({ nodes: [$("#modalRoot")] });
     const form = $("#recordForm");
     if (form && ["loans", "disposals"].includes(form.dataset.collection)) setupItemChoices(form);
+    if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
     const fileInput = $(".form-file", $("#modalRoot"));
     fileInput?.addEventListener("change", () => {
       const file = fileInput.files?.[0], preview = $(".file-preview", $("#modalRoot"));
@@ -760,7 +772,177 @@
     goodSelect?.addEventListener("change", () => { selected.clear(); update(); });
     update();
   }
-  function closeModal() { $("#modalRoot").innerHTML = ""; }
+
+  function setupRecordBarcodeScanner(form) {
+    const key = form.dataset.collection;
+    const input = $("#barcodeScanCode", form);
+    const status = $("#barcodeScanStatus", form);
+    const video = $("#barcodeScannerVideo", form);
+    const startButton = $("#startBarcodeScan", form);
+    const stopButton = $("#stopBarcodeScan", form);
+    const scannedProcurementItems = new Set();
+    let scannedProcurementGoodId = "";
+    const setStatus = (message, error = false) => {
+      status.textContent = message;
+      status.classList.toggle("error", error);
+    };
+
+    const applyCode = (value) => {
+      const code = String(value || "").trim();
+      const item = state.items.find((row) => row.code.toLowerCase() === code.toLowerCase());
+      if (!item) {
+        setStatus(`Kode "${code}" tidak ditemukan di data item.`, true);
+        showToast(`Barcode "${code}" tidak dikenali.`, true);
+        return false;
+      }
+      const good = getById("goods", item.goodId);
+      if (!good) {
+        setStatus("Data barang untuk item ini tidak ditemukan.", true);
+        showToast("Data barang pada barcode tidak ditemukan.", true);
+        return false;
+      }
+      if (key === "loans") {
+        const borrowed = state.loans.some((loan) => loan.status === "Diterima" && (loan.itemIds || []).includes(item.id));
+        if (item.condition !== "Baik" || borrowed) {
+          setStatus("Peminjaman hanya menerima item baik yang belum dipinjam.", true);
+          showToast("Item ini rusak atau sedang dipinjam.", true);
+          return false;
+        }
+      }
+      if (key === "disposals" && item.condition !== "Rusak") {
+        setStatus("Pemusnahan hanya menerima item dengan kondisi rusak.", true);
+        showToast("Item yang dipindai tidak berkondisi rusak.", true);
+        return false;
+      }
+      const selectedItems = $$('input[name="itemIds"]:checked', form);
+      if (["loans", "disposals"].includes(key) && selectedItems.some((choice) => getById("items", choice.value)?.goodId !== item.goodId)) {
+        setStatus("Satu pengajuan hanya dapat memuat item dari barang yang sama.", true);
+        showToast("Pindai item dari jenis barang yang sama.", true);
+        return false;
+      }
+      if (key === "procurements") {
+        if (scannedProcurementGoodId && scannedProcurementGoodId !== item.goodId) {
+          setStatus("Satu pengadaan hanya dapat memuat satu jenis barang.", true);
+          showToast("Buat pengajuan terpisah untuk jenis barang yang berbeda.", true);
+          return false;
+        }
+        scannedProcurementGoodId = item.goodId;
+        scannedProcurementItems.add(item.id);
+      }
+
+      const goodSelect = form.elements.goodId;
+      if (goodSelect) {
+        const changed = goodSelect.value !== item.goodId;
+        goodSelect.value = item.goodId;
+        if (changed) goodSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      if (form.elements.locationId) form.elements.locationId.value = item.locationId || "";
+      if (["loans", "disposals"].includes(key)) {
+        const choice = $$('input[name="itemIds"]', form).find((candidate) => candidate.value === item.id);
+        if (choice) choice.checked = true;
+      }
+      if (key === "procurements") form.elements.quantity.value = String(scannedProcurementItems.size);
+      if (key === "depreciations") {
+        form.elements.itemId.value = item.id;
+        form.elements.initialValue.value = String(good.price || 0);
+      }
+      const stock = `${good.quantity} ${relatedName("units", good.unitId)}`;
+      const amount = key === "procurements" ? ` Jumlah pengadaan: ${scannedProcurementItems.size}.` : "";
+      setStatus(`${item.code} · ${good.name} · Stok saat ini: ${stock}.${amount}`);
+      return true;
+    };
+
+    const applyManualCode = () => {
+      if (!input.value.trim()) {
+        setStatus("Masukkan kode barcode terlebih dahulu.", true);
+        return;
+      }
+      applyCode(input.value);
+    };
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        applyManualCode();
+      }
+    });
+    $("#applyBarcodeScan", form).addEventListener("click", applyManualCode);
+    stopButton.addEventListener("click", stopBarcodeScanner);
+    startButton.addEventListener("click", async () => {
+      const Detector = window.BarcodeDetector;
+      if (typeof Detector !== "function" || !navigator.mediaDevices?.getUserMedia) {
+        setStatus("Pindai kamera tidak tersedia di browser ini. Gunakan kolom kode manual atau scanner USB.", true);
+        showToast("Browser tidak mendukung pemindaian kamera. Gunakan kode manual atau scanner USB.", true);
+        return;
+      }
+      startButton.disabled = true;
+      try {
+        const available = typeof Detector.getSupportedFormats === "function" ? await Detector.getSupportedFormats() : ["qr_code"];
+        const formats = available.filter((format) => ["qr_code", "code_128", "code_39", "code_93", "codabar", "ean_13", "ean_8", "itf", "upc_a", "upc_e"].includes(format));
+        if (!formats.length) throw new Error("Browser tidak memiliki format QR/barcode yang didukung.");
+        const detector = new Detector({ formats });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
+        if (!form.isConnected) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        video.srcObject = stream;
+        video.classList.remove("hidden");
+        startButton.classList.add("hidden");
+        stopButton.classList.remove("hidden");
+        activeBarcodeScanner = { stream, video, timer: null };
+        await video.play();
+        setStatus("Kamera aktif. Arahkan ke QR Code atau barcode item.");
+        const scanFrame = async () => {
+          if (activeBarcodeScanner?.stream !== stream) return;
+          try {
+            const results = await detector.detect(video);
+            if (activeBarcodeScanner?.stream !== stream) return;
+            if (results.length) {
+              const scannedCode = results[0].rawValue;
+              stopBarcodeScanner();
+              input.value = scannedCode;
+              applyCode(scannedCode);
+              return;
+            }
+          } catch (error) {
+            stopBarcodeScanner();
+            setStatus(`Pemindaian gagal: ${error.message}`, true);
+            showToast(`Pemindaian barcode gagal: ${error.message}`, true);
+            return;
+          }
+          if (activeBarcodeScanner?.stream === stream) activeBarcodeScanner.timer = setTimeout(scanFrame, 220);
+        };
+        scanFrame();
+      } catch (error) {
+        stopBarcodeScanner();
+        startButton.disabled = false;
+        setStatus(`Kamera tidak dapat dibuka: ${error.message}. Gunakan kode manual atau scanner USB.`, true);
+        showToast(`Kamera barcode tidak dapat dibuka: ${error.message}`, true);
+      }
+    });
+  }
+
+  function stopBarcodeScanner() {
+    if (!activeBarcodeScanner) return;
+    const { stream, video, timer } = activeBarcodeScanner;
+    activeBarcodeScanner = null;
+    clearTimeout(timer);
+    stream.getTracks().forEach((track) => track.stop());
+    video.pause();
+    video.srcObject = null;
+    video.classList.add("hidden");
+    const startButton = $("#startBarcodeScan");
+    const stopButton = $("#stopBarcodeScan");
+    startButton?.classList.remove("hidden");
+    if (startButton) startButton.disabled = false;
+    stopButton?.classList.add("hidden");
+  }
+
+  function closeModal() {
+    stopBarcodeScanner();
+    $("#modalRoot").innerHTML = "";
+  }
 
   async function saveRecord(event) {
     event.preventDefault();

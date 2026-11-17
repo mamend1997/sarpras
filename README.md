@@ -22,6 +22,12 @@ Data contoh dimuat otomatis saat database masih kosong. Jika server tidak tersed
 - Login sebagai Administrator, buka **Backup & Telegram**, lalu gunakan **Backup sekarang** untuk mengunduh file JSON.
 - Restore menerima file backup JSON Sarprah dan mengganti seluruh data aplikasi. Buat backup sebelum melakukan restore.
 - Di **Data Sekolah → Identitas Aplikasi**, Administrator dapat mengubah nama dan logo aplikasi. Nama memperbarui label aplikasi serta judul tab browser; logo juga otomatis digunakan sebagai favicon.
+
+## Pemindaian barcode dan supplier
+
+- Formulir tambah peminjaman, pengadaan, pemusnahan, dan penyusutan menyediakan pemindaian melalui kamera atau input kode manual. Pemindaian kamera membutuhkan browser yang mendukung `BarcodeDetector` dan akses kamera; scanner USB juga dapat digunakan melalui kolom kode.
+- Data supplier mencakup nama, alamat, nomor telepon, serta email opsional.
+- Grup navigasi sidebar bekerja sebagai accordion: hanya satu grup submenu yang terbuka pada satu waktu.
 - Buat bot melalui `@BotFather`, mulai percakapan dengan bot, lalu masukkan chat ID serta token bot di pengaturan. Token disimpan terenkripsi di server dan tidak dikirim balik ke browser.
 - Jadwal awal adalah setiap hari pukul **16.00 WIB**. Pilih zona WIB/WITA/WIT, simpan pengaturan, lalu gunakan **Uji koneksi**. Scheduler hanya berjalan saat service Node aktif.
 - Secara default server membuat kunci enkripsi `.sarprah-key` di direktori database. Untuk Railway, letakkan database dan kunci pada Volume persisten yang sama. Alternatifnya, set `SARPRAH_ENCRYPTION_KEY` berisi 64 karakter hexadecimal; simpan nilainya sebagai secret Railway dan jangan menggantinya setelah token Telegram disimpan.
