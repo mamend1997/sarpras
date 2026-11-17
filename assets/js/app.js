@@ -129,7 +129,7 @@
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
     disposals: { title: "Pemusnahan Barang", description: "Pengajuan penghapusan aset rusak dari inventaris.", singular: "Pemusnahan", cols: [["goodId", "Barang"], ["locationId", "Lokasi"], ["itemIds", "Item"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pengajuan"], ["status", "Status"]], fields: [["goodId", "Barang", "select", true, "goods"], ["locationId", "Lokasi", "select", true, "locations"], ["itemIds", "Item rusak", "text"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pengajuan", "date", true]] },
     depreciations: { title: "Penyusutan Nilai Aset", description: "Catat penyusutan nilai item inventaris secara berkala.", singular: "Penyusutan", cols: [["date", "Tanggal"], ["itemId", "Kode Barang"], ["goodName", "Barang"], ["initialValue", "Harga Awal"], ["amount", "Penyusutan"], ["finalValue", "Harga Akhir"]], fields: [["date", "Tanggal", "date", true], ["itemId", "Item Inventaris", "select", true, "items"], ["initialValue", "Harga Awal (Rp)", "number", true], ["amount", "Penyusutan (Rp)", "number", true]] },
-    accounts: { title: "Pengaturan Akun", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["edit", "Boleh mengubah data", "checkbox"], ["remove", "Boleh menghapus data", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
+    accounts: { title: "Pengaturan", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["edit", "Boleh mengubah data", "checkbox"], ["remove", "Boleh menghapus data", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
   const statusPages = new Set(["usages", "loans", "procurements", "disposals"]);
   const statusOptions = {
@@ -291,14 +291,6 @@
       favicon.type = "image/svg+xml";
     }
     if (window.lucide) lucide.createIcons({ nodes: $$("[data-app-brand]") });
-  }
-
-  function showAccountPreview() {
-    if (!activeUser) return;
-    const avatar = activeUser.avatar
-      ? `<img class="account-preview-avatar" src="${esc(activeUser.avatar)}" alt="Avatar akun">`
-      : `<span class="account-preview-avatar account-preview-initials">${esc(initials(activeUser.name))}</span>`;
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal account-modal"><div class="modal-header"><div><h2>Pratinjau akun</h2><p>Profil yang sedang digunakan.</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="account-preview">${avatar}<h3>${esc(activeUser.name)}</h3><span class="badge info">${esc(activeUser.role)}</span><p>${esc(activeUser.email)}</p><div class="account-preview-actions"><button class="btn-secondary" data-action="edit-profile"><i data-lucide="user-round-pen"></i>Edit profil</button><button class="btn-quiet" data-action="logout"><i data-lucide="log-out"></i>Keluar</button></div></div></section></div>`);
   }
 
   function showProfileEditor() {
@@ -1265,7 +1257,6 @@
     else if (action === "barcode-options") barcodeOptionsModal();
     else if (action === "download-backup") downloadBackup();
     else if (action === "telegram-test") testTelegram();
-    else if (action === "account-preview") showAccountPreview();
     else if (action === "edit-profile") showProfileEditor();
     else if (action === "logout") logout();
     else if (action === "select-all") $$(".barcode-check").forEach((check) => { check.checked = true; });
