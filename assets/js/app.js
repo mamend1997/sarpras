@@ -5276,11 +5276,11 @@
     });
     $("#loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const schoolCode = $("#loginSchoolCode").value.trim();
+      const schoolCode = $("#loginSchoolCode").value.trim().toUpperCase();
       const email = $("#loginEmail").value.trim().toLowerCase(), password = $("#loginPassword").value;
       $("#loginError").textContent = "";
-      if (!/^\d{4}$/.test(schoolCode)) {
-        $("#loginError").textContent = "Masukkan kode sekolah 4 digit.";
+      if (!/^[A-Z0-9]{4}$/.test(schoolCode)) {
+        $("#loginError").textContent = "Masukkan kode sekolah 4 karakter.";
         return;
       }
       const localStateRecovery = readPendingServerState();

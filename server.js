@@ -7,7 +7,22 @@ const { DatabaseSync } = require("node:sqlite");
 const root = __dirname;
 const publicRoot = path.resolve(root);
 const port = Number(process.env.PORT || 3000);
-const dbPath = path.resolve(process.env.DB_PATH || path.join(root, "sarprah.sqlite"));
+const railwayDeployment = Boolean(process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_ENVIRONMENT_ID);
+const railwayVolumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH?.trim();
+if (railwayDeployment && !railwayVolumePath) {
+  throw new Error("Railway memerlukan Volume persisten. Hubungkan Volume ke service sebelum menjalankan Sarprah.");
+}
+const defaultDbPath = railwayVolumePath
+  ? path.join(railwayVolumePath, "sarprah.sqlite")
+  : path.join(root, "sarprah.sqlite");
+const dbPath = path.resolve(process.env.DB_PATH || defaultDbPath);
+if (railwayVolumePath) {
+  const volumeRoot = path.resolve(railwayVolumePath);
+  const relativeDbPath = path.relative(volumeRoot, dbPath);
+  if (relativeDbPath === ".." || relativeDbPath.startsWith(`..${path.sep}`) || path.isAbsolute(relativeDbPath)) {
+    throw new Error("DB_PATH harus berada di dalam Railway Volume agar data Super Admin dan sekolah tidak hilang saat deployment.");
+  }
+}
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 function loadEncryptionKey() {
@@ -357,7 +372,11 @@ function ensurePlatformBootstrap() {
     changed = true;
   }
   const legacy = currentState();
-  if (legacy && typeof legacy.school === "object" && !getSaasMigration.get("legacy_app_state_school")) {
+  const legacyMigration = getSaasMigration.get("legacy_app_state_school");
+  const legacyMigrationIncomplete = !legacyMigration ||
+    !getSchoolRow.get(legacyMigration.migration_value) ||
+    !getTenantStateRow.get(legacyMigration.migration_value);
+  if (legacy && typeof legacy.school === "object" && legacyMigrationIncomplete) {
     const legacyName = String(legacy.school.name || "Sekolah Utama").trim();
     const legacyEmail = String(legacy.school.email || legacy.accounts?.find((row) => row.role === "Administrator")?.email || "").trim().toLowerCase();
     let school = data.schools.find((entry) => legacyEmail
@@ -635,6 +654,27 @@ function nextSchoolCode(schools) {
   return String(maxCode + 1).padStart(4, "0");
 }
 
+function generateSchoolCode() {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const digits = "23456789";
+  const existingCodes = new Set(getAllSchools.all().map(({ payload }) => String(JSON.parse(payload).code).toUpperCase()));
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const characters = [
+      letters[crypto.randomInt(letters.length)],
+      letters[crypto.randomInt(letters.length)],
+      digits[crypto.randomInt(digits.length)],
+      digits[crypto.randomInt(digits.length)]
+    ];
+    for (let index = characters.length - 1; index > 0; index--) {
+      const swapIndex = crypto.randomInt(index + 1);
+      [characters[index], characters[swapIndex]] = [characters[swapIndex], characters[index]];
+    }
+    const code = characters.join("");
+    if (!existingCodes.has(code)) return code;
+  }
+  throw new Error("Kode sekolah unik tidak dapat dibuat. Coba daftarkan sekolah kembali.");
+}
+
 function validateSchoolRegistration(input, platform) {
   const school = input.school || {};
   const admin = input.admin || {};
@@ -660,7 +700,7 @@ function createSchoolTenant(input, options = {}) {
     tenantState(id)?.accounts?.some((account) => String(account.email || "").toLowerCase() === email));
   if (duplicateEmail) throw new Error("Email Administrator sudah digunakan sekolah lain.");
   const id = `school-${crypto.randomUUID()}`;
-  const code = nextSchoolCode(platform.schools);
+  const code = generateSchoolCode();
   const now = new Date();
   const trialDays = Math.max(0, Number(plan.trialDays ?? platform.settings.trialDays) || 0);
   const period = String(raw.subscriptionPeriod || "monthly");
@@ -1120,13 +1160,14 @@ async function handlePlatformApi(req, res) {
     const codes = new Set();
     for (const entry of backup.schools) {
       const school = entry?.school;
-      if (!school?.id || !/^\d{4}$/.test(school.code || "") || !entry.state ||
+      if (!school?.id || !/^[A-Z0-9]{4}$/i.test(school.code || "") || !entry.state ||
           !Array.isArray(entry.state.accounts) ||
           entry.state.accounts.filter((account) => account.role === "Administrator").length !== 1 ||
-          ids.has(school.id) || codes.has(school.code)) {
+          ids.has(school.id) || codes.has(String(school.code).toUpperCase())) {
         return send(res, 400, JSON.stringify({ error: "Data sekolah pada backup tidak valid atau memiliki kode duplikat." })), true;
       }
       ids.add(school.id);
+      school.code = String(school.code).toUpperCase();
       codes.add(school.code);
     }
     db.exec("BEGIN");
@@ -1255,10 +1296,10 @@ async function handleApi(req, res) {
     }));
   }
   const publicInventoryMatch = req.method === "GET"
-    ? /^\/api\/public\/school\/(\d{4})\/inventory$/.exec(new URL(req.url, "http://localhost").pathname)
+    ? /^\/api\/public\/school\/([A-Z0-9]{4})\/inventory$/i.exec(new URL(req.url, "http://localhost").pathname)
     : null;
   if (publicInventoryMatch) {
-    const schoolCode = publicInventoryMatch[1];
+    const schoolCode = publicInventoryMatch[1].toUpperCase();
     const schoolRow = getAllSchools.all().find(({ payload }) => JSON.parse(payload).code === schoolCode);
     if (!schoolRow) return send(res, 404, JSON.stringify({ error: "Portal sekolah tidak ditemukan atau tidak aktif." }));
     const school = JSON.parse(schoolRow.payload);
@@ -1324,8 +1365,8 @@ async function handleApi(req, res) {
     const input = await readJsonBody(req, 32_000);
     const email = String(input.email || "").trim().toLowerCase();
     const password = String(input.password || "");
-    const schoolCode = String(input.schoolCode || "").trim();
-    if (!/^\d{4}$/.test(schoolCode)) return send(res, 400, JSON.stringify({ error: "Masukkan kode sekolah 4 digit." }));
+    const schoolCode = String(input.schoolCode || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(schoolCode)) return send(res, 400, JSON.stringify({ error: "Masukkan kode sekolah 4 karakter." }));
     const schoolRow = getAllSchools.all().find(({ payload }) => JSON.parse(payload).code === schoolCode);
     if (!schoolRow) return send(res, 401, JSON.stringify({ error: "Kode sekolah tidak ditemukan." }));
     const school = JSON.parse(schoolRow.payload);
@@ -1551,7 +1592,7 @@ const server = http.createServer(async (req, res) => {
     const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
     const requested = pathname === "/" ? "index.html"
       : ["/super-admin", "/super-admin/"].includes(pathname) ? "super-admin.html"
-        : /^\/portal\/\d{4}\/?$/.test(pathname) || pathname === "/public-portal" ? "public-portal.html"
+        : /^\/portal\/[A-Z0-9]{4}\/?$/i.test(pathname) || pathname === "/public-portal" ? "public-portal.html"
         : pathname.replace(/^\/+/, "");
     const file = path.resolve(publicRoot, requested);
     if (!file.startsWith(publicRoot + path.sep) && file !== path.join(publicRoot, "index.html")) {

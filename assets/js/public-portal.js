@@ -1,6 +1,6 @@
 (() => {
-  const code = /^\/portal\/(\d{4})\/?$/.exec(location.pathname)?.[1]
-    || new URLSearchParams(location.search).get("code") || "";
+  const code = (/^\/portal\/([A-Z0-9]{4})\/?$/i.exec(location.pathname)?.[1]
+    || new URLSearchParams(location.search).get("code") || "").toUpperCase();
   const $ = (selector) => document.querySelector(selector);
   const search = $("#inventorySearch");
   const resultRoot = $("#inventoryResults");
@@ -51,7 +51,7 @@
   }
 
   async function loadInventory(query = "") {
-    if (!/^\d{4}$/.test(code)) {
+    if (!/^[A-Z0-9]{4}$/.test(code)) {
       showMessage("Kode sekolah tidak valid. Buka tautan portal publik lengkap dari sekolah.", true);
       return;
     }

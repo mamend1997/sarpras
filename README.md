@@ -4,12 +4,12 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 
 ## SaaS multi-sekolah
 
-- Halaman sekolah: `http://localhost:3000/`. Sekolah baru dapat mendaftar dari tombol **Daftarkan sekolah**; kode tenant 4 digit ditampilkan setelah pendaftaran berhasil.
+- Halaman sekolah: `http://localhost:3000/`. Sekolah baru dapat mendaftar dari tombol **Daftarkan sekolah**; kode tenant acak 4 karakter huruf/angka ditampilkan setelah pendaftaran berhasil.
 - Halaman Super Admin: `http://localhost:3000/super-admin`. Pada penggunaan pertama, buat akun Super Admin khusus. Selanjutnya halaman ini meminta login.
 - Setiap tenant menyimpan inventaris, akun, dan tiket secara terpisah. Super Admin dapat mengatur sekolah, paket dan masa langganan, pembayaran, fitur, branding, QRIS, syarat/SLA, pengumuman, maintenance, panduan, tiket, WhatsApp, audit, serta backup/restore.
 - Pada **Super Admin → Backup & Restore**, jadwalkan backup harian seluruh platform ke Telegram menggunakan token bot dan Chat ID tujuan. Jadwal awal pukul 16.00 WIB; token disimpan terenkripsi dan file mencakup data semua tenant, sehingga chat tujuan harus dijaga kerahasiaannya.
 - Database lama dimigrasikan sebagai tenant awal dengan kode `0001`. Data baru disimpan di SQLite pada `DB_PATH`; jangan gunakan database lokal bersama untuk pengujian yang mengubah data.
-- Jika akun sekolah lama belum tercantum di platform SaaS, startup berikutnya akan memasukkannya ke **Daftar Sekolah** sebagai tenant pertama, memberi kode sekolah, dan mempertahankan akses Lifetime. Migrasi ini hanya dijalankan sekali.
+- Jika akun sekolah lama belum tercantum di platform SaaS, startup berikutnya akan memasukkannya ke **Daftar Sekolah** sebagai tenant pertama, memberi kode sekolah, dan mempertahankan akses Lifetime. Kode tenant lama seperti `0001` tetap berlaku; data migrasi yang belum lengkap akan dicoba dipulihkan saat startup.
 - Fitur maintenance dan masa aktif diperiksa pada autentikasi dan API, bukan hanya disembunyikan dari antarmuka. Backup SaaS berisi data semua tenant dan kredensial hash Super Admin; simpan file backup seperti rahasia dan lindungi kunci enkripsi bersama file database.
 
 ## Menjalankan aplikasi
@@ -18,13 +18,16 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 2. Jalankan `npm start`.
 3. Buka `http://localhost:3000`.
 
-Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web service Railway. Berkas database `sarprah.sqlite` dibuat otomatis di folder proyek dan tidak perlu di-commit. Untuk Railway, tambahkan Volume persisten dan set `DB_PATH` ke lokasi mount volume, misalnya `/data/sarprah.sqlite`.
+Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web service Railway. Secara lokal, berkas database `sarprah.sqlite` dibuat otomatis di folder proyek dan tidak perlu di-commit. Di Railway, hubungkan Volume persisten ke service; aplikasi otomatis menyimpan database `sarprah.sqlite` dan kunci enkripsinya di dalam direktori Volume. Jika `DB_PATH` diatur manual, pastikan lokasinya berada di dalam Volume. Server menolak startup di Railway tanpa Volume atau jika `DB_PATH` berada di luar Volume, untuk mencegah data Super Admin dan sekolah hilang saat deployment.
+
+Jika database sebelumnya tersimpan pada filesystem sementara Railway, salin database beserta `.sarprah-key` ke Volume atau pulihkan backup yang sesuai sebelum menghapus sumber lama. Database baru yang kosong tidak berisi akun Super Admin maupun sekolah lama.
 
 ## Akun sekolah lama
 
 - Email: `admin@sarprah.id`
 - Kata sandi: `sarprah123`
 - Kode sekolah setelah migrasi database lama: `0001`
+- Sekolah yang mendaftar setelah migrasi mendapatkan kode acak 4 karakter huruf/angka.
 
 Data contoh lama tetap tersedia setelah database dimigrasikan. Sekolah baru dapat mendaftar sendiri atau dibuat oleh Super Admin.
 
