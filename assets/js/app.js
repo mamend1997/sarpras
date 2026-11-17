@@ -50,7 +50,7 @@
     ],
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", itemIds: ["it3"], reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), itemId: "it1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), itemId: "it4", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
-    accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Operator Sarpras", email: "operator@sarprah.id", role: "User", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "User", active: true, edit: false, remove: false }],
+    accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
     settings: { mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: { dashboard: "view", goods: "edit", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" } },
     months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
   };
@@ -82,7 +82,8 @@
     disposals: ["Pemusnahan Barang", "Kelola pengajuan pemusnahan aset rusak.", "archive-x"],
     depreciations: ["Penyusutan", "Catat perubahan nilai aset secara berkala.", "trending-down"],
     reports: ["Laporan", "Rekap inventaris dan transaksi sarana prasarana sekolah.", "files"],
-    accounts: ["Pengaturan Akun", "Kelola akun pengguna dan hak akses menu.", "users-round"]
+    accounts: ["Pengaturan Akun", "Kelola akun pengguna dan hak akses menu.", "users-round"],
+    backup: ["Backup & Telegram", "Unduh dan pulihkan data, serta atur backup otomatis ke Telegram.", "database-backup"]
   };
 
   const navGroups = [
@@ -92,7 +93,7 @@
       { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["items", "Data Item"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] }
     ] },
-    { section: "LAINNYA", links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan Akun", icon: "settings-2" }] }
+    { section: "LAINNYA", links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan Akun", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
   ];
 
   const collectionConfig = {
@@ -110,7 +111,7 @@
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
     disposals: { title: "Pemusnahan Barang", description: "Pengajuan penghapusan aset rusak dari inventaris.", singular: "Pemusnahan", cols: [["goodId", "Barang"], ["locationId", "Lokasi"], ["itemIds", "Item"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pengajuan"], ["status", "Status"]], fields: [["goodId", "Barang", "select", true, "goods"], ["locationId", "Lokasi", "select", true, "locations"], ["itemIds", "Item rusak", "text"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pengajuan", "date", true]] },
     depreciations: { title: "Penyusutan Nilai Aset", description: "Catat penyusutan nilai item inventaris secara berkala.", singular: "Penyusutan", cols: [["date", "Tanggal"], ["itemId", "Kode Barang"], ["goodName", "Barang"], ["initialValue", "Harga Awal"], ["amount", "Penyusutan"], ["finalValue", "Harga Akhir"]], fields: [["date", "Tanggal", "date", true], ["itemId", "Item Inventaris", "select", true, "items"], ["initialValue", "Harga Awal (Rp)", "number", true], ["amount", "Penyusutan (Rp)", "number", true]] },
-    accounts: { title: "Pengaturan Akun", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Alamat Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "User"]], ["active", "Akun aktif", "checkbox"], ["edit", "Boleh mengubah data", "checkbox"], ["remove", "Boleh menghapus data", "checkbox"]] }
+    accounts: { title: "Pengaturan Akun", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["edit", "Boleh mengubah data", "checkbox"], ["remove", "Boleh menghapus data", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
   const statusPages = new Set(["usages", "loans", "procurements", "disposals"]);
   const statusOptions = {
@@ -134,6 +135,105 @@
     $("#toastRoot").append(toast);
     if (window.lucide) lucide.createIcons({ nodes: [toast] });
     setTimeout(() => toast.remove(), 3300);
+  }
+
+  async function passwordCredentials(password) {
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const salt = [...saltBytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    const digest = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: saltBytes, iterations: 210000, hash: "SHA-256" }, key, 256);
+    const passwordHash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return { passwordSalt: salt, passwordHash };
+  }
+
+  async function verifyPassword(account, password) {
+    if (!account?.passwordSalt || !account?.passwordHash) return false;
+    const saltBytes = new Uint8Array((account.passwordSalt.match(/.{2}/g) || []).map((part) => parseInt(part, 16)));
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    const digest = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: saltBytes, iterations: 210000, hash: "SHA-256" }, key, 256);
+    const actual = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    return actual === account.passwordHash;
+  }
+
+  function initials(name) {
+    return String(name || "Admin").split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
+  }
+
+  function syncProfile() {
+    if (!activeUser) return;
+    $("#profileName").textContent = activeUser.name;
+    $$(".profile-info small").forEach((node) => { node.textContent = activeUser.role; });
+    $$("#profileButton .avatar, #topbarUser .avatar").forEach((node) => {
+      node.textContent = initials(activeUser.name);
+      node.classList.toggle("avatar-photo", Boolean(activeUser.avatar));
+      node.style.backgroundImage = activeUser.avatar ? `url("${activeUser.avatar}")` : "";
+    });
+    sessionStorage.setItem("sarprah-user", JSON.stringify({ id: activeUser.id }));
+  }
+
+  function showAccountPreview() {
+    if (!activeUser) return;
+    const avatar = activeUser.avatar
+      ? `<img class="account-preview-avatar" src="${esc(activeUser.avatar)}" alt="Avatar akun">`
+      : `<span class="account-preview-avatar account-preview-initials">${esc(initials(activeUser.name))}</span>`;
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal account-modal"><div class="modal-header"><div><h2>Pratinjau akun</h2><p>Profil yang sedang digunakan.</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="account-preview">${avatar}<h3>${esc(activeUser.name)}</h3><span class="badge info">${esc(activeUser.role)}</span><p>${esc(activeUser.email)}</p><div class="account-preview-actions"><button class="btn-secondary" data-action="edit-profile"><i data-lucide="user-round-pen"></i>Edit profil</button><button class="btn-quiet" data-action="logout"><i data-lucide="log-out"></i>Keluar</button></div></div></section></div>`);
+  }
+
+  function showProfileEditor() {
+    if (!activeUser) return;
+    const avatar = activeUser.avatar ? `<img class="profile-avatar-preview" src="${esc(activeUser.avatar)}" alt="Avatar akun">` : `<span class="profile-avatar-preview profile-avatar-initials">${esc(initials(activeUser.name))}</span>`;
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal"><div class="modal-header"><div><h2>Edit profil</h2><p>Ubah nama, avatar, atau kata sandi akun.</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form id="profileEditForm" class="modal-form"><div class="profile-edit-avatar">${avatar}<label class="btn-secondary"><i data-lucide="camera"></i>Ganti avatar<input id="profileAvatarFile" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><small class="form-help">PNG, JPG, atau WEBP · maksimal 2 MB</small></div><div class="form-grid"><div class="form-field full"><label for="profileEditName">Nama akun</label><input id="profileEditName" name="name" value="${esc(activeUser.name)}" required maxlength="80"></div><div class="form-field full"><label>Email</label><input value="${esc(activeUser.email)}" disabled></div><div class="form-field"><label for="profileNewPassword">Kata sandi baru (opsional)</label><input id="profileNewPassword" name="password" type="password" minlength="8" autocomplete="new-password"></div><div class="form-field"><label for="profileConfirmPassword">Konfirmasi kata sandi baru</label><input id="profileConfirmPassword" name="confirmPassword" type="password" minlength="8" autocomplete="new-password"></div></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan profil</button></div></form></section></div>`);
+    $("#profileAvatarFile").addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2_000_000) {
+        showToast("Pilih gambar PNG, JPG, atau WEBP dengan ukuran maksimal 2 MB.", true);
+        event.target.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const preview = $(".profile-avatar-preview", $("#modalRoot"));
+        if (preview.tagName === "IMG") preview.src = reader.result;
+        else {
+          const image = document.createElement("img");
+          image.className = "profile-avatar-preview";
+          image.alt = "Avatar akun";
+          image.src = reader.result;
+          preview.replaceWith(image);
+        }
+      };
+      reader.onerror = () => showToast("Avatar tidak dapat dibaca.", true);
+      reader.readAsDataURL(file);
+    });
+    $("#profileEditForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const password = $("#profileNewPassword").value;
+      if (password && password !== $("#profileConfirmPassword").value) return showToast("Konfirmasi kata sandi tidak cocok.", true);
+      if (password && password.length < 8) return showToast("Kata sandi minimal 8 karakter.", true);
+      activeUser.name = $("#profileEditName").value.trim();
+      const image = $(".profile-avatar-preview", $("#modalRoot"));
+      if (image?.tagName === "IMG") activeUser.avatar = image.src;
+      if (password) Object.assign(activeUser, await passwordCredentials(password));
+      try {
+        await persistState();
+        syncProfile();
+        renderPage();
+        closeModal();
+        showToast("Profil akun berhasil diperbarui.");
+      } catch (error) { showToast(`Profil gagal disimpan: ${error.message}`, true); }
+    });
+  }
+
+  async function persistState() {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    if (apiAvailable) {
+      const response = await fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+    }
   }
 
   function saveState() {
@@ -166,6 +266,25 @@
         if (cached) Object.assign(state, JSON.parse(cached));
       } catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
     }
+    if (normalizeAccountRoles()) saveState();
+  }
+
+  function normalizeAccountRoles() {
+    let changed = false;
+    const accounts = state.accounts || [];
+    const admins = accounts.filter((account) => account.role === "Administrator");
+    const keepAdmin = admins[0] || accounts.find((account) => account.email === "admin@sarprah.id") || accounts[0];
+    if (keepAdmin && keepAdmin.role !== "Administrator") { keepAdmin.role = "Administrator"; changed = true; }
+    accounts.forEach((account) => {
+      if (account !== keepAdmin && account.role === "Administrator") {
+        account.role = account.name.toLowerCase().includes("kepala") ? "Kepala Sekolah" : account.name.toLowerCase().includes("wakasek") || account.name.toLowerCase().includes("operator") ? "Wakasek Sarpras" : "Guru";
+        changed = true;
+      } else if (account.role === "User") {
+        account.role = account.name.toLowerCase().includes("kepala") ? "Kepala Sekolah" : account.name.toLowerCase().includes("wakasek") || account.name.toLowerCase().includes("operator") ? "Wakasek Sarpras" : "Guru";
+        changed = true;
+      }
+    });
+    return changed;
   }
 
   function renderNavigation() {
@@ -216,6 +335,7 @@
   }
 
   function canViewPage(key) {
+    if (key === "backup" && activeUser?.role !== "Administrator") return false;
     const permission = state.settings?.permissions?.[key] ?? (key === "accounts" || key === "school" ? "hidden" : "view");
     return activeUser?.role === "Administrator" || permission !== "hidden";
   }
@@ -236,11 +356,13 @@
     else if (page === "barcode") root.innerHTML = renderBarcode();
     else if (page === "reports") root.innerHTML = renderReports();
     else if (page === "accounts") root.innerHTML = renderAccounts();
+    else if (page === "backup") root.innerHTML = renderBackup();
     else root.innerHTML = renderCollection(page);
     if (window.lucide) lucide.createIcons({ nodes: [root] });
     if (page === "dashboard") drawChart();
     if (page === "barcode") drawBarcodes();
     bindPageEvents();
+    if (page === "backup") loadTelegramSettings();
   }
 
   function renderDashboard() {
@@ -396,13 +518,130 @@
   }
 
   function renderAccounts() {
-    const available = ["dashboard", "goods", "items", "loans", "procurements", "disposals", "reports"];
+    const available = ["dashboard", "goods", "items", "loans", "procurements", "disposals", "reports", "backup"];
     const labels = Object.fromEntries(available.map((key) => [key, meta[key][0]]));
     const mobile = state.settings.mobileNav || [];
     return `${pageHeading(canEditPage("accounts") ? `<button class="btn-primary" data-action="add"><i data-lucide="user-plus"></i>Tambah Akun</button>` : "")}
       <section class="settings-card"><h3>Akun Pengguna</h3><p>Kelola akses dan status akun yang menggunakan aplikasi.</p>${state.accounts.map((account) => `<div class="settings-row"><div style="display:flex;align-items:center;gap:10px"><span class="avatar">${esc(account.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase())}</span><div><b>${esc(account.name)} <span class="badge ${account.role === "Administrator" ? "info" : "neutral"}">${esc(account.role)}</span></b><small>${esc(account.email)}</small></div></div><div class="action-buttons">${canEditPage("accounts") ? `<button class="toggle ${account.active ? "on" : ""}" title="${account.active ? "Nonaktifkan" : "Aktifkan"}" data-action="toggle-account" data-id="${account.id}"></button><button class="mini-action" title="Ubah" data-action="edit" data-id="${account.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("accounts") ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${account.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></div>`).join("")}</section>
       <section class="settings-card"><h3>Hak Akses Menu</h3><p>Atur apakah menu dapat dilihat saja atau dapat dikelola pengguna.</p>${available.map((key) => `<div class="settings-row"><div><b>${labels[key]}</b><small>Hak akses untuk akun non-administrator</small></div><select class="table-filter permission-select" data-menu="${key}" ${canEditPage("accounts") ? "" : "disabled"}><option value="hidden" ${state.settings.permissions[key] === "hidden" ? "selected" : ""}>Tidak terlihat</option><option value="view" ${state.settings.permissions[key] === "view" ? "selected" : ""}>Lihat saja</option><option value="edit" ${state.settings.permissions[key] === "edit" ? "selected" : ""}>Lihat & edit</option><option value="delete" ${state.settings.permissions[key] === "delete" ? "selected" : ""}>Lihat, edit & hapus</option></select></div>`).join("")}</section>
       <section class="settings-card"><h3>Navigasi Mobile</h3><p>Pilih hingga 5 pintasan yang ditampilkan di navbar perangkat seluler.</p><div class="form-grid">${available.map((key) => `<label class="settings-row" style="justify-content:flex-start;border:0;padding:7px"><input class="mobile-nav-check" type="checkbox" value="${key}" ${mobile.includes(key) ? "checked" : ""} ${mobile.length >= 5 && !mobile.includes(key) || !canEditPage("accounts") ? "disabled" : ""} style="accent-color:#f27622"><b>${labels[key]}</b></label>`).join("")}</div>${canEditPage("accounts") ? `<button class="btn-primary" data-action="save-mobile"><i data-lucide="save"></i>Simpan navigasi</button>` : ""}</section>`;
+  }
+
+  function renderBackup() {
+    const editable = activeUser?.role === "Administrator";
+    return `${pageHeading(`<button class="btn-secondary" data-action="download-backup"><i data-lucide="download"></i>Backup sekarang</button><label class="btn-primary ${editable ? "" : "disabled-button"}"><i data-lucide="upload"></i>Restore backup<input id="restoreFile" type="file" accept=".json,application/json" ${editable ? "" : "disabled"} hidden></label>`)}
+      <section class="settings-card"><div class="backup-card-heading"><span class="backup-icon"><i data-lucide="hard-drive-download"></i></span><div><h3>Backup & Restore</h3><p>Buat file backup JSON atau pulihkan data aplikasi dari file backup Sarprah sebelumnya.</p></div></div>
+      <div class="backup-note"><i data-lucide="shield-check"></i><span>Restore akan mengganti seluruh data aplikasi saat ini. Buat backup terlebih dahulu sebelum memulihkan data.</span></div></section>
+      <form id="telegramSettingsForm" class="settings-card"><div class="backup-card-heading"><span class="backup-icon telegram"><i data-lucide="send"></i></span><div><h3>Backup Otomatis Telegram</h3><p>Jadwalkan pengiriman file backup JSON ke chat Telegram setiap hari.</p></div><span id="telegramStatus" class="badge neutral">Memuat pengaturan…</span></div>
+      <div class="form-grid">
+        <div class="form-field"><label for="telegramChatId">ID Telegram / Chat ID</label><input id="telegramChatId" name="chatId" inputmode="numeric" placeholder="Contoh: 123456789" required ${editable ? "" : "disabled"}></div>
+        <div class="form-field"><label for="telegramBotToken">Token Bot Telegram</label><input id="telegramBotToken" name="botToken" type="password" autocomplete="new-password" placeholder="Token disimpan terenkripsi di server" ${editable ? "" : "disabled"}><small id="telegramTokenStatus" class="form-help">Token tidak pernah ditampilkan kembali.</small></div>
+        <div class="form-field"><label for="telegramBackupTime">Waktu backup</label><input id="telegramBackupTime" name="backupTime" type="time" value="16:00" required ${editable ? "" : "disabled"}></div>
+        <div class="form-field"><label for="telegramTimezone">Zona waktu</label><select id="telegramTimezone" name="timezone" ${editable ? "" : "disabled"}><option value="Asia/Jakarta">WIB — Asia/Jakarta</option><option value="Asia/Makassar">WITA — Asia/Makassar</option><option value="Asia/Jayapura">WIT — Asia/Jayapura</option></select></div>
+        <div class="form-field full"><label class="form-check"><input id="telegramEnabled" name="enabled" type="checkbox" ${editable ? "" : "disabled"}><span>Aktifkan backup otomatis harian</span></label><small class="form-help">Jadwal awal pukul 16.00 WIB. Server harus tetap aktif agar backup terjadwal dapat dikirim.</small></div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between"><span class="form-help">Buat bot melalui @BotFather, lalu mulai chat bot dan masukkan chat ID tujuan.</span><div style="display:flex;gap:8px"><button type="button" class="btn-secondary" data-action="telegram-test" ${editable ? "" : "disabled"}><i data-lucide="send"></i>Uji koneksi</button>${editable ? `<button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan jadwal</button>` : ""}</div></div>
+      </form>`;
+  }
+
+  async function loadTelegramSettings() {
+    try {
+      const response = await fetch("/api/telegram/settings");
+      if (!response.ok) throw new Error((await response.json()).error || `HTTP ${response.status}`);
+      const config = await response.json();
+      if (page !== "backup" || !$("#telegramSettingsForm")) return;
+      $("#telegramChatId").value = config.chatId || "";
+      $("#telegramBackupTime").value = config.backupTime || "16:00";
+      $("#telegramTimezone").value = config.timezone || "Asia/Jakarta";
+      $("#telegramEnabled").checked = Boolean(config.enabled);
+      $("#telegramStatus").className = `badge ${config.enabled ? "success" : "neutral"}`;
+      $("#telegramStatus").textContent = config.enabled ? "Aktif" : "Nonaktif";
+      $("#telegramTokenStatus").textContent = config.tokenConfigured ? "Token bot tersimpan terenkripsi. Isi hanya jika ingin menggantinya." : "Token belum disimpan. Token tidak pernah ditampilkan kembali.";
+      $("#telegramBotToken").placeholder = config.tokenConfigured ? "Token telah tersimpan (kosongkan untuk mempertahankan)" : "Tempel token dari @BotFather";
+    } catch (error) {
+      if ($("#telegramStatus")) {
+        $("#telegramStatus").className = "badge danger";
+        $("#telegramStatus").textContent = "Server tidak tersedia";
+        showToast(`Pengaturan Telegram tidak dapat dimuat: ${error.message}`, true);
+      }
+    }
+  }
+
+  async function saveTelegramSettings(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const payload = {
+      chatId: form.elements.chatId.value.trim(),
+      botToken: form.elements.botToken.value.trim(),
+      backupTime: form.elements.backupTime.value,
+      timezone: form.elements.timezone.value,
+      enabled: form.elements.enabled.checked
+    };
+    try {
+      const response = await fetch("/api/telegram/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+      form.elements.botToken.value = "";
+      await loadTelegramSettings();
+      showToast("Pengaturan backup Telegram berhasil disimpan.");
+    } catch (error) { showToast(`Pengaturan Telegram gagal disimpan: ${error.message}`, true); }
+  }
+
+  async function testTelegram() {
+    try {
+      const response = await fetch("/api/telegram/test", { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+      showToast("Pesan uji berhasil dikirim ke Telegram.");
+    } catch (error) { showToast(`Uji koneksi Telegram gagal: ${error.message}`, true); }
+  }
+
+  async function downloadBackup() {
+    try {
+      let backup;
+      if (apiAvailable) {
+        const response = await fetch("/api/backup");
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || `HTTP ${response.status}`);
+        }
+        backup = await response.json();
+      } else backup = { app: "Sarprah", formatVersion: 1, createdAt: new Date().toISOString(), state };
+      const file = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(file);
+      link.download = `sarprah-backup-${backup.createdAt.slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      showToast("File backup berhasil dibuat.");
+    } catch (error) { showToast(`Backup gagal dibuat: ${error.message}`, true); }
+  }
+
+  async function restoreBackup(file) {
+    try {
+      if (file.size > 5_000_000) throw new Error("Ukuran file backup maksimal 5 MB.");
+      const backup = JSON.parse(await file.text());
+      const backupState = backup?.state;
+      if (!backupState || !Array.isArray(backupState.goods) || !Array.isArray(backupState.items) ||
+          !Array.isArray(backupState.accounts) || !backupState.school || typeof backupState.school !== "object") {
+        throw new Error("Format file backup tidak valid.");
+      }
+      if (backupState.accounts.filter((account) => account.role === "Administrator").length !== 1) {
+        throw new Error("Backup harus memiliki tepat satu akun Administrator.");
+      }
+      if (!window.confirm("Restore akan mengganti seluruh data aplikasi. Lanjutkan?")) return;
+      if (apiAvailable) {
+        const response = await fetch("/api/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(backup) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+      }
+      Object.keys(state).forEach((key) => { if (!(key in backupState)) delete state[key]; });
+      Object.assign(state, backupState);
+      await persistState();
+      activeUser = getById("accounts", activeUser.id) || activeUser;
+      showToast("Data berhasil dipulihkan dari backup.");
+      renderNavigation(); navigate("dashboard");
+    } catch (error) { showToast(`Restore gagal: ${error.message}`, true); }
   }
 
   function formInput(name, label, value, type = "text", required = false) {
@@ -428,6 +667,7 @@
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
       if (type === "textarea") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><textarea id="${idAttr}" name="${name}" ${required ? "required" : ""}>${esc(value)}</textarea></div>`;
+      if (type === "password") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${key === "accounts" && !record && name === "password" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="password" autocomplete="new-password" ${key === "accounts" && !record && name === "password" ? "required minlength=\"8\"" : ""}></div>`;
       if (type === "file") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}</label><div class="file-drop"><i data-lucide="image-plus"></i><span>Pilih foto bukti</span><input id="${idAttr}" name="${name}" type="file" accept="image/*" class="form-file"><img class="file-preview ${record?.[name] ? "" : "hidden"}" src="${esc(record?.[name] || "")}" alt="Pratinjau bukti"></div><small class="form-help">Pratinjau 120 × 120 px · maksimal 2 MB.</small></div>`;
       return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${type}" value="${esc(value)}" ${required ? "required" : ""} ${type === "number" ? 'min="0"' : ""}></div>`;
     }).join("");
@@ -496,6 +736,7 @@
       if (!input) continue;
       if (type === "checkbox") data[name] = input.checked;
       else if (type === "number") data[name] = Number(input.value || 0);
+      else if (type === "password") continue;
       else if (type === "file") {
         if (input.files?.[0]) {
           if (input.files[0].size > 2_000_000) { showToast("Ukuran gambar maksimal 2 MB.", true); return; }
@@ -507,6 +748,19 @@
           }); } catch (error) { showToast(`File bukti tidak dapat dibaca: ${error.message}`, true); return; }
         }
       } else data[name] = input.value.trim();
+    }
+    if (key === "accounts") {
+      const emailTaken = state.accounts.some((account) => account.id !== old?.id && account.email.toLowerCase() === data.email.toLowerCase());
+      if (emailTaken) { showToast("Email tersebut sudah digunakan akun lain.", true); return; }
+      const adminExists = state.accounts.some((account) => account.id !== old?.id && account.role === "Administrator");
+      if (data.role === "Administrator" && adminExists) { showToast("Aplikasi hanya dapat memiliki satu akun Administrator.", true); return; }
+      if (old?.role === "Administrator" && data.role !== "Administrator" && !adminExists) { showToast("Administrator terakhir tidak dapat diturunkan rolenya.", true); return; }
+      const password = form.elements.password?.value || "";
+      const confirmPassword = form.elements.passwordConfirm?.value || "";
+      if (!old && password.length < 8) { showToast("Kata sandi akun baru minimal 8 karakter.", true); return; }
+      if (password && password.length < 8) { showToast("Kata sandi minimal 8 karakter.", true); return; }
+      if (password && password !== confirmPassword) { showToast("Konfirmasi kata sandi tidak cocok.", true); return; }
+      if (password) Object.assign(data, await passwordCredentials(password));
     }
     if (key === "usages") data.status = "Pengajuan";
     if (key === "usages") {
@@ -547,6 +801,7 @@
     }
     if (old) Object.assign(old, data);
     else state[key].unshift(data);
+    if (key === "accounts" && old?.id === activeUser?.id) syncProfile();
     saveState();
     closeModal();
     showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
@@ -573,6 +828,9 @@
     } else if (action === "delete") {
       if (!canDeletePage()) return showToast("Akun Anda tidak memiliki izin menghapus data.", true);
       const record = getById(page, button.dataset.id);
+      if (page === "accounts" && record?.role === "Administrator" && state.accounts.filter((account) => account.role === "Administrator").length <= 1) {
+        return showToast("Administrator terakhir tidak dapat dihapus.", true);
+      }
       if (record && window.confirm(`Hapus data "${record.name || record.title || record.code || "ini"}"? Tindakan ini tidak dapat dibatalkan.`)) {
         state[page] = state[page].filter((row) => row.id !== record.id);
         saveState(); showToast("Data berhasil dihapus."); renderPage();
@@ -582,6 +840,11 @@
     else if (action === "export-report") exportReport();
     else if (action === "export" || action === "export-dashboard") exportRows(page);
     else if (action === "barcode-options") barcodeOptionsModal();
+    else if (action === "download-backup") downloadBackup();
+    else if (action === "telegram-test") testTelegram();
+    else if (action === "account-preview") showAccountPreview();
+    else if (action === "edit-profile") showProfileEditor();
+    else if (action === "logout") logout();
     else if (action === "select-all") $$(".barcode-check").forEach((check) => { check.checked = true; });
     else if (action === "save-mobile") saveMobileNavigation();
   }
@@ -647,6 +910,18 @@
       reader.onload = () => { data.logo = reader.result; commit(); };
       reader.onerror = () => showToast("File logo tidak dapat dibaca.", true);
       reader.readAsDataURL(file);
+    });
+    $("#telegramSettingsForm")?.addEventListener("submit", saveTelegramSettings);
+    $("#restoreFile")?.addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (file) restoreBackup(file);
+      event.target.value = "";
+    });
+    $("#telegramSettingsForm")?.addEventListener("submit", saveTelegramSettings);
+    $("#restoreFile")?.addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (file) restoreBackup(file);
+      event.target.value = "";
     });
     $("#unitImport")?.addEventListener("change", importUnits);
     const updateReport = () => {
@@ -794,7 +1069,16 @@
   }
 
   function setup() {
-    $("#menuToggle").addEventListener("click", () => { $("#sidebar").classList.add("open"); $("#sidebarOverlay").classList.add("visible"); });
+    const collapsed = localStorage.getItem("sarprah-sidebar-collapsed") === "true";
+    $("#sidebar").classList.toggle("is-collapsed", collapsed);
+    $("#appShell").classList.toggle("sidebar-is-collapsed", collapsed);
+    $("#menuToggle").addEventListener("click", () => {
+      const next = !$("#sidebar").classList.contains("is-collapsed");
+      $("#sidebar").classList.toggle("is-collapsed", next);
+      $("#appShell").classList.toggle("sidebar-is-collapsed", next);
+      localStorage.setItem("sarprah-sidebar-collapsed", String(next));
+    });
+    $("#mobileMenuToggle").addEventListener("click", () => { $("#sidebar").classList.add("open"); $("#sidebarOverlay").classList.add("visible"); });
     $("#closeSidebar").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });
     $("#sidebarOverlay").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });
     $("#searchTrigger").addEventListener("click", () => {
@@ -809,16 +1093,43 @@
       };
       input.addEventListener("input", update); update(); input.focus();
     });
-    $("#profileButton").addEventListener("click", logout);
-    $("#topbarUser").addEventListener("click", logout);
-    $("#loginForm").addEventListener("submit", (event) => {
+    $("#profileButton").addEventListener("click", showAccountPreview);
+    $("#topbarUser").addEventListener("click", showAccountPreview);
+    $("#loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = $("#loginEmail").value.trim().toLowerCase(), password = $("#loginPassword").value;
+      $("#loginError").textContent = "";
+      let online = false;
+      try {
+        const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+        if (!response.ok) {
+          const result = await response.json();
+          $("#loginError").textContent = result.error || "Email atau kata sandi tidak sesuai.";
+          return;
+        }
+        online = true;
+        apiAvailable = true;
+        await loadState();
+      } catch {
+        apiAvailable = false;
+      }
       const account = state.accounts.find((row) => row.email.toLowerCase() === email && row.active);
-      if (account && ((email === "admin@sarprah.id" && password === "sarprah123") || password.length >= 6)) {
-        activeUser = account; sessionStorage.setItem("sarprah-user", JSON.stringify({ id: account.id, name: account.name, role: account.role }));
-        enterApp();
-      } else $("#loginError").textContent = "Email atau kata sandi tidak sesuai.";
+      const validOffline = !online && account && ((email === "admin@sarprah.id" && password === "sarprah123" && !account.passwordHash) || await verifyPassword(account, password));
+      if (!online && !validOffline) {
+        $("#loginError").textContent = apiAvailable ? "Email atau kata sandi tidak sesuai." : "Server tidak tersedia. Periksa koneksi atau gunakan akun lokal yang tersimpan.";
+        return;
+      }
+      if (!account) { $("#loginError").textContent = "Akun tidak ditemukan pada data aplikasi."; return; }
+      activeUser = account;
+      if (!account.passwordHash) {
+        Object.assign(account, await passwordCredentials(password));
+        if (online) {
+          try { await persistState(); }
+          catch (error) { $("#loginError").textContent = `Kredensial tidak dapat disimpan: ${error.message}`; return; }
+        } else saveState();
+      }
+      sessionStorage.setItem("sarprah-user", JSON.stringify({ id: account.id }));
+      enterApp();
     });
     document.addEventListener("keydown", (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); $("#searchTrigger").click(); }
@@ -841,15 +1152,15 @@
 
   function enterApp() {
     $("#loginScreen").classList.add("hidden"); $("#appShell").classList.remove("hidden");
-    $("#profileName").textContent = activeUser?.name || "Admin Sekolah";
-    const initials = (activeUser?.name || "Admin").split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
-    $$(".avatar").forEach((node) => { node.textContent = initials; });
+    activeUser = getById("accounts", activeUser?.id) || activeUser;
+    syncProfile();
     $("#sidebarSchool").textContent = state.school.name;
     renderNavigation(); navigate(page);
   }
 
-  function logout() {
+  async function logout() {
     if (!window.confirm("Keluar dari aplikasi Sarprah?")) return;
+    try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* Local mode has no server session. */ }
     sessionStorage.removeItem("sarprah-user"); activeUser = null;
     $("#appShell").classList.add("hidden"); $("#loginScreen").classList.remove("hidden");
     if (window.lucide) lucide.createIcons({ nodes: [$("#loginScreen")] });
@@ -857,10 +1168,22 @@
 
   async function init() {
     setup();
-    await loadState();
-    const savedUser = sessionStorage.getItem("sarprah-user");
-    if (savedUser) {
-      try { activeUser = JSON.parse(savedUser); } catch { sessionStorage.removeItem("sarprah-user"); }
+    let sessionUser = null;
+    try {
+      const response = await fetch("/api/auth/session");
+      if (response.ok) sessionUser = (await response.json()).user;
+      if (sessionUser) {
+        apiAvailable = true;
+        await loadState();
+        activeUser = getById("accounts", sessionUser.id);
+      } else {
+        apiAvailable = true;
+        const cached = localStorage.getItem(STORE_KEY);
+        if (cached) Object.assign(state, JSON.parse(cached));
+      }
+    } catch {
+      apiAvailable = false;
+      await loadState();
     }
     if (activeUser) enterApp();
     else {

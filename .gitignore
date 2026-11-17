@@ -2,4 +2,5 @@ node_modules/
 sarprah.sqlite
 sarprah.sqlite-shm
 sarprah.sqlite-wal
+.sarprah-key
 .env
