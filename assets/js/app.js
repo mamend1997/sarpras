@@ -2,6 +2,7 @@
   "use strict";
 
   const STORE_KEY = "sarprah-state-v1";
+  const PENDING_STATE_KEY = "sarprah-pending-server-state-v1";
   const pendingAccountKey = (accountId) => `${STORE_KEY}:pending-account:${accountId}`;
   const today = new Date();
   const dateOffset = (days) => new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
@@ -83,6 +84,7 @@
   let goodsCheckTimer = null;
   let mobileNavDraft = null;
   let mobileNavHighlightDraft = null;
+  let pendingStateRecovery = null;
   let searchTerm = "";
   let selectedFilter = "Semua";
   let chartPeriod = "12";
@@ -176,6 +178,38 @@
 
   function clearPendingLocalAccount(account) {
     localStorage.removeItem(pendingAccountKey(account.id));
+  }
+
+  function cachePendingServerState() {
+    try {
+      localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(state));
+      return true;
+    } catch (error) {
+      showToast(`Perubahan belum tersinkron dan salinan pemulihan gagal disimpan: ${error.message}`, true);
+      return false;
+    }
+  }
+
+  function handleStateSyncFailure(status, detail = "") {
+    apiAvailable = false;
+    cachePendingServerState();
+    const reason = status === 401
+      ? "Sesi server berakhir (401)."
+      : status ? `Server menolak sinkronisasi (HTTP ${status}).` : "Server tidak dapat dijangkau.";
+    showToast(`${reason} Perubahan disimpan lokal; login sebagai Administrator untuk memulihkan atau menggunakan data server.${detail ? ` ${detail}` : ""}`, true);
+  }
+
+  function readPendingServerState() {
+    const stored = localStorage.getItem(PENDING_STATE_KEY);
+    if (!stored) return null;
+    try {
+      const snapshot = JSON.parse(stored);
+      if (!snapshot || typeof snapshot !== "object" || !Array.isArray(snapshot.accounts)) throw new Error("Struktur salinan pemulihan tidak valid.");
+      return snapshot;
+    } catch (error) {
+      showToast(`Salinan pemulihan lokal tidak dapat dibaca: ${error.message}`, true);
+      return null;
+    }
   }
 
   async function passwordCredentials(password) {
@@ -464,18 +498,33 @@
       const response = await fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || `HTTP ${response.status}`);
+        handleStateSyncFailure(response.status, error.error || "");
+        return false;
       }
+    } else if (localStorage.getItem(PENDING_STATE_KEY)) {
+      cachePendingServerState();
     }
+    return true;
   }
 
   function saveState() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
     catch (error) { showToast(`Penyimpanan lokal gagal: ${error.message}`, true); }
+    if (!apiAvailable) {
+      if (localStorage.getItem(PENDING_STATE_KEY)) cachePendingServerState();
+      return;
+    }
     if (apiAvailable) {
       fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) })
-        .then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); })
-        .catch((error) => { apiAvailable = false; showToast(`SQLite tidak dapat diperbarui (${error.message}); data tetap tersimpan lokal.`, true); });
+        .then(async (response) => {
+          if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            const error = new Error(result.error || `HTTP ${response.status}`);
+            error.status = response.status;
+            throw error;
+          }
+        })
+        .catch((error) => handleStateSyncFailure(error.status || 0, error.status ? error.message : error.message));
     }
   }
 
@@ -1699,6 +1748,10 @@
         showToast(`${selectedRows.length} data berhasil dihapus.`);
         renderPage();
       }
+    } else if (action === "restore-pending-state") {
+      restorePendingServerState();
+    } else if (action === "discard-pending-state") {
+      discardPendingServerState();
     } else if (action === "move-mobile-nav") {
       if (!canEditPage("accounts")) return showToast("Akun Anda tidak memiliki izin mengubah navigasi.", true);
       const currentIndex = mobileNavDraft?.indexOf(button.dataset.key) ?? -1;
@@ -2175,6 +2228,46 @@
     saveState(); renderMobileNav(); renderPage(); showToast("Urutan dan navigasi mobile berhasil disimpan.");
   }
 
+  function showPendingServerStateRecovery() {
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="pendingStateTitle"><div class="modal-header"><div><h2 id="pendingStateTitle">Perubahan lokal belum tersinkron</h2><p>Ada salinan data dari sesi sebelumnya yang ditolak server. Pilih cara melanjutkan.</p></div><button class="modal-close" data-action="close" aria-label="Tutup"><i data-lucide="x"></i></button></div><div class="modal-form"><div class="notice-card"><i data-lucide="triangle-alert"></i><span>Memulihkan data lokal akan mengganti seluruh data di server dengan salinan ini. Perubahan dari pengguna lain setelah sesi berakhir dapat tertimpa.</span></div><div class="modal-footer"><button class="btn-quiet" type="button" data-action="discard-pending-state">Gunakan data server</button><button class="btn-primary" type="button" data-action="restore-pending-state"><i data-lucide="cloud-upload"></i>Pulihkan data lokal</button></div></div></section></div>`);
+  }
+
+  async function restorePendingServerState() {
+    if (!pendingStateRecovery) return showToast("Salinan pemulihan lokal tidak tersedia.", true);
+    if (activeUser?.role !== "Administrator") return showToast("Hanya Administrator yang dapat memulihkan data ke server.", true);
+    if (!apiAvailable) return showToast("Sesi server belum aktif. Keluar lalu login kembali sebagai Administrator untuk mencoba sinkronisasi.", true);
+    const snapshot = structuredClone(pendingStateRecovery);
+    const serverAdmin = state.accounts.find((account) => account.id === activeUser.id && account.role === "Administrator");
+    if (!serverAdmin) return showToast("Akun Administrator server tidak ditemukan. Data lokal tetap tersimpan.", true);
+    const localAdmin = snapshot.accounts.find((account) => account.email?.toLowerCase() === serverAdmin.email.toLowerCase());
+    snapshot.accounts = snapshot.accounts.filter((account) => account.id !== serverAdmin.id && account.email?.toLowerCase() !== serverAdmin.email.toLowerCase());
+    snapshot.accounts.unshift({ ...serverAdmin, ...(localAdmin || {}), id: serverAdmin.id, email: serverAdmin.email, role: "Administrator", active: true });
+    Object.assign(state, snapshot);
+    normalizeAccountRoles();
+    try {
+      const synced = await persistState();
+      if (!synced) return;
+      localStorage.removeItem(PENDING_STATE_KEY);
+      snapshot.accounts.forEach(clearPendingLocalAccount);
+      pendingStateRecovery = null;
+      closeModal();
+      activeUser = getById("accounts", serverAdmin.id);
+      enterApp();
+      showToast("Data lokal berhasil dipulihkan ke server.");
+    } catch (error) {
+      showToast(`Pemulihan data gagal: ${error.message}. Data lokal tetap tersimpan.`, true);
+    }
+  }
+
+  function discardPendingServerState() {
+    if (!pendingStateRecovery) return;
+    pendingStateRecovery.accounts.forEach(clearPendingLocalAccount);
+    localStorage.removeItem(PENDING_STATE_KEY);
+    pendingStateRecovery = null;
+    closeModal();
+    showToast("Data server digunakan. Salinan lokal yang belum tersinkron dihapus.");
+  }
+
   function drawChart() {
     const canvas = $("#inventoryChart");
     if (!canvas) return;
@@ -2305,9 +2398,11 @@
       event.preventDefault();
       const email = $("#loginEmail").value.trim().toLowerCase(), password = $("#loginPassword").value;
       $("#loginError").textContent = "";
+      const localStateRecovery = readPendingServerState();
       const pendingLocalAccounts = state.accounts.filter(isPendingLocalAccount);
       let online = false;
       let pendingLocalLogin = false;
+      let authenticatedRole = "";
       try {
         const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
         if (!response.ok) {
@@ -2323,8 +2418,9 @@
           const auth = await response.json();
           online = true;
           apiAvailable = true;
+          authenticatedRole = auth.user?.role || "";
           await loadState();
-          if (apiAvailable && auth.user?.role === "Administrator" && pendingLocalAccounts.length) {
+          if (apiAvailable && authenticatedRole === "Administrator" && !localStateRecovery && pendingLocalAccounts.length) {
             const syncedIds = [];
             pendingLocalAccounts.forEach((account) => {
               const exists = state.accounts.some((row) => row.id === account.id || row.email.toLowerCase() === account.email.toLowerCase());
@@ -2332,8 +2428,8 @@
               syncedIds.push(account);
             });
             try {
-              await persistState();
-              syncedIds.forEach(clearPendingLocalAccount);
+              const synced = await persistState();
+              if (synced) syncedIds.forEach(clearPendingLocalAccount);
             } catch (error) {
               apiAvailable = false;
               showToast(`Akun lokal belum tersinkron ke server: ${error.message}`, true);
@@ -2361,6 +2457,12 @@
       sessionStorage.setItem("sarprah-user", JSON.stringify({ id: account.id }));
       enterApp();
       if (pendingLocalLogin) showToast("Akun masuk dalam mode lokal dan menunggu sinkronisasi Administrator.");
+      else if (online && localStateRecovery && authenticatedRole === "Administrator" && apiAvailable) {
+        pendingStateRecovery = localStateRecovery;
+        showPendingServerStateRecovery();
+      } else if (online && localStateRecovery) {
+        showToast("Ada perubahan lokal yang belum tersinkron. Minta Administrator login untuk memulihkan data.", true);
+      }
     });
     document.addEventListener("keydown", (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openTopbarSearch(); }
