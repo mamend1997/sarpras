@@ -193,7 +193,7 @@
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
-    repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan", "file", true], ["goodId", "Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
+    repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan (opsional)", "file"], ["goodId", "Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
     maintenanceSchedules: { title: "Jadwal Pemeliharaan", description: "Atur jadwal perawatan dan pengecekan barang.", singular: "Jadwal", cols: [["date", "Tanggal"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["type", "Jenis Perawatan"], ["technician", "Teknisi"], ["description", "Deskripsi"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["type", "Jenis Perawatan", "select", true, maintenanceTypes], ["date", "Tanggal", "date", true], ["technician", "Nama Teknisi (opsional)", "text"], ["description", "Deskripsi", "textarea"]] },
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
@@ -1537,6 +1537,21 @@
     return months;
   }
 
+  function renderCalendarSelectedDayPanel() {
+    const schedules = recordsForCurrentAcademicYear("maintenanceSchedules")
+      .filter((schedule) => schedule.date === calendarSelectedDate)
+      .sort((a, b) => String(a.type).localeCompare(String(b.type)));
+    const scheduleCards = schedules.map((schedule) => {
+      const typeClass = maintenanceTypeClasses[schedule.type] || "routine";
+      return `<article class="calendar-schedule-card ${typeClass}"><div class="calendar-schedule-card-top"><span class="maintenance-type-label ${typeClass}">${esc(schedule.type)}</span><span class="calendar-schedule-actions">${canEditPage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Edit jadwal" title="Edit jadwal" data-action="edit-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Hapus jadwal" title="Hapus jadwal" data-action="delete-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="trash-2"></i></button>` : ""}</span></div><h4>${esc(titleOfGood(schedule.goodId))}</h4><p>${esc(schedule.quantity)} unit · ${esc(relatedName("locations", schedule.locationId))}</p>${schedule.technician ? `<p><i data-lucide="user-round"></i>Teknisi: ${esc(schedule.technician)}</p>` : ""}${schedule.description ? `<p class="calendar-schedule-description">${esc(schedule.description)}</p>` : ""}</article>`;
+    }).join("");
+    const addScheduleButton = canEditPage("maintenanceCalendar")
+      ? `<button class="btn-secondary calendar-add-day" data-action="add-calendar-schedule" data-date="${esc(calendarSelectedDate)}"><i data-lucide="plus"></i>Tambah jadwal tanggal ini</button>` : "";
+    const selectedDateTitle = calendarSelectedDate ? niceDate(calendarSelectedDate) : "Pilih tanggal";
+    return `<div class="calendar-day-panel-header"><span class="eyebrow">JADWAL TERPILIH</span><h3>${esc(selectedDateTitle)}</h3></div>${addScheduleButton}
+      <div class="calendar-schedule-list">${scheduleCards || `<div class="calendar-empty-day"><i data-lucide="calendar-days"></i><p>Belum ada jadwal pada tanggal ini.</p><small>Klik tanggal pada kalender untuk melihat jadwal.</small></div>`}</div>`;
+  }
+
   function renderMaintenanceCalendar() {
     const schedules = recordsForCurrentAcademicYear("maintenanceSchedules");
     const academicYear = state.academicYears.find((year) => year.id === currentAcademicYearId());
@@ -1547,13 +1562,6 @@
     const monthGrid = calendarViewMode === "month"
       ? calendarMonthMarkup(cursorYear, cursorMonth - 1, schedules)
       : academicYearMonths(academicYear).map(({ year, month }) => calendarMonthMarkup(year, month, schedules, true, academicYear)).join("");
-    const selectedSchedules = schedules.filter((schedule) => schedule.date === calendarSelectedDate).sort((a, b) => String(a.type).localeCompare(String(b.type)));
-    const scheduleCards = selectedSchedules.map((schedule) => {
-      const typeClass = maintenanceTypeClasses[schedule.type] || "routine";
-      return `<article class="calendar-schedule-card ${typeClass}"><div class="calendar-schedule-card-top"><span class="maintenance-type-label ${typeClass}">${esc(schedule.type)}</span><span class="calendar-schedule-actions">${canEditPage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Edit jadwal" title="Edit jadwal" data-action="edit-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Hapus jadwal" title="Hapus jadwal" data-action="delete-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="trash-2"></i></button>` : ""}</span></div><h4>${esc(titleOfGood(schedule.goodId))}</h4><p>${esc(schedule.quantity)} unit · ${esc(relatedName("locations", schedule.locationId))}</p>${schedule.technician ? `<p><i data-lucide="user-round"></i>Teknisi: ${esc(schedule.technician)}</p>` : ""}${schedule.description ? `<p class="calendar-schedule-description">${esc(schedule.description)}</p>` : ""}</article>`;
-    }).join("");
-    const addScheduleButton = canEditPage("maintenanceCalendar")
-      ? `<button class="btn-secondary calendar-add-day" data-action="add-calendar-schedule" data-date="${esc(calendarSelectedDate)}"><i data-lucide="plus"></i>Tambah jadwal tanggal ini</button>` : "";
     const currentLabel = calendarViewMode === "month"
       ? monthTitle(cursorYear, cursorMonth - 1)
       : academicYear?.name || "Tahun pelajaran belum tersedia";
@@ -1561,13 +1569,11 @@
       ? `<button class="mini-action" aria-label="Bulan sebelumnya" data-action="calendar-month-prev"><i data-lucide="chevron-left"></i></button><h2>${esc(currentLabel)}</h2><button class="mini-action" aria-label="Bulan berikutnya" data-action="calendar-month-next"><i data-lucide="chevron-right"></i></button>`
       : `<h2><i data-lucide="calendar-days"></i>${esc(currentLabel)}</h2>`;
     const legend = maintenanceTypes.map((type) => `<span class="calendar-legend-item"><i class="calendar-event-dot ${maintenanceTypeClasses[type]}"></i>${esc(type)}</span>`).join("");
-    const selectedDateTitle = calendarSelectedDate ? niceDate(calendarSelectedDate) : "Pilih tanggal";
     return `${pageHeading(canEditPage("maintenanceCalendar") ? `<button class="btn-primary" data-action="add-calendar-schedule"><i data-lucide="plus"></i>Tambah Jadwal</button>` : "")}
       <div class="maintenance-calendar-layout"><section class="panel maintenance-calendar-panel"><div class="maintenance-calendar-toolbar"><label for="calendarViewMode">Tampilan kalender</label><select class="table-filter" id="calendarViewMode"><option value="month" ${calendarViewMode === "month" ? "selected" : ""}>Per Bulan</option><option value="academicYear" ${calendarViewMode === "academicYear" ? "selected" : ""}>Satu Tahun Pelajaran</option></select><div class="calendar-period-navigation">${navigation}</div></div>
       ${calendarViewMode === "academicYear" && !academicYear ? `<div class="empty-state">Tambahkan tahun pelajaran terlebih dahulu.</div>` : `<div class="${calendarViewMode === "academicYear" ? "academic-year-calendar-grid" : "calendar-single-month"}">${monthGrid}</div>`}
       <div class="calendar-legend">${legend}</div></section>
-      <aside class="panel calendar-day-panel"><div class="calendar-day-panel-header"><span class="eyebrow">JADWAL TERPILIH</span><h3>${esc(selectedDateTitle)}</h3></div>${addScheduleButton}
-      <div class="calendar-schedule-list">${scheduleCards || `<div class="calendar-empty-day"><i data-lucide="calendar-days"></i><p>Belum ada jadwal pada tanggal ini.</p><small>Klik tanggal pada kalender untuk melihat jadwal.</small></div>`}</div></aside></div>`;
+      <aside class="panel calendar-day-panel">${renderCalendarSelectedDayPanel()}</aside></div>`;
   }
 
   function matchesSearch(key, row, query) {
@@ -1962,7 +1968,7 @@
       || getById("locations", record?.locationId)?.academicYearId
       || currentAcademicYearId();
     const scanPanel = !record && ["usages", "stocktakes", "loans", "procurements", "disposals", "depreciations"].includes(key)
-      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "item"}</b><small>${key === "usages" ? "Pindai barcode BHP atau pilih barang secara manual dari daftar." : "Pindai kode QR/barcode item atau masukkan kodenya untuk mengisi barang secara otomatis."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh: E.1-T.1-L1-KS.1"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
+      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "barang atau item"}</b><small>${key === "usages" ? "Pindai barcode barang BHP atau pilih barang secara manual dari daftar." : "Pindai kode barcode barang atau kode unik item untuk mengisi pilihan secara otomatis."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh barcode BRG-00001 atau kode item"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const loanDuration = record?.durationDays ?? (record?.startDate && record?.dueDate ? Math.max(1, daysBetweenDates(record.startDate, record.dueDate)) : 1);
     const depreciationPeriodType = record?.periodType || (record ? "Tahunan" : "Bulanan");
@@ -2022,6 +2028,8 @@
       const help = key === "loans" && name === "quantity"
         ? `<small class="form-help" id="loanAvailableQuantity" aria-live="polite"></small>`
         : key === "usages" && name === "quantity" ? `<small class="form-help" id="usageAvailableQuantity" aria-live="polite"></small>`
+        : key === "repairTickets" && name === "quantity" ? `<small class="form-help" id="repairTicketAvailableQuantity" aria-live="polite"></small>`
+        : key === "maintenanceSchedules" && name === "quantity" ? `<small class="form-help" id="maintenanceScheduleAvailableQuantity" aria-live="polite"></small>`
         : key === "stocktakes" && name === "newStock" ? `<small class="form-help">Maksimal stok baru mengikuti jumlah stok awal.</small>`
         : key === "disposals" && name === "quantity" ? `<small class="form-help" id="disposalAvailableQuantity" aria-live="polite"></small>` : "";
       return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : numberAttributes}>${help}</div>`;
@@ -2045,6 +2053,10 @@
     if (form && form.dataset.collection === "depreciations") setupDepreciationForm(form);
     if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
     if (form && form.dataset.collection === "usages") setupUsageForm(form);
+    if (form && ["repairTickets", "maintenanceSchedules"].includes(form.dataset.collection)) {
+      const helpId = form.dataset.collection === "repairTickets" ? "repairTicketAvailableQuantity" : "maintenanceScheduleAvailableQuantity";
+      setupGoodQuantityLimitForm(form, helpId);
+    }
     if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
     const fileInput = $(".form-file", $("#modalRoot"));
     fileInput?.addEventListener("change", () => {
@@ -2391,6 +2403,31 @@
     updateUsageDetails();
   }
 
+  function setupGoodQuantityLimitForm(form, helpId) {
+    const goodSelect = form.elements.goodId;
+    const quantityInput = form.elements.quantity;
+    const availability = $(`#${helpId}`, form);
+    if (!goodSelect || !quantityInput) return;
+    const updateAvailability = () => {
+      const good = getById("goods", goodSelect.value);
+      const stock = good ? Math.max(0, Number(good.quantity) || 0) : 0;
+      quantityInput.max = String(stock);
+      quantityInput.setCustomValidity(good && stock < 1
+        ? "Stok barang tidak tersedia."
+        : good && Number(quantityInput.value) > stock
+          ? `Maksimal stok barang adalah ${stock}.`
+          : "");
+      if (availability) {
+        availability.textContent = good
+          ? `Stok tersedia: ${stock}. Jumlah barang tidak boleh melebihi stok.`
+          : "Pilih barang untuk melihat stok yang tersedia.";
+      }
+    };
+    goodSelect.addEventListener("change", updateAvailability);
+    quantityInput.addEventListener("input", updateAvailability);
+    updateAvailability();
+  }
+
   function setupRecordBarcodeScanner(form) {
     const key = form.dataset.collection;
     const input = $("#barcodeScanCode", form);
@@ -2408,23 +2445,24 @@
       const normalizedCode = code.toLowerCase();
       const currentGoods = recordsForAcademicYear("goods");
       const currentGoodIds = new Set(currentGoods.map((good) => good.id));
-      const item = state.items.find((row) => currentGoodIds.has(row.goodId) && row.code.toLowerCase() === normalizedCode);
+      const item = state.items.find((row) => currentGoodIds.has(row.goodId) && String(row.code || "").toLowerCase() === normalizedCode);
+      const scannedGood = currentGoods.find((row) => String(row.barcode || "").trim().toLowerCase() === normalizedCode);
       const scannedBhpGood = key === "usages"
         ? currentGoods.find((row) => isBhp(row) && [row.barcode, row.id, row.name].some((candidate) => String(candidate || "").trim().toLowerCase() === normalizedCode))
         : null;
-      const good = key === "usages" ? (item ? getById("goods", item.goodId) : scannedBhpGood) : (item ? getById("goods", item.goodId) : null);
+      const good = key === "usages" ? (item ? getById("goods", item.goodId) : scannedBhpGood) : (item ? getById("goods", item.goodId) : scannedGood);
       if (!good) {
-        const message = key === "usages" ? "Barcode BHP tidak dikenali. Pilih barang secara manual." : `Kode "${code}" tidak ditemukan di data item.`;
+        const message = key === "usages" ? "Barcode BHP tidak dikenali. Pilih barang secara manual." : `Kode "${code}" tidak ditemukan di data barang atau item.`;
         setStatus(message, true);
         showToast(key === "usages" ? message : `Barcode "${code}" tidak dikenali.`, true);
         return false;
       }
-      if (key === "loans" && item.condition !== "Baik") {
+      if (key === "loans" && item && item.condition !== "Baik") {
         setStatus("Item tidak berkondisi baik dan tidak dapat dipinjam.", true);
         showToast("Pilih item dengan kondisi baik untuk peminjaman.", true);
         return false;
       }
-      if (key === "disposals" && item.condition !== "Rusak") {
+      if (key === "disposals" && item && item.condition !== "Rusak") {
         setStatus("Item tidak berkondisi rusak dan tidak dapat diajukan untuk pemusnahan.", true);
         showToast("Pindai item dengan kondisi rusak untuk pemusnahan.", true);
         return false;
@@ -2455,13 +2493,13 @@
         if (changed) goodSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
       const locationSelect = form.elements.locationId;
-      if (locationSelect && item.locationId && [...locationSelect.options].some((option) => option.value === item.locationId)) {
+      if (locationSelect && item?.locationId && [...locationSelect.options].some((option) => option.value === item.locationId)) {
         locationSelect.value = item.locationId;
       }
       if (key === "loans" && form.elements.quantity) form.elements.quantity.value = "1";
       const stock = `${good.quantity} ${relatedName("units", good.unitId)}`;
       const loanAvailability = key === "loans" ? ` · Tersedia untuk dipinjam: ${loanFormAvailableQuantity(good.id, form.dataset.record)}` : "";
-      setStatus(`${item.code} · ${good.name} · Stok saat ini: ${stock}${loanAvailability}.`);
+      setStatus(`${item?.code || good.barcode} · ${good.name} · Stok saat ini: ${stock}${loanAvailability}.`);
       return true;
     };
 
@@ -2688,12 +2726,13 @@
         showToast("Jumlah barang pada tiket minimal 1 unit.", true);
         return;
       }
-      if (!["Rendah", "Sedang", "Tinggi", "Urgent"].includes(data.priority)) {
-        showToast("Pilih prioritas tiket yang valid.", true);
+      const availableStock = Math.max(0, Number(good.quantity) || 0);
+      if (data.quantity > availableStock) {
+        showToast(`Jumlah barang pada tiket tidak boleh melebihi stok tersedia (${availableStock}).`, true);
         return;
       }
-      if (!data.photo) {
-        showToast("Foto kerusakan wajib dilampirkan.", true);
+      if (!["Rendah", "Sedang", "Tinggi", "Urgent"].includes(data.priority)) {
+        showToast("Pilih prioritas tiket yang valid.", true);
         return;
       }
       data.status = old?.status || "Diajukan";
@@ -2717,6 +2756,11 @@
       }
       if (!Number.isInteger(data.quantity) || data.quantity < 1) {
         showToast("Jumlah barang pada jadwal minimal 1 unit.", true);
+        return;
+      }
+      const availableStock = Math.max(0, Number(good.quantity) || 0);
+      if (data.quantity > availableStock) {
+        showToast(`Jumlah barang pada jadwal tidak boleh melebihi stok tersedia (${availableStock}).`, true);
         return;
       }
       if (!maintenanceTypes.includes(data.type)) {
@@ -3137,7 +3181,13 @@
     } else if (action === "calendar-select-date") {
       calendarSelectedDate = button.dataset.date;
       calendarCursor = `${calendarSelectedDate.slice(0, 7)}-01`;
-      renderPage();
+      $(".calendar-day.selected", $("#pageContent"))?.classList.remove("selected");
+      button.classList.add("selected");
+      const dayPanel = $(".calendar-day-panel", $("#pageContent"));
+      if (dayPanel) {
+        dayPanel.innerHTML = renderCalendarSelectedDayPanel();
+        if (window.lucide) lucide.createIcons({ nodes: [dayPanel] });
+      }
     } else if (action === "calendar-month-prev" || action === "calendar-month-next") {
       const current = new Date(`${calendarCursor}T00:00:00Z`);
       const offset = action === "calendar-month-prev" ? -1 : 1;
