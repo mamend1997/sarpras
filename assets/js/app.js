@@ -6,6 +6,17 @@
   const pendingAccountKey = (accountId) => `${STORE_KEY}:pending-account:${accountId}`;
   const today = new Date();
   const dateOffset = (days) => new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
+  const addDaysToDate = (value, days) => {
+    const date = new Date(`${value}T00:00:00Z`);
+    if (!Number.isFinite(date.getTime())) return "";
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  };
+  const daysBetweenDates = (start, end) => {
+    const startTime = Date.parse(`${start}T00:00:00Z`);
+    const endTime = Date.parse(`${end}T00:00:00Z`);
+    return Number.isFinite(startTime) && Number.isFinite(endTime) ? Math.round((endTime - startTime) / 86400000) : 1;
+  };
   const currentMonth = today.toISOString().slice(0, 7);
   const id = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
@@ -154,7 +165,7 @@
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
-    loans: { title: "Peminjaman Barang", description: "Pengajuan dan status peminjaman barang sekolah.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "goods"], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"]] },
+    loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
     disposals: { title: "Pemusnahan Barang", description: "Kelola pengajuan pemusnahan barang sekolah.", singular: "Pemusnahan", cols: [["goodId", "Barang"], ["locationId", "Lokasi"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pengajuan"], ["status", "Status"]], fields: [["goodId", "Barang", "select", true, "goods"], ["locationId", "Lokasi", "select", true, "locations"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pengajuan", "date", true]] },
     depreciations: { title: "Penyusutan Nilai Aset", description: "Catat penyusutan nilai barang secara berkala.", singular: "Penyusutan", cols: [["date", "Tanggal"], ["goodId", "Barang"], ["initialValue", "Harga Awal"], ["amount", "Penyusutan"], ["finalValue", "Harga Akhir"]], fields: [["date", "Tanggal", "date", true], ["goodId", "Barang", "select", true, "goods"], ["initialValue", "Harga Awal (Rp)", "number", true], ["amount", "Penyusutan (Rp)", "number", true]] },
@@ -175,6 +186,15 @@
   const relatedName = (collection, value, key = "name") => getById(collection, value)?.[key] || "—";
   const titleOfGood = (value) => relatedName("goods", value);
   const isBhp = (good) => good.consumable === true || ["true", "bhp", "barang habis pakai", "barang habis pakai (bhp)"].includes(String(good.consumable || "").trim().toLocaleLowerCase("id-ID"));
+  const availableLoanQuantity = (goodId, excludeLoanId = "") => {
+    const good = getById("goods", goodId);
+    if (!good || isBhp(good)) return 0;
+    const borrowed = (state.loans || []).reduce((total, loan) => {
+      if (loan.id === excludeLoanId || loan.goodId !== goodId || loan.status !== "Diterima") return total;
+      return total + Math.max(1, Number(loan.quantity) || 1);
+    }, 0);
+    return Math.max(0, Number(good.quantity || 0) - borrowed);
+  };
   const isInventoryReport = (type) => inventoryReportTypes.has(type);
 
   function showToast(message, error = false) {
@@ -1358,7 +1378,8 @@
       <div class="panel"><div class="barcode-grid" id="barcodeGrid">${items.map((item) => barcodeCard(item)).join("")}</div></div>`;
   }
   function barcodeCard(item) {
-    return `<label class="barcode-card"><input type="checkbox" class="barcode-check" data-id="${item.id}" checked style="accent-color:#f27622;float:left"><div class="qr-target" data-value="${esc(item.code)}" style="width:82px;height:82px;margin:5px auto 8px"></div><b>${esc(item.code)}</b><small>${esc(titleOfGood(item.goodId))}</small></label>`;
+    const schoolLogo = state.school.logo || state.school.letterheadLogo || "";
+    return `<label class="barcode-card"><input type="checkbox" class="barcode-check" data-id="${item.id}" checked style="accent-color:#f27622;float:left"><div class="qr-target" style="width:82px;height:82px;margin:5px auto 8px"><div class="qr-code-canvas" data-value="${esc(item.code)}"></div>${schoolLogo ? `<img class="qr-center-logo" src="${esc(schoolLogo)}" alt="Logo sekolah">` : ""}</div><b>${esc(item.code)}</b><small>${esc(titleOfGood(item.goodId))}</small></label>`;
   }
 
   function renderReports() {
@@ -1654,21 +1675,28 @@
       || getById("goods", record?.goodId)?.academicYearId
       || getById("locations", record?.locationId)?.academicYearId
       || currentAcademicYearId();
-    const scanPanel = !record && ["usages", "stocktakes"].includes(key)
-      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "item"}</b><small>${key === "usages" ? "Pindai barcode BHP atau pilih barang secara manual dari daftar." : "Gunakan kamera atau masukkan kode QR/barcode item."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh: E.1-T.1-L1-KS.1"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
+    const scanPanel = !record && ["usages", "stocktakes", "loans", "procurements", "disposals", "depreciations"].includes(key)
+      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "item"}</b><small>${key === "usages" ? "Pindai barcode BHP atau pilih barang secara manual dari daftar." : "Pindai kode QR/barcode item atau masukkan kodenya untuk mengisi barang secara otomatis."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh: E.1-T.1-L1-KS.1"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
+    const loanDuration = record?.durationDays ?? (record?.startDate && record?.dueDate ? Math.max(1, daysBetweenDates(record.startDate, record.dueDate)) : 1);
     const fields = config.fields.map(([name, label, type, required, source]) => {
       if (key === "academicYears" && name === "copyPreviousData" && record) return "";
       let value = record?.[name] ?? (key === "goods" && name === "ownershipId"
         ? (recordsForAcademicYear("ownerships").find((ownership) => ownership.name.toLocaleLowerCase("id-ID") === "milik")?.id || recordsForAcademicYear("ownerships")[0]?.id || "")
         : key === "academicYears" && name === "status" ? "Aktif"
-          : key === "accounts" && name === "active" ? true : type === "date" ? (key === "academicYears" ? "" : dateOffset(0)) : "");
+          : key === "accounts" && name === "active" ? true
+            : key === "loans" && name === "quantity" ? 1
+              : key === "loans" && name === "durationDays" ? loanDuration
+                : key === "loans" && name === "dueDate" ? addDaysToDate(dateOffset(0), 1)
+                  : type === "date" ? (key === "academicYears" ? "" : dateOffset(0)) : "");
       const idAttr = `${key}-${name}`;
       if (key === "usages" && name === "unitId") {
         const unitId = record?.unitId || getById("goods", record?.goodId)?.unitId || "";
         const unitName = relatedName("units", unitId);
         return `<div class="form-field"><label for="usages-unitName">Satuan</label><input id="usages-unitName" type="text" value="${esc(unitName === "—" ? "" : unitName)}" readonly><input type="hidden" name="unitId" value="${esc(unitId)}"></div>`;
       }
+      if (key === "loans" && name === "signature") return `<div class="form-field full"><label for="loanSignatureCanvas">${esc(label)}</label><div class="loan-signature-field"><canvas id="loanSignatureCanvas" class="loan-signature-pad" aria-label="Area tanda tangan peminjam"></canvas><input type="hidden" name="signature" value="${esc(value)}"><button id="clearLoanSignature" class="btn-quiet" type="button"><i data-lucide="eraser"></i>Hapus tanda tangan</button></div><small class="form-help">Tanda tangan dapat diisi dengan mouse atau layar sentuh; biarkan kosong jika tidak diperlukan.</small></div>`;
+      if (key === "loans" && name === "dueDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${required ? "required" : ""} readonly><small class="form-help">Dihitung otomatis dari tanggal sewa dan jumlah hari.</small></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
       if (key === "goods" && name === "consumable") return `<div class="form-field"><label for="${idAttr}">Status BHP *</label><select id="${idAttr}" name="${name}" required><option value="true" ${isBhp({ consumable: value }) ? "selected" : ""}>Barang Habis Pakai (BHP)</option><option value="false" ${isBhp({ consumable: value }) ? "" : "selected"}>Barang Modal</option></select></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source, recordYearId).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
@@ -1679,11 +1707,16 @@
       const inputType = money ? "text" : type;
       const inputValue = money ? formatThousands(value) : value;
       const numberAttributes = type === "number"
-        ? key === "usages" && name === "quantity" ? 'min="0.01" step="any"' : 'min="0"'
+        ? key === "usages" && name === "quantity" ? 'min="0.01" step="any"'
+          : key === "loans" && ["quantity", "durationDays"].includes(name) ? 'min="1" step="1"' : 'min="0"'
         : "";
-      return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : numberAttributes}></div>`;
+      const help = key === "loans" && name === "quantity" ? `<small class="form-help" id="loanAvailableQuantity" aria-live="polite"></small>` : "";
+      return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : numberAttributes}>${help}</div>`;
     }).join("");
-    return `<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>${record ? "Edit" : "Tambah"} ${config.singular}</h2><p>Lengkapi informasi berikut dengan benar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="recordForm" data-collection="${key}" data-record="${record?.id || ""}"><div class="form-grid">${scanPanel}${fields}</div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan data</button></div></form></section></div>`;
+    const footer = key === "loans"
+      ? `<div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-secondary" type="submit" value="save"><i data-lucide="save"></i>Simpan</button><button class="btn-primary" type="submit" value="saveAndPrint"><i data-lucide="printer"></i>Simpan dan Cetak Bukti</button></div>`
+      : `<div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan data</button></div>`;
+    return `<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>${record ? "Edit" : "Tambah"} ${config.singular}</h2><p>Lengkapi informasi berikut dengan benar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="recordForm" data-collection="${key}" data-record="${record?.id || ""}"><div class="form-grid">${scanPanel}${fields}</div>${footer}</form></section></div>`;
   }
 
   function showModal(content, wide = false) {
@@ -1694,6 +1727,7 @@
     if (window.lucide) lucide.createIcons({ nodes: [$("#modalRoot")] });
     const form = $("#recordForm");
     if (form) setupMoneyInputs(form);
+    if (form && form.dataset.collection === "loans") setupLoanForm(form);
     if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
     if (form && form.dataset.collection === "usages") setupUsageForm(form);
     if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
@@ -1707,6 +1741,85 @@
     });
     $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
     $("#recordForm")?.addEventListener("submit", saveRecord);
+  }
+
+  function setupLoanForm(form) {
+    const good = form.elements.goodId;
+    const quantity = form.elements.quantity;
+    const availableLabel = $("#loanAvailableQuantity", form);
+    const startDate = form.elements.startDate;
+    const duration = form.elements.durationDays;
+    const dueDate = form.elements.dueDate;
+    const refreshAvailability = () => {
+      if (!good || !quantity) return;
+      const available = availableLoanQuantity(good.value, form.dataset.record);
+      quantity.max = String(available);
+      if (availableLabel) availableLabel.textContent = good.value ? `Stok yang tersedia untuk dipinjam: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
+    };
+    const refreshDueDate = () => {
+      const days = Number(duration?.value);
+      dueDate.value = startDate?.value && Number.isInteger(days) && days > 0 ? addDaysToDate(startDate.value, days) : "";
+    };
+    good?.addEventListener("change", refreshAvailability);
+    startDate?.addEventListener("change", refreshDueDate);
+    duration?.addEventListener("input", refreshDueDate);
+    refreshAvailability();
+    refreshDueDate();
+    setupLoanSignature(form);
+  }
+
+  function setupLoanSignature(form) {
+    const canvas = $("#loanSignatureCanvas", form);
+    const storedSignature = form.elements.signature;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context || !storedSignature) return;
+    const bounds = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.round(bounds.width * ratio);
+    canvas.height = Math.round(bounds.height * ratio);
+    context.scale(ratio, ratio);
+    context.strokeStyle = "#172033";
+    context.fillStyle = "#172033";
+    context.lineWidth = 2.2;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    const position = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    };
+    let drawing = false;
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      drawing = true;
+      canvas.setPointerCapture(event.pointerId);
+      const point = position(event);
+      context.beginPath();
+      context.arc(point.x, point.y, 1.1, 0, Math.PI * 2);
+      context.fill();
+      context.beginPath();
+      context.moveTo(point.x, point.y);
+      storedSignature.value = canvas.toDataURL("image/png");
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!drawing) return;
+      event.preventDefault();
+      const point = position(event);
+      context.lineTo(point.x, point.y);
+      context.stroke();
+      storedSignature.value = canvas.toDataURL("image/png");
+    });
+    const stopDrawing = () => { drawing = false; };
+    canvas.addEventListener("pointerup", stopDrawing);
+    canvas.addEventListener("pointercancel", stopDrawing);
+    $("#clearLoanSignature", form)?.addEventListener("click", () => {
+      context.clearRect(0, 0, bounds.width, bounds.height);
+      storedSignature.value = "";
+    });
+    if (storedSignature.value) {
+      const image = new Image();
+      image.onload = () => context.drawImage(image, 0, 0, bounds.width, bounds.height);
+      image.src = storedSignature.value;
+    }
   }
 
   function showDeleteConfirmation(title, description, onConfirm) {
@@ -1827,6 +1940,16 @@
         showToast(key === "usages" ? message : `Barcode "${code}" tidak dikenali.`, true);
         return false;
       }
+      if (key === "loans" && item.condition !== "Baik") {
+        setStatus("Item tidak berkondisi baik dan tidak dapat dipinjam.", true);
+        showToast("Pilih item dengan kondisi baik untuk peminjaman.", true);
+        return false;
+      }
+      if (key === "disposals" && item.condition !== "Rusak") {
+        setStatus("Item tidak berkondisi rusak dan tidak dapat diajukan untuk pemusnahan.", true);
+        showToast("Pindai item dengan kondisi rusak untuk pemusnahan.", true);
+        return false;
+      }
       if (key === "usages") {
         if (!isBhp(good)) {
           setStatus("Barang pada barcode bukan barang habis pakai (BHP).", true);
@@ -1843,12 +1966,23 @@
       }
       const goodSelect = form.elements.goodId;
       if (goodSelect) {
+        if (![...goodSelect.options].some((option) => option.value === good.id)) {
+          setStatus("Barang pada barcode tidak sesuai dengan jenis barang yang dapat dipilih di formulir ini.", true);
+          showToast("Barang pada barcode tidak dapat dipilih di formulir ini.", true);
+          return false;
+        }
         const changed = goodSelect.value !== good.id;
         goodSelect.value = good.id;
         if (changed) goodSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
+      const locationSelect = form.elements.locationId;
+      if (locationSelect && item.locationId && [...locationSelect.options].some((option) => option.value === item.locationId)) {
+        locationSelect.value = item.locationId;
+      }
+      if (key === "loans" && form.elements.quantity) form.elements.quantity.value = "1";
       const stock = `${good.quantity} ${relatedName("units", good.unitId)}`;
-      setStatus(`${item.code} · ${good.name} · Stok saat ini: ${stock}.`);
+      const loanAvailability = key === "loans" ? ` · Tersedia untuk dipinjam: ${availableLoanQuantity(good.id, form.dataset.record)}` : "";
+      setStatus(`${item.code} · ${good.name} · Stok saat ini: ${stock}${loanAvailability}.`);
       return true;
     };
 
@@ -1948,6 +2082,7 @@
     event.preventDefault();
     const form = event.currentTarget;
     const key = form.dataset.collection;
+    const printLoanAfterSave = key === "loans" && event.submitter?.value === "saveAndPrint";
     const recordId = form.dataset.record;
     const config = collectionConfig[key];
     const old = recordId ? getById(key, recordId) : null;
@@ -2045,8 +2180,34 @@
       data.code = `E.1-T.${goodIndex}-L1-KS.${itemIndex}`;
     }
     if (key === "loans") {
-      data.status = old?.status || "Pengajuan";
-      if (data.dueDate < data.startDate) { showToast("Tanggal kembali tidak boleh sebelum tanggal sewa.", true); return; }
+      const good = getById("goods", data.goodId);
+      if (!good || isBhp(good)) {
+        showToast("Pilih barang modal yang valid untuk dipinjam.", true);
+        return;
+      }
+      if (!Number.isInteger(data.quantity) || data.quantity < 1) {
+        showToast("Jumlah barang yang dipinjam minimal 1 unit.", true);
+        return;
+      }
+      const available = availableLoanQuantity(data.goodId, old?.id);
+      if (data.quantity > available) {
+        showToast(`Jumlah melebihi stok yang dapat dipinjam. Maksimal tersedia ${available} unit.`, true);
+        return;
+      }
+      if (!Number.isInteger(data.durationDays) || data.durationDays < 1) {
+        showToast("Jumlah hari peminjaman minimal 1 hari.", true);
+        return;
+      }
+      if (!data.startDate) {
+        showToast("Tanggal sewa wajib diisi.", true);
+        return;
+      }
+      data.dueDate = addDaysToDate(data.startDate, data.durationDays);
+      if (!data.dueDate) {
+        showToast("Tanggal kembali tidak dapat dihitung. Periksa tanggal sewa.", true);
+        return;
+      }
+      data.status = old?.status || "Diterima";
     }
     if (key === "procurements") data.status = old?.status || "Pengajuan";
     if (key === "disposals") data.status = old?.status || "Pengajuan";
@@ -2115,6 +2276,39 @@
       showToast("Server belum tersambung atau menolak sinkronisasi. Perubahan akun hanya tersimpan di perangkat ini; pastikan server aktif lalu buka kembali aplikasi sebagai Administrator.", true);
     } else showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
     renderPage();
+    if (printLoanAfterSave) printLoanReceipt(data);
+  }
+
+  function printLoanReceipt(loan) {
+    let receipt = $("#loanReceiptPrint");
+    if (!receipt) {
+      receipt = document.createElement("section");
+      receipt.id = "loanReceiptPrint";
+      document.body.append(receipt);
+    }
+    const good = getById("goods", loan.goodId);
+    const signature = loan.signature
+      ? `<img class="loan-receipt-signature-image" src="${esc(loan.signature)}" alt="Tanda tangan peminjam">`
+      : `<div class="loan-receipt-signature-line"></div>`;
+    receipt.innerHTML = `<div class="loan-receipt">
+      <div class="report-heading">${printSchoolHeaderMarkup(state.school || seed.school, state.settings.printDesign || seed.settings.printDesign)}</div>
+      <h1>Bukti Peminjaman Barang</h1>
+      <p class="loan-receipt-number">Nomor transaksi: ${esc(loan.id)}</p>
+      <table><tbody>
+        <tr><th>Nama peminjam</th><td>${esc(loan.borrower)}</td></tr>
+        <tr><th>Nama barang</th><td>${esc(good?.name || "—")}</td></tr>
+        <tr><th>Jumlah dipinjam</th><td>${esc(loan.quantity)} ${esc(relatedName("units", good?.unitId))}</td></tr>
+        <tr><th>Lokasi</th><td>${esc(relatedName("locations", loan.locationId))}</td></tr>
+        <tr><th>Tanggal sewa</th><td>${esc(niceDate(loan.startDate))}</td></tr>
+        <tr><th>Lama peminjaman</th><td>${esc(loan.durationDays)} hari</td></tr>
+        <tr><th>Tanggal kembali</th><td>${esc(niceDate(loan.dueDate))}</td></tr>
+        <tr><th>Keterangan</th><td>${esc(loan.note || "—")}</td></tr>
+      </tbody></table>
+      <div class="loan-receipt-signature"><span>Peminjam</span>${signature}<b>${esc(loan.borrower)}</b></div>
+      <p class="loan-receipt-date">${esc(state.school?.city || "")}, ${esc(niceDate(dateOffset(0)))}</p>
+    </div>`;
+    document.body.classList.add("print-loan-receipt");
+    window.print();
   }
 
   function updateBulkSelection() {
@@ -2818,8 +3012,8 @@
   }
 
   function drawBarcodes() {
-    $$(".qr-target").forEach((target) => {
-      if (window.QRCode) new QRCode(target, { text: target.dataset.value, width: 82, height: 82, colorDark: "#253044", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+    $$(".qr-code-canvas").forEach((target) => {
+      if (window.QRCode) new QRCode(target, { text: target.dataset.value, width: 82, height: 82, colorDark: "#253044", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H });
       else {
         const canvas = document.createElement("canvas"); canvas.width = 82; canvas.height = 82;
         const ctx = canvas.getContext("2d"), seedNum = [...target.dataset.value].reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -3002,6 +3196,8 @@
     window.addEventListener("afterprint", () => {
       $$(".barcode-card").forEach((card) => { card.style.display = card.dataset.previousDisplay || ""; });
       document.body.classList.remove("print-goods-mode");
+      document.body.classList.remove("print-loan-receipt");
+      $("#loanReceiptPrint")?.remove();
       $("#goodsPrintPageStyle")?.remove();
       const printSignatures = $("#printSchoolSignatures");
       if (printSignatures) printSignatures.innerHTML = "";
