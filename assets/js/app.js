@@ -12,7 +12,7 @@
   const rupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0);
   const integerId = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
   const moneyFields = new Set(["price", "unitPrice", "initialValue", "amount"]);
-  const goodsImportHeaders = ["Nama Barang", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Barang Habis Pakai (Ya/Tidak)"];
+  const goodsImportHeaders = ["Nama Barang", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
   const goodsFilterFields = [
     ["ownershipId", "Kepemilikan", "ownerships"],
     ["fundId", "Sumber Dana", "funds"],
@@ -24,6 +24,7 @@
   ];
   const yearMasterCollections = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds"];
   const yearScopedCollections = new Set([...yearMasterCollections, "goods"]);
+  const inventoryReportTypes = new Set(["inventarisBhp", "inventarisModal"]);
   const formatThousands = (value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const parseThousands = (value) => Number(String(value ?? "").replace(/\D/g, "")) || 0;
   const parseGroupedInteger = (value) => {
@@ -148,7 +149,7 @@
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     academicYears: { title: "Tahun Pelajaran", description: "Kelola periode tahun ajaran dan salin data master serta barang dari tahun sebelumnya.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["startDate", "Tanggal Mulai"], ["endDate", "Tanggal Selesai"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["startDate", "Tanggal Mulai", "date", true], ["endDate", "Tanggal Selesai", "date", true], ["copyPreviousData", "Salin data master dan barang beserta stok terakhir dari tahun sebelumnya", "checkbox"], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
-    goods: { title: "Data Barang", description: "Informasi barang, spesifikasi, kepemilikan, lokasi, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
+    goods: { title: "Data Barang", description: "Informasi barang, spesifikasi, kepemilikan, lokasi, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
@@ -172,7 +173,8 @@
   const getById = (collection, value) => (state[collection] || []).find((row) => row.id === value);
   const relatedName = (collection, value, key = "name") => getById(collection, value)?.[key] || "—";
   const titleOfGood = (value) => relatedName("goods", value);
-  const isBhp = (good) => good.consumable === true || good.consumable === "true";
+  const isBhp = (good) => good.consumable === true || ["true", "bhp", "barang habis pakai", "barang habis pakai (bhp)"].includes(String(good.consumable || "").trim().toLocaleLowerCase("id-ID"));
+  const isInventoryReport = (type) => inventoryReportTypes.has(type);
 
   function showToast(message, error = false) {
     const toast = document.createElement("div");
@@ -979,7 +981,7 @@
         <div><small>Sumber dana</small><b>${esc(relatedName("funds", good.fundId))}</b></div>
         <div><small>Supplier</small><b>${esc(relatedName("suppliers", good.supplierId))}</b></div>
         <div><small>Harga satuan</small><b>${esc(rupiah(good.price))}</b></div>
-        <div><small>Barang habis pakai</small><b>${good.consumable ? "Ya" : "Tidak"}</b></div>
+        <div><small>Status BHP</small><b>${isBhp(good) ? "Barang Habis Pakai (BHP)" : "Barang Modal"}</b></div>
         <div><small>Item inventaris</small><b>${items.length} unit · ${availableItems} baik</b></div>
       </div>
       ${goodsCheckTable("Riwayat stok masuk / pengadaan", ["Tanggal masuk", "Jumlah", "Sumber dana", "Nilai pengadaan", "Pengusul"], purchaseRows, "Belum ada pengadaan diterima yang tercatat.")}
@@ -1185,7 +1187,7 @@
   function renderCollection(key) {
     const config = collectionConfig[key];
     const displayCols = key === "goods"
-      ? [["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "BHP"]]
+      ? [["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "Status BHP"]]
       : config.cols;
     const rows = recordsForCurrentAcademicYear(key);
     const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears"].includes(key);
@@ -1198,7 +1200,7 @@
     const exportControls = hideExportControls ? "" : `<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel</button>`;
     const toolbarRight = importControls || bulkControls || exportControls ? `<div class="table-toolbar-right${key === "goods" ? " goods-toolbar-actions" : ""}">${importControls}${bulkControls}${exportControls}</div>` : "";
     const goodsFilterControls = key === "goods"
-      ? `${goodsFilterFields.map(([field, label, source]) => `<select class="table-filter goods-filter" data-goods-filter="${field}" aria-label="Filter ${esc(label)}" title="Filter ${esc(label)}"><option value="">Semua ${esc(label.toLowerCase())}</option>${(state[source] || []).map((option) => `<option value="${esc(option.id)}" ${goodsFilters[field] === option.id ? "selected" : ""}>${esc(option.name)}</option>`).join("")}</select>`).join("")}<select class="table-filter goods-filter" data-goods-filter="consumable" aria-label="Filter BHP" title="Filter BHP"><option value="">BHP / bukan BHP</option><option value="true" ${goodsFilters.consumable === "true" ? "selected" : ""}>BHP</option><option value="false" ${goodsFilters.consumable === "false" ? "selected" : ""}>Bukan BHP</option></select>`
+      ? `${goodsFilterFields.map(([field, label, source]) => `<select class="table-filter goods-filter" data-goods-filter="${field}" aria-label="Filter ${esc(label)}" title="Filter ${esc(label)}"><option value="">Semua ${esc(label.toLowerCase())}</option>${(state[source] || []).map((option) => `<option value="${esc(option.id)}" ${goodsFilters[field] === option.id ? "selected" : ""}>${esc(option.name)}</option>`).join("")}</select>`).join("")}<select class="table-filter goods-filter" data-goods-filter="consumable" aria-label="Filter Status BHP" title="Filter Status BHP"><option value="">Semua status BHP</option><option value="true" ${goodsFilters.consumable === "true" ? "selected" : ""}>Barang Habis Pakai (BHP)</option><option value="false" ${goodsFilters.consumable === "false" ? "selected" : ""}>Barang Modal</option></select>`
       : "";
     const toolbar = `<div class="table-toolbar${key === "goods" ? " goods-toolbar" : ""}"><div class="table-toolbar-left${key === "goods" ? " goods-filter-controls" : ""}"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}${goodsFilterControls}</div>${toolbarRight}</div>`;
     const filtered = rows.filter((row) => {
@@ -1233,6 +1235,7 @@
     if (field === "evidence") return row.evidence ? "Foto terlampir" : "—";
     if (field === "totalPrice") return (Number(row.quantity) || 0) * (Number(row.price) || 0);
     if (field === "total" && key === "procurements") return (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
+    if (field === "consumable") return isBhp(row) ? "Barang Habis Pakai (BHP)" : "Barang Modal";
     return row[field] ?? "";
   }
 
@@ -1261,7 +1264,8 @@
     }
     if (field === "totalPrice") return currencyCell((Number(row.quantity) || 0) * (Number(row.price) || 0));
     if (["price", "unitPrice", "initialValue", "amount", "finalValue"].includes(field)) return currencyCell(value);
-    if (field === "consumable" || field === "active") return `<span class="badge ${value ? "success" : "neutral"}">${value ? (field === "active" ? "Aktif" : "Ya") : (field === "active" ? "Nonaktif" : "Tidak")}</span>`;
+    if (field === "consumable") return `<span class="badge ${isBhp(row) ? "success" : "neutral"}">${isBhp(row) ? "BHP" : "Barang Modal"}</span>`;
+    if (field === "active") return `<span class="badge ${value ? "success" : "neutral"}">${value ? "Aktif" : "Nonaktif"}</span>`;
     if (field === "name" && key === "accounts") return `<span class="table-title">${esc(value)}</span>`;
     return esc(value || "—");
   }
@@ -1285,7 +1289,7 @@
     const currentGoods = recordsForAcademicYear("goods");
     const goodsQty = currentGoods.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
     const value = currentGoods.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.price || 0), 0);
-    const reportOptions = [["inventaris", "Rekapitulasi Inventaris"], ["loans", "Laporan Peminjaman"], ["usages", "Penggunaan BHP"], ["procurements", "Pengadaan Barang"], ["disposals", "Pemusnahan Barang"], ["depreciations", "Penyusutan Aset"]];
+    const reportOptions = [["inventarisBhp", "Rekapitulasi BHP"], ["inventarisModal", "Rekapitulasi Barang Modal"], ["loans", "Laporan Peminjaman"], ["usages", "Penggunaan BHP"], ["procurements", "Pengadaan Barang"], ["disposals", "Pemusnahan Barang"], ["depreciations", "Penyusutan Aset"]];
     return `${pageHeading(`<button class="btn-secondary" data-action="export-report"><i data-lucide="download"></i>Ekspor Excel</button><button class="btn-primary" data-action="print"><i data-lucide="printer"></i>Cetak laporan</button>`)}
       <section class="panel"><div class="report-heading">${state.school.logo ? `<img class="report-logo" src="${esc(state.school.logo)}" alt="Logo sekolah">` : `<div class="school-avatar">${esc((state.school.name || "S").slice(0, 1))}</div>`}<div><h2>${esc(state.school.name)}</h2><p>${esc(state.school.address)} · ${esc(state.school.phone)}</p><p>${esc(state.school.email)} · ${esc(state.school.website)}</p></div></div>
       <div class="table-toolbar report-toolbar" style="border:0;padding:0 0 14px"><div class="table-toolbar-left report-filters">
@@ -1293,14 +1297,14 @@
         <label class="report-filter-control" id="reportPeriodField"><span>Periode</span><select class="table-filter" id="reportPeriod"><option value="month">Bulanan</option><option value="academicYear">Tahun Pelajaran</option><option value="custom">Rentang tanggal</option></select></label>
         <label class="report-filter-control" id="reportMonthField"><span>Bulan</span><input id="reportMonth" class="table-filter" type="month" value="${currentMonth}"></label>
         <label class="report-filter-control hidden" id="reportAcademicYearField"><span>Tahun Pelajaran</span><select class="table-filter" id="reportAcademicYear">${state.academicYears.map((year) => `<option value="${esc(year.id)}" ${year.id === state.settings.selectedAcademicYearId ? "selected" : ""}>${esc(year.name)}</option>`).join("")}</select></label>
-        <div class="report-filter-control hidden" id="reportInventoryDetailsField"><span>Rincian inventaris</span><label class="form-check report-detail-toggle"><input id="reportInventoryDetails" type="checkbox" ${state.settings.reportInventoryDetails === false ? "" : "checked"}><span>Tampilkan detail barang</span></label></div>
+        <div class="report-filter-control hidden" id="reportInventoryDetailsField"><span>Rincian barang</span><label class="form-check report-detail-toggle"><input id="reportInventoryDetails" type="checkbox" ${state.settings.reportInventoryDetails === false ? "" : "checked"}><span>Tampilkan detail barang</span></label></div>
         <div class="report-date-range hidden" id="reportDateRange">
           <label class="report-filter-control"><span>Tanggal mulai</span><input id="reportStart" class="table-filter" type="date" value="${currentMonth}-01"></label>
           <label class="report-filter-control"><span>Tanggal akhir</span><input id="reportEnd" class="table-filter" type="date" value="${dateOffset(0)}"></label>
         </div>
-      </div><div class="table-toolbar-right"><span id="reportPeriodNotice" class="form-help hidden">Rekapitulasi inventaris menampilkan stok saat ini dan tidak memakai filter periode.</span><span class="badge info">Diperbarui ${niceDate(dateOffset(0))}</span></div></div>
-      <div id="reportHeading" class="report-title-block">${reportHeading("inventaris")}</div>
-      <div id="reportBody">${reportTable("inventaris")}</div>
+      </div><div class="table-toolbar-right"><span id="reportPeriodNotice" class="form-help hidden">Rekapitulasi BHP dan barang modal menampilkan stok saat ini dan tidak memakai filter periode.</span><span class="badge info">Diperbarui ${niceDate(dateOffset(0))}</span></div></div>
+      <div id="reportHeading" class="report-title-block">${reportHeading("inventarisBhp")}</div>
+      <div id="reportBody">${reportTable("inventarisBhp")}</div>
       ${reportSignatures(state.school)}
       <p class="muted" style="font-size:9px;text-align:center;margin:28px 0 0">${esc(state.school.footer)}</p></section>`;
   }
@@ -1330,7 +1334,8 @@
   }
   function reportHeadingContent(type, range = null) {
     const titles = {
-      inventaris: "Rekapitulasi Inventaris",
+      inventarisBhp: "Rekapitulasi BHP",
+      inventarisModal: "Rekapitulasi Barang Modal",
       loans: "Laporan Peminjaman Barang",
       usages: "Laporan Penggunaan BHP",
       procurements: "Laporan Pengadaan Barang",
@@ -1338,7 +1343,7 @@
       depreciations: "Laporan Penyusutan Aset"
     };
     let period = `Posisi stok per ${niceDate(dateOffset(0))}`;
-    if (type !== "inventaris") {
+    if (!isInventoryReport(type)) {
       const filter = $("#reportPeriod")?.value || "month";
       if (filter === "month") {
         const [year, month] = ($("#reportMonth")?.value || currentMonth).split("-").map(Number);
@@ -1358,9 +1363,9 @@
     const { title, period } = reportHeadingContent(type, range);
     return `<div><h3>${esc(title)}</h3><p>${esc(period)}</p></div>`;
   }
-  function inventoryReportData() {
+  function inventoryReportData(type) {
     const showDetails = state.settings.reportInventoryDetails !== false;
-    const goods = recordsForAcademicYear("goods");
+    const goods = recordsForAcademicYear("goods").filter((good) => type === "inventarisBhp" ? isBhp(good) : !isBhp(good));
     const headers = showDetails
       ? ["Nama Barang", "Kepemilikan", "Sumber Dana", "Jenis", "Kategori", "Lokasi", "Jumlah", "Satuan", "Harga Satuan", "Harga Total"]
       : ["Nama Barang", "Jenis", "Kategori", "Jumlah", "Satuan", "Harga Total"];
@@ -1377,8 +1382,8 @@
   }
   function reportTable(type, startDate, endDate) {
     let cols, fields, rows;
-    if (type === "inventaris") {
-      ({ headers: cols, fields, rows } = inventoryReportData());
+    if (isInventoryReport(type)) {
+      ({ headers: cols, fields, rows } = inventoryReportData(type));
     } else {
       const config = collectionConfig[type];
       cols = config.cols.map((col) => col[1]);
@@ -1387,9 +1392,12 @@
       rows = (state[type] || []).filter((row) => !dateField || ((!startDate || row[dateField] >= startDate) && (!endDate || row[dateField] <= endDate))).map((row) => config.cols.map(([field]) => plainCell(type, field, row)));
     }
     const currencyFields = new Set(["price", "unitPrice", "initialValue", "amount", "finalValue", "total", "totalPrice", "value"]);
-    const total = type === "inventaris" ? recordsForAcademicYear("goods").reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0) : 0;
-    const totalRow = type === "inventaris" ? `<tfoot><tr><th colspan="${cols.length - 1}">Grand Total Nilai Inventaris</th><th class="goods-price-cell">${currencyCell(total)}</th></tr></tfoot>` : "";
-    const tableClass = type === "inventaris" ? `data-table inventory-report-table ${state.settings.reportInventoryDetails === false ? "inventory-report-compact" : "inventory-report-details"}` : "data-table";
+    const inventoryTotal = isInventoryReport(type)
+      ? recordsForAcademicYear("goods").filter((good) => type === "inventarisBhp" ? isBhp(good) : !isBhp(good)).reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0)
+      : 0;
+    const inventoryName = type === "inventarisBhp" ? "BHP" : "Barang Modal";
+    const totalRow = isInventoryReport(type) ? `<tfoot><tr><th colspan="${cols.length - 1}">Grand Total Nilai ${inventoryName}</th><th class="goods-price-cell">${currencyCell(inventoryTotal)}</th></tr></tfoot>` : "";
+    const tableClass = isInventoryReport(type) ? `data-table inventory-report-table ${state.settings.reportInventoryDetails === false ? "inventory-report-compact" : "inventory-report-details"}` : "data-table";
     return `<div class="table-wrap"><table class="${tableClass}"><thead><tr>${cols.map((col) => `<th>${esc(col.toUpperCase())}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((cell, index) => currencyFields.has(fields[index]) ? `<td class="goods-price-cell">${currencyCell(cell)}</td>` : `<td>${esc(cell)}</td>`).join("")}</tr>`).join("") : `<tr><td class="empty-state" colspan="${cols.length}">Tidak ada data.</td></tr>`}</tbody>${totalRow}</table></div>`;
   }
 
@@ -1586,6 +1594,7 @@
         return `<div class="form-field"><label for="usages-unitName">Satuan</label><input id="usages-unitName" type="text" value="${esc(unitName === "—" ? "" : unitName)}" readonly><input type="hidden" name="unitId" value="${esc(unitId)}"></div>`;
       }
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
+      if (key === "goods" && name === "consumable") return `<div class="form-field"><label for="${idAttr}">Status BHP *</label><select id="${idAttr}" name="${name}" required><option value="true" ${isBhp({ consumable: value }) ? "selected" : ""}>Barang Habis Pakai (BHP)</option><option value="false" ${isBhp({ consumable: value }) ? "" : "selected"}>Barang Modal</option></select></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source, recordYearId).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
       if (type === "textarea") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><textarea id="${idAttr}" name="${name}" ${required ? "required" : ""}>${esc(value)}</textarea></div>`;
       if (type === "password") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${key === "accounts" && !record && name === "password" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="password" autocomplete="new-password" ${key === "accounts" && !record && name === "password" ? "required minlength=\"8\"" : ""}></div>`;
@@ -1887,6 +1896,7 @@
         }
       } else data[name] = name === "email" ? input.value.trim().toLowerCase() : input.value.trim();
     }
+    if (key === "goods") data.consumable = data.consumable === true || data.consumable === "true" || isBhp(data);
     if (key === "academicYears") {
       if (!data.startDate || !data.endDate || data.startDate > data.endDate) {
         showToast("Tanggal mulai dan tanggal selesai harus valid; tanggal mulai tidak boleh setelah tanggal selesai.", true);
@@ -2289,7 +2299,7 @@
     const updateReport = () => {
       const type = $("#reportType")?.value;
       if (!type) return;
-      const inventory = type === "inventaris";
+      const inventory = isInventoryReport(type);
       const period = $("#reportPeriod")?.value || "month";
       const range = inventory ? null : reportDateRange();
       $("#reportHeading").innerHTML = reportHeading(type, range);
@@ -2439,13 +2449,13 @@
           supplier: column("Supplier", "Nama Supplier"),
           quantity: column("Jumlah Barang", "Jumlah"),
           price: column("Harga Barang (Rp)", "Harga Barang", "Tarif Barang"),
-          consumable: column("Barang Habis Pakai (Ya/Tidak)", "Habis Pakai", "BHP")
+          consumable: column("Status BHP (BHP/Barang Modal)", "Status BHP", "Barang Habis Pakai (Ya/Tidak)", "Habis Pakai", "BHP")
         };
         const requiredColumns = ["name", "ownership", "fund", "type", "category", "location", "unit", "supplier", "quantity", "price", "consumable"];
         const columnLabels = {
           name: "Nama Barang", ownership: "Kepemilikan", fund: "Sumber Dana", type: "Jenis Barang", category: "Kategori Barang", location: "Ruang / Lokasi",
           unit: "Satuan", supplier: "Supplier", quantity: "Jumlah Barang", price: "Harga Barang (Rp)",
-          consumable: "Barang Habis Pakai (Ya/Tidak)"
+          consumable: "Status BHP"
         };
         const missingColumns = requiredColumns.filter((name) => columns[name] < 0).map((name) => columnLabels[name]);
         if (missingColumns.length) throw new Error(`Kolom template tidak lengkap: ${missingColumns.join(", ")}.`);
@@ -2488,8 +2498,8 @@
           const quantity = parseGroupedInteger(quantityText);
           const price = parseGroupedInteger(priceText);
           const consumableText = normalize(valueAt(row, "consumable"));
-          const yesValues = ["ya", "yes", "true", "1"];
-          const noValues = ["tidak", "no", "false", "0"];
+          const yesValues = ["ya", "yes", "true", "1", "bhp", "barang habis pakai", "barang habis pakai (bhp)"];
+          const noValues = ["tidak", "no", "false", "0", "modal", "barang modal"];
           const rowErrors = [];
           if (!ownership) rowErrors.push(`kepemilikan "${ownershipValue || "kosong"}" tidak ditemukan`);
           if (!fund) rowErrors.push(`Sumber dana "${fundName || "kosong"}" tidak ditemukan`);
@@ -2501,7 +2511,7 @@
           if (!supplier) rowErrors.push(`supplier "${supplierName || "kosong"}" tidak ditemukan`);
           if (quantity === null) rowErrors.push("jumlah barang harus berupa bilangan bulat");
           if (price === null) rowErrors.push("harga barang harus berupa bilangan bulat");
-          if (consumableText && !yesValues.includes(consumableText) && !noValues.includes(consumableText)) rowErrors.push('BHP harus diisi "Ya" atau "Tidak"');
+          if (consumableText && !yesValues.includes(consumableText) && !noValues.includes(consumableText)) rowErrors.push('Status BHP harus diisi "BHP" atau "Barang Modal"');
           if (rowErrors.length) {
             errors.push(`Baris ${rowNumber}: ${rowErrors.join(", ")}.`);
             return;
@@ -2562,9 +2572,10 @@
   }
 
   function exportReport() {
-    const type = $("#reportType")?.value || "inventaris";
-    const range = type === "inventaris" ? null : reportDateRange();
-    if (type !== "inventaris" && !range) {
+    const type = $("#reportType")?.value || "inventarisBhp";
+    const inventory = isInventoryReport(type);
+    const range = inventory ? null : reportDateRange();
+    if (!inventory && !range) {
       showToast("Pilih tahun pelajaran dengan format, misalnya 2026/2027.", true);
       return;
     }
@@ -2574,12 +2585,14 @@
     }
     const { title, period } = reportHeadingContent(type, range);
     const headingRows = [[state.school.name], [title], [period], []];
-    if (type === "inventaris") {
-      const records = recordsForAcademicYear("goods");
+    if (inventory) {
+      const records = recordsForAcademicYear("goods").filter((row) => type === "inventarisBhp" ? isBhp(row) : !isBhp(row));
       const grandTotal = records.reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0);
-      const { headers, rows } = inventoryReportData();
+      const { headers, rows } = inventoryReportData(type);
       const exportHeaders = headers.map((header) => header === "Harga Satuan" || header === "Harga Total" ? `${header} (Rp)` : header);
-      downloadExcel("laporan-inventaris.xlsx", [...headingRows, exportHeaders, ...rows, ["Grand Total Nilai Inventaris", ...Array(headers.length - 2).fill(""), grandTotal]]);
+      const reportName = type === "inventarisBhp" ? "bhp" : "barang-modal";
+      const totalLabel = type === "inventarisBhp" ? "Grand Total Nilai BHP" : "Grand Total Nilai Barang Modal";
+      downloadExcel(`laporan-rekapitulasi-${reportName}.xlsx`, [...headingRows, exportHeaders, ...rows, [totalLabel, ...Array(headers.length - 2).fill(""), grandTotal]]);
       return;
     }
     const config = collectionConfig[type];
