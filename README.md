@@ -9,6 +9,7 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 - Setiap tenant menyimpan inventaris, akun, dan tiket secara terpisah. Super Admin dapat mengatur sekolah, paket dan masa langganan, pembayaran, fitur, branding, QRIS, syarat/SLA, pengumuman, maintenance, panduan, tiket, WhatsApp, audit, serta backup/restore.
 - Pada **Super Admin → Backup & Restore**, jadwalkan backup harian seluruh platform ke Telegram menggunakan token bot dan Chat ID tujuan. Jadwal awal pukul 16.00 WIB; token disimpan terenkripsi dan file mencakup data semua tenant, sehingga chat tujuan harus dijaga kerahasiaannya.
 - Database lama dimigrasikan sebagai tenant awal dengan kode `0001`. Data baru disimpan di SQLite pada `DB_PATH`; jangan gunakan database lokal bersama untuk pengujian yang mengubah data.
+- Jika akun sekolah lama belum tercantum di platform SaaS, startup berikutnya akan memasukkannya ke **Daftar Sekolah** sebagai tenant pertama, memberi kode sekolah, dan mempertahankan akses Lifetime. Migrasi ini hanya dijalankan sekali.
 - Fitur maintenance dan masa aktif diperiksa pada autentikasi dan API, bukan hanya disembunyikan dari antarmuka. Backup SaaS berisi data semua tenant dan kredensial hash Super Admin; simpan file backup seperti rahasia dan lindungi kunci enkripsi bersama file database.
 
 ## Menjalankan aplikasi

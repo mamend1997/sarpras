@@ -95,6 +95,11 @@ db.exec(`
     payload TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS saas_migrations (
+    migration_key TEXT PRIMARY KEY,
+    migration_value TEXT NOT NULL DEFAULT '',
+    completed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS saas_super_admins (
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
@@ -192,6 +197,11 @@ const getAuditRows = db.prepare("SELECT payload FROM saas_audit_logs ORDER BY cr
 const getAllAuditRows = db.prepare("SELECT payload FROM saas_audit_logs ORDER BY created_at DESC");
 const getAllSchools = db.prepare("SELECT id, payload FROM saas_schools ORDER BY created_at DESC");
 const getAllTenantStates = db.prepare("SELECT school_id, payload FROM saas_tenant_states");
+const getSaasMigration = db.prepare("SELECT migration_value FROM saas_migrations WHERE migration_key = ?");
+const saveSaasMigration = db.prepare(`
+  INSERT INTO saas_migrations (migration_key, migration_value) VALUES (?, ?)
+  ON CONFLICT(migration_key) DO UPDATE SET migration_value = excluded.migration_value, completed_at = CURRENT_TIMESTAMP
+`);
 const registrationAttempts = new Map();
 const mime = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -337,16 +347,30 @@ function ensurePlatformBootstrap() {
   const existing = getPlatformStateRow.get();
   if (!existing) savePlatformState(defaultPlatformState());
   const data = platformState();
-  if (!data.schools.length) {
-    const legacy = currentState();
-    if (legacy && typeof legacy.school === "object") {
-      const schoolId = `school-${crypto.randomUUID()}`;
-      const school = {
-        id: schoolId,
-        code: "0001",
-        name: String(legacy.school.name || "Sekolah Utama"),
+  if (!Array.isArray(data.schools)) data.schools = [];
+  let changed = false;
+  const listedSchoolIds = new Set(data.schools.map((school) => school.id));
+  for (const { id, payload } of getAllSchools.all()) {
+    if (listedSchoolIds.has(id)) continue;
+    data.schools.unshift(JSON.parse(payload));
+    listedSchoolIds.add(id);
+    changed = true;
+  }
+  const legacy = currentState();
+  if (legacy && typeof legacy.school === "object" && !getSaasMigration.get("legacy_app_state_school")) {
+    const legacyName = String(legacy.school.name || "Sekolah Utama").trim();
+    const legacyEmail = String(legacy.school.email || legacy.accounts?.find((row) => row.role === "Administrator")?.email || "").trim().toLowerCase();
+    let school = data.schools.find((entry) => legacyEmail
+      ? String(entry.email || "").trim().toLowerCase() === legacyEmail
+      : String(entry.name || "").trim().toLocaleLowerCase("id-ID") === legacyName.toLocaleLowerCase("id-ID"));
+    const now = new Date().toISOString();
+    if (!school) {
+      school = {
+        id: `school-${crypto.randomUUID()}`,
+        code: nextSchoolCode(data.schools),
+        name: legacyName,
         level: "",
-        email: String(legacy.school.email || legacy.accounts?.find((row) => row.role === "Administrator")?.email || ""),
+        email: legacyEmail,
         phone: String(legacy.school.phone || ""),
         address: String(legacy.school.address || ""),
         principalName: String(legacy.school.principalName || ""),
@@ -354,18 +378,29 @@ function ensurePlatformBootstrap() {
         planId: "lifetime",
         status: "Lifetime",
         subscriptionPeriod: "lifetime",
-        activatedAt: new Date().toISOString(),
+        activatedAt: now,
         expiresAt: "",
         trialEndsAt: "",
-        featureAccess: Object.fromEntries(data.settings.defaultMenus.map((key) => [key, true])),
-        createdAt: new Date().toISOString()
+        featureAccess: Object.fromEntries((data.settings.defaultMenus || []).map((key) => [key, true])),
+        createdAt: now
       };
       saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
       saveTenantStateRow.run(school.id, JSON.stringify(legacy));
-      data.schools.unshift(school);
-      savePlatformState(data);
+    } else {
+      school.planId = "lifetime";
+      school.status = "Lifetime";
+      school.subscriptionPeriod = "lifetime";
+      school.activatedAt ||= now;
+      school.expiresAt = "";
+      school.trialEndsAt = "";
+      saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
+      if (!tenantState(school.id)) saveTenantStateRow.run(school.id, JSON.stringify(legacy));
     }
+    data.schools = [school, ...data.schools.filter((entry) => entry.id !== school.id)];
+    saveSaasMigration.run("legacy_app_state_school", school.id);
+    changed = true;
   }
+  if (changed) savePlatformState(data);
   const legacyTelegram = getTelegramConfig.get();
   if ((legacyTelegram.chat_id || legacyTelegram.token_cipher || legacyTelegram.enabled) &&
       getAllTenantTelegramConfigs.all().length === 0) {
@@ -1267,6 +1302,7 @@ async function handleApi(req, res) {
     const branding = platformState().settings.branding || {};
     return send(res, 200, JSON.stringify({
       appName: typeof branding.appName === "string" && branding.appName.trim() ? branding.appName : "Sarprah",
+      appTagline: typeof branding.tagline === "string" ? branding.tagline : "Sistem Manajemen Sarana & Prasarana",
       appLogo: typeof branding.logo === "string" ? branding.logo : ""
     }));
   }

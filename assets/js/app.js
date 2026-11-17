@@ -5404,9 +5404,10 @@
   async function init() {
     setup();
     let sessionUser = null;
+    let platformBranding = null;
     try {
       const brandingResponse = await fetch("/api/branding");
-      if (brandingResponse.ok) Object.assign(state.settings, await brandingResponse.json());
+      if (brandingResponse.ok) platformBranding = await brandingResponse.json();
       const response = await fetch("/api/auth/session");
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
@@ -5449,6 +5450,7 @@
     const workspaceCollectionsChanged = ensureWorkspaceCollections();
     const locationDefaultsChanged = ensureLocationDefaults();
     if (academicYearsChanged || barcodesChanged || printDesignChanged || brandingChanged || mobileNavigationChanged || workspaceCollectionsChanged || locationDefaultsChanged) saveState();
+    if (platformBranding) Object.assign(state.settings, platformBranding);
     applyAppBranding();
     if (activeUser) enterApp();
     else {
