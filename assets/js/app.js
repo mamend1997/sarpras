@@ -495,10 +495,15 @@
   async function persistState() {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     if (apiAvailable) {
-      const response = await fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        handleStateSyncFailure(response.status, error.error || "");
+      try {
+        const response = await fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          handleStateSyncFailure(response.status, error.error || "");
+          return false;
+        }
+      } catch (error) {
+        handleStateSyncFailure(0, error.message);
         return false;
       }
     } else if (localStorage.getItem(PENDING_STATE_KEY)) {
@@ -514,18 +519,16 @@
       if (localStorage.getItem(PENDING_STATE_KEY)) cachePendingServerState();
       return;
     }
-    if (apiAvailable) {
-      fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) })
-        .then(async (response) => {
-          if (!response.ok) {
-            const result = await response.json().catch(() => ({}));
-            const error = new Error(result.error || `HTTP ${response.status}`);
-            error.status = response.status;
-            throw error;
-          }
-        })
-        .catch((error) => handleStateSyncFailure(error.status || 0, error.status ? error.message : error.message));
-    }
+    fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) })
+      .then(async (response) => {
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          const error = new Error(result.error || `HTTP ${response.status}`);
+          error.status = response.status;
+          throw error;
+        }
+      })
+      .catch((error) => handleStateSyncFailure(error.status || 0, error.message));
   }
 
   async function loadState() {
@@ -2229,7 +2232,7 @@
   }
 
   function showPendingServerStateRecovery() {
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="pendingStateTitle"><div class="modal-header"><div><h2 id="pendingStateTitle">Perubahan lokal belum tersinkron</h2><p>Ada salinan data dari sesi sebelumnya yang ditolak server. Pilih cara melanjutkan.</p></div><button class="modal-close" data-action="close" aria-label="Tutup"><i data-lucide="x"></i></button></div><div class="modal-form"><div class="notice-card"><i data-lucide="triangle-alert"></i><span>Memulihkan data lokal akan mengganti seluruh data di server dengan salinan ini. Perubahan dari pengguna lain setelah sesi berakhir dapat tertimpa.</span></div><div class="modal-footer"><button class="btn-quiet" type="button" data-action="discard-pending-state">Gunakan data server</button><button class="btn-primary" type="button" data-action="restore-pending-state"><i data-lucide="cloud-upload"></i>Pulihkan data lokal</button></div></div></section></div>`);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="pendingStateTitle"><div class="modal-header"><div><h2 id="pendingStateTitle">Perubahan lokal belum tersinkron</h2><p>Ada salinan data dari sesi sebelumnya yang ditolak server. Pilih cara melanjutkan.</p></div><button class="modal-close" data-action="close" aria-label="Tutup"><i data-lucide="x"></i></button></div><div class="modal-form"><p class="form-help">Memulihkan data lokal akan mengganti seluruh data di server dengan salinan ini. Perubahan dari pengguna lain setelah sesi berakhir dapat tertimpa.</p><div class="modal-footer"><button class="btn-quiet" type="button" data-action="discard-pending-state">Gunakan data server</button><button class="btn-primary" type="button" data-action="restore-pending-state"><i data-lucide="cloud-upload"></i>Pulihkan data lokal</button></div></div></section></div>`);
   }
 
   async function restorePendingServerState() {
@@ -2539,10 +2542,10 @@
         await loadState();
         activeUser = getById("accounts", sessionUser.id);
       } else {
-        apiAvailable = true;
+        apiAvailable = false;
         const cached = localStorage.getItem(STORE_KEY);
         if (cached) Object.assign(state, JSON.parse(cached));
-        if (restoreLocalUserSession()) apiAvailable = false;
+        restoreLocalUserSession();
       }
     } catch {
       apiAvailable = false;
