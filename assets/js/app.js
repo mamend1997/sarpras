@@ -33,6 +33,11 @@
   const rupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0);
   const integerId = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
   const moneyFields = new Set(["price", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"]);
+  const depreciationMethods = {
+    straightLine: "Garis Lurus (Straight-Line)",
+    doubleDeclining: "Saldo Menurun Ganda (Double Declining-Balance)",
+    sumOfYears: "Jumlah Angka Tahun (Sum-of-the-Years'-Digits)"
+  };
   const goodsImportHeaders = ["Nama Barang", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
   const goodsFilterFields = [
     ["ownershipId", "Kepemilikan", "ownerships"],
@@ -178,7 +183,7 @@
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
     disposals: { title: "Pemusnahan Barang", description: "Catat pemusnahan barang dan pengurangan stok secara langsung.", singular: "Pemusnahan", cols: [["goodId", "Nama Barang"], ["quantity", "Jumlah Barang"], ["locationId", "Lokasi"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pemusnahan"], ["status", "Status"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pemusnahan", "date", true]] },
-    depreciations: { title: "Penyusutan Nilai Aset", description: "Hitung beban dan akumulasi penyusutan aset tetap.", singular: "Penyusutan", cols: [["date", "Tanggal Periode"], ["goodId", "Barang"], ["method", "Metode"], ["initialValue", "Harga Awal"], ["residualValue", "Nilai Residu"], ["amount", "Penyusutan Periode Ini"], ["accumulatedAmount", "Akumulasi Penyusutan"], ["finalValue", "Harga Akhir / Nilai Buku"]], fields: [["periodType", "Periode Penyusutan", "select", true, ["Bulanan", "Tahunan"]], ["date", "Tanggal Akhir Periode", "date", true], ["goodId", "Barang", "select", true, "goods"], ["method", "Metode Penyusutan", "select", true, ["Garis Lurus"]], ["initialValue", "Harga Awal (Rp)", "number", true], ["residualValue", "Nilai Residu (Rp)", "number", true], ["usefulLifeYears", "Umur Ekonomis (Tahun)", "number", true], ["amount", "Penyusutan Periode Ini (Rp)", "number", true], ["accumulatedAmount", "Akumulasi Penyusutan (Rp)", "number", true], ["finalValue", "Harga Akhir / Nilai Buku (Rp)", "number", true]] },
+    depreciations: { title: "Penyusutan Nilai Aset", description: "Hitung beban dan akumulasi penyusutan aset tetap.", singular: "Penyusutan", cols: [["date", "Tanggal Periode"], ["goodId", "Barang"], ["method", "Metode"], ["initialValue", "Harga Awal"], ["residualValue", "Nilai Residu"], ["amount", "Penyusutan Periode Ini"], ["accumulatedAmount", "Akumulasi Penyusutan"], ["finalValue", "Harga Akhir / Nilai Buku"]], fields: [["periodType", "Periode Penyusutan", "select", true, ["Bulanan", "Tahunan"]], ["date", "Tanggal Akhir Periode", "date", true], ["goodId", "Barang", "select", true, "goods"], ["method", "Metode Penyusutan", "select", true, Object.values(depreciationMethods)], ["initialValue", "Harga Awal (Rp)", "number", true], ["residualValue", "Nilai Residu (Rp)", "number", true], ["usefulLifeYears", "Umur Ekonomis (Tahun)", "number", true], ["amount", "Penyusutan Periode Ini (Rp)", "number", true], ["accumulatedAmount", "Akumulasi Penyusutan (Rp)", "number", true], ["finalValue", "Harga Akhir / Nilai Buku (Rp)", "number", true]] },
     accounts: { title: "Pengaturan", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
   const statusPages = new Set(["usages", "loans", "procurements", "disposals"]);
@@ -1758,11 +1763,12 @@
               : key === "loans" && name === "durationDays" ? loanDuration
                 : key === "loans" && name === "dueDate" ? addDaysToDate(dateOffset(0), 1)
                   : key === "depreciations" && name === "periodType" ? depreciationPeriodType
-                    : key === "depreciations" && name === "method" ? "Garis Lurus"
+                    : key === "depreciations" && name === "method" ? depreciationMethods.straightLine
                       : key === "depreciations" && name === "residualValue" ? 0
                         : key === "depreciations" && name === "usefulLifeYears" ? legacyDepreciationLife
                           : key === "depreciations" && name === "date" ? depreciationPeriodEnd(depreciationPeriodType)
                   : type === "date" ? (key === "academicYears" ? "" : dateOffset(0)) : "");
+      if (key === "depreciations" && name === "method" && value === "Garis Lurus") value = depreciationMethods.straightLine;
       const idAttr = `${key}-${name}`;
       if (key === "usages" && name === "unitId") {
         const unitId = record?.unitId || getById("goods", record?.goodId)?.unitId || "";
@@ -1772,6 +1778,7 @@
       if (key === "loans" && name === "signature") return `<div class="form-field full"><label for="loanSignatureCanvas">${esc(label)}</label><div class="loan-signature-field"><canvas id="loanSignatureCanvas" class="loan-signature-pad" aria-label="Area tanda tangan peminjam"></canvas><input type="hidden" name="signature" value="${esc(value)}"><button id="clearLoanSignature" class="btn-quiet" type="button"><i data-lucide="eraser"></i>Hapus tanda tangan</button></div><small class="form-help">Tanda tangan dapat diisi dengan mouse atau layar sentuh; biarkan kosong jika tidak diperlukan.</small></div>`;
       if (key === "loans" && name === "dueDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${required ? "required" : ""} readonly><small class="form-help">Dihitung otomatis dari tanggal sewa dan jumlah hari.</small></div>`;
       if (key === "depreciations" && name === "initialValue") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly><small class="form-help">Terisi otomatis dari harga satuan barang.</small></div>`;
+      if (key === "depreciations" && name === "method") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><select id="${idAttr}" name="${name}" required>${optionsFor(source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select><small class="form-help">Saldo Menurun Ganda memakai tarif 2 ÷ umur ekonomis dan beralih ke garis lurus saat lebih sesuai. Jumlah Angka Tahun membebankan porsi lebih besar pada awal umur aset.</small></div>`;
       if (key === "depreciations" && name === "date") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" required readonly><small class="form-help">Otomatis mengikuti akhir bulan atau akhir tahun buku.</small></div>`;
       if (key === "depreciations" && ["amount", "accumulatedAmount", "finalValue"].includes(name)) return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input depreciation-computed" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
@@ -1875,11 +1882,12 @@
     const residualValue = form.elements.residualValue;
     const usefulLifeYears = form.elements.usefulLifeYears;
     const periodType = form.elements.periodType;
+    const method = form.elements.method;
     const periodDate = form.elements.date;
     const amount = form.elements.amount;
     const accumulatedAmount = form.elements.accumulatedAmount;
     const finalValue = form.elements.finalValue;
-    if (!goodSelect || !initialValue || !residualValue || !usefulLifeYears || !periodType || !periodDate) return;
+    if (!goodSelect || !initialValue || !residualValue || !usefulLifeYears || !periodType || !method || !periodDate) return;
     const updateInitialValue = () => {
       const good = getById("goods", goodSelect.value);
       initialValue.value = good ? formatThousands(good.price) : "";
@@ -1899,6 +1907,7 @@
         periodType.value,
         Number(usefulLifeYears.value),
         parseThousands(residualValue.value),
+        method.value,
         form.dataset.record
       );
       const hasGood = Boolean(getById("goods", goodSelect.value));
@@ -1909,6 +1918,7 @@
     goodSelect.addEventListener("change", updateCalculation);
     residualValue.addEventListener("input", updateCalculation);
     usefulLifeYears.addEventListener("input", updateCalculation);
+    method.addEventListener("change", updateCalculation);
     periodType.addEventListener("change", () => { updatePeriodDate(); updateCalculation(); });
     const savedRecord = form.dataset.record ? getById("depreciations", form.dataset.record) : null;
     if (!savedRecord || !savedRecord.periodType) updatePeriodDate();
@@ -1931,18 +1941,35 @@
     return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
   }
 
-  function calculateDepreciation(goodId, periodDate, periodType, usefulLifeYears, residualValue, excludeRecordId = "") {
+  function calculateDepreciation(goodId, periodDate, periodType, usefulLifeYears, residualValue, method, excludeRecordId = "") {
     const good = getById("goods", goodId);
     const initialValue = Number(good?.price) || 0;
     const residual = Number(residualValue) || 0;
     const depreciableBasis = Math.max(0, initialValue - residual);
-    const priorAccumulated = Math.min((state.depreciations || []).reduce((total, record) => {
-      if (record.id === excludeRecordId || record.goodId !== goodId || !record.date || record.date >= periodDate) return total;
-      return total + Math.max(0, Number(record.amount) || 0);
-    }, 0), depreciableBasis);
-    const plannedAnnual = usefulLifeYears > 0 ? depreciableBasis / usefulLifeYears : 0;
-    const plannedAmount = periodType === "Bulanan" ? Math.round(plannedAnnual / 12) : Math.round(plannedAnnual);
+    const priorRecords = (state.depreciations || []).filter((record) =>
+      record.id !== excludeRecordId && record.goodId === goodId && record.date && record.date < periodDate
+    );
+    const priorAccumulated = Math.min(priorRecords.reduce((total, record) =>
+      total + Math.max(0, Number(record.amount) || 0), 0), depreciableBasis);
+    const periodsPerYear = periodType === "Bulanan" ? 12 : 1;
+    const elapsedYears = priorRecords.reduce((total, record) =>
+      total + ((record.periodType || "Tahunan") === "Bulanan" ? 1 / 12 : 1), 0);
     const remaining = Math.max(0, depreciableBasis - priorAccumulated);
+    const remainingYears = Math.max(0, usefulLifeYears - elapsedYears);
+    let plannedAnnual = 0;
+    if (method === depreciationMethods.straightLine) {
+      plannedAnnual = usefulLifeYears > 0 ? depreciableBasis / usefulLifeYears : 0;
+    } else if (method === depreciationMethods.doubleDeclining) {
+      const beginningBookValue = Math.max(residual, initialValue - priorAccumulated);
+      const doubleDecliningAmount = usefulLifeYears > 0 ? beginningBookValue * 2 / usefulLifeYears : 0;
+      const straightLineRemaining = remainingYears > 0 ? remaining / remainingYears : remaining;
+      plannedAnnual = Math.max(doubleDecliningAmount, straightLineRemaining);
+    } else if (method === depreciationMethods.sumOfYears) {
+      const yearNumber = Math.min(usefulLifeYears, Math.floor(elapsedYears + 1e-9) + 1);
+      const sumOfYears = usefulLifeYears * (usefulLifeYears + 1) / 2;
+      plannedAnnual = sumOfYears > 0 ? depreciableBasis * (usefulLifeYears - yearNumber + 1) / sumOfYears : 0;
+    }
+    const plannedAmount = Math.round(remainingYears > 0 ? plannedAnnual / periodsPerYear : remaining);
     const amount = Math.min(Math.max(0, plannedAmount), remaining);
     const accumulatedAmount = priorAccumulated + amount;
     return {
@@ -2483,7 +2510,7 @@
         showToast("Harga awal barang harus lebih dari Rp0 agar dapat disusutkan.", true);
         return;
       }
-      if (data.method !== "Garis Lurus") {
+      if (!Object.values(depreciationMethods).includes(data.method)) {
         showToast("Metode penyusutan yang dipilih belum didukung.", true);
         return;
       }
@@ -2517,6 +2544,7 @@
         data.periodType,
         data.usefulLifeYears,
         residualValue,
+        data.method,
         old?.id
       );
       if (calculation.amount <= 0) {
