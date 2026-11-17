@@ -64,8 +64,8 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "loans", "procurements", "disposals", "depreciations", "reports"];
-  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "loans", "procurements", "disposals", "depreciations", "reports", "activityLog", "trash", "helpTickets", "userGuide"];
+  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view", activityLog: "view", helpTickets: "edit", userGuide: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
     Object.fromEntries(permissionPages.map((key) => [key, defaultMenuPermissions[key] || "hidden"]))
@@ -104,6 +104,9 @@
     stocktakes: [{ id: "st1", date: dateOffset(-8), goodId: "gd5", oldStock: 52, newStock: 45, total: 45, note: "Penyesuaian stok akhir bulan" }, { id: "st2", date: dateOffset(-26), goodId: "gd4", oldStock: 20, newStock: 18, total: 18, note: "Pengecekan berkala" }],
     repairTickets: [],
     maintenanceSchedules: [],
+    activityLogs: [],
+    trash: [],
+    helpTickets: [],
     loans: [
       { id: "ln1", borrower: "Andi Pratama", goodId: "gd1", locationId: "lo3", startDate: dateOffset(-8), dueDate: dateOffset(-2), note: "Kegiatan lomba informatika", status: "Diterima" },
       { id: "ln2", borrower: "Dewi Lestari", goodId: "gd2", locationId: "lo2", startDate: dateOffset(-1), dueDate: dateOffset(5), note: "Presentasi kelas XI", status: "Pengajuan" },
@@ -166,6 +169,10 @@
     disposals: ["Pemusnahan Barang", "Kelola pengajuan pemusnahan aset rusak.", "archive-x"],
     depreciations: ["Penyusutan", "Catat perubahan nilai barang secara berkala.", "trending-down"],
     reports: ["Laporan", "Rekap inventaris dan transaksi sarana prasarana sekolah.", "files"],
+    activityLog: ["Log Aktivitas", "Riwayat perubahan dan aktivitas pengguna aplikasi.", "history"],
+    trash: ["Kotak Sampah", "Pulihkan data yang dihapus atau hapus permanen.", "trash-2"],
+    helpTickets: ["Bantuan & Tiket Kendala", "Temukan bantuan atau kirim laporan kendala.", "life-buoy"],
+    userGuide: ["Petunjuk Pengguna", "Panduan menggunakan fitur-fitur Sarprah.", "book-open"],
     accounts: ["Pengaturan", "Kelola akun pengguna, hak akses, dan identitas aplikasi.", "settings-2"],
     backup: ["Backup & Telegram", "Unduh dan pulihkan data, serta atur backup otomatis ke Telegram.", "database-backup"]
   };
@@ -177,6 +184,7 @@
       { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"], ["repairTickets", "Tiket Perbaikan"], ["maintenanceCalendar", "Kalender Pemeliharaan"]] },
       { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["ownerships", "Kepemilikan"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
     ] },
+    { section: "BANTUAN & RIWAYAT", links: [{ id: "activityLog", label: "Log Aktivitas", icon: "history" }, { id: "trash", label: "Kotak Sampah", icon: "trash-2" }, { id: "helpTickets", label: "Bantuan & Tiket Kendala", icon: "life-buoy" }, { id: "userGuide", label: "Petunjuk Pengguna", icon: "book-open" }] },
     { links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
   ];
 
@@ -213,6 +221,19 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const getById = (collection, value) => (state[collection] || []).find((row) => row.id === value);
+  function logActivity(action, entity, detail) {
+    if (!Array.isArray(state.activityLogs)) state.activityLogs = [];
+    state.activityLogs.unshift({
+      id: id(),
+      action,
+      entity,
+      detail: String(detail || ""),
+      actor: activeUser?.name || "Sistem",
+      actorId: activeUser?.id || "",
+      timestamp: new Date().toISOString()
+    });
+    state.activityLogs.length = Math.min(state.activityLogs.length, 500);
+  }
   function nextGoodBarcode(reservedCodes = []) {
     const goods = state.goods || [];
     const usedCodes = new Set([...goods.map((good) => String(good.barcode || "").trim().toUpperCase()), ...reservedCodes.map((code) => String(code || "").trim().toUpperCase())]);
@@ -655,6 +676,17 @@
     return changed;
   }
 
+  function ensureWorkspaceCollections() {
+    let changed = false;
+    ["activityLogs", "trash", "helpTickets"].forEach((key) => {
+      if (!Array.isArray(state[key])) {
+        state[key] = [];
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
   function applyAppBranding() {
     ensureBrandingDefaults();
     const appName = state.settings.appName.trim() || "Sarprah";
@@ -817,13 +849,14 @@
     const permissionsChanged = ensurePermissionDefaults();
     const brandingChanged = ensureBrandingDefaults();
     const loanReceiptDefaultsChanged = ensureLoanReceiptDefaults();
+    const workspaceCollectionsChanged = ensureWorkspaceCollections();
     if (needsBootstrap && apiAvailable) {
       try { await persistState(); }
       catch (error) {
         apiAvailable = false;
         showToast(`Data awal gagal disimpan ke SQLite: ${error.message}`, true);
       }
-    } else if (ownershipsChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged || loanReceiptDefaultsChanged) saveState();
+    } else if (ownershipsChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged || loanReceiptDefaultsChanged || workspaceCollectionsChanged) saveState();
   }
 
   async function syncPendingLocalAccounts(pendingAccounts) {
@@ -999,7 +1032,8 @@
       goods: "Barang", checkGoods: "Cek", usages: "BHP", stocktakes: "Opname", barcode: "QR",
       repairTickets: "Tiket", maintenanceCalendar: "Kalender",
       loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
-      depreciations: "Susut", reports: "Laporan", accounts: "Akun", backup: "Backup"
+      depreciations: "Susut", reports: "Laporan", activityLog: "Aktivitas", trash: "Sampah",
+      helpTickets: "Bantuan", userGuide: "Panduan", accounts: "Akun", backup: "Backup"
     };
     $("#mobileNav").innerHTML = centeredLinks.map((key) => {
       const highlighted = key === highlightKey;
@@ -1068,6 +1102,10 @@
     else if (page === "repairTickets") root.innerHTML = renderRepairTickets();
     else if (page === "maintenanceCalendar") root.innerHTML = renderMaintenanceCalendar();
     else if (page === "reports") root.innerHTML = renderReports();
+    else if (page === "activityLog") root.innerHTML = renderActivityLog();
+    else if (page === "trash") root.innerHTML = renderTrash();
+    else if (page === "helpTickets") root.innerHTML = renderHelpTickets();
+    else if (page === "userGuide") root.innerHTML = renderUserGuide();
     else if (page === "accounts") root.innerHTML = renderAccounts();
     else if (page === "backup") root.innerHTML = renderBackup();
     else root.innerHTML = renderCollection(page);
@@ -1103,7 +1141,7 @@
     const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
     const lateRows = state.loans.filter((row) => row.status === "Diterima" && loanLateDays(row) > 0).slice(0, 4);
     const procurements = state.procurements.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
-    const stat = (label, value, icon, tone, foot) => `<div class="summary-card"><div class="summary-top">${label}<span class="summary-icon ${tone}"><i data-lucide="${icon}"></i></span></div><div class="summary-value">${value}</div><div class="summary-foot"><span class="trend-up">${foot}</span> bulan ini</div><div class="summary-spark"><svg viewBox="0 0 80 28" fill="none"><path d="M1 22 C12 20 12 16 22 18S34 6 43 12s12 0 20 3 10-8 16-11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div></div>`;
+    const stat = (label, value, icon, tone, foot) => `<div class="summary-card"><div class="summary-top">${label}<span class="summary-icon ${tone}"><i data-lucide="${icon}"></i></span></div><div class="summary-value">${value}</div><div class="summary-foot"><span class="trend-up">${foot}</span> bulan ini</div></div>`;
     return `${pageHeading()}
       <div class="stats-row">${stat("Total Peminjaman Bulan Ini", loansMonth, "arrow-left-right", "orange", "+12%")}${stat("Total Pengadaan Bulan Ini", procMonth, "shopping-bag", "blue", "+8%")}${stat("Total Pemusnahan Bulan Ini", disposalMonth, "archive-x", "green", `${disposalMonth} item`)}</div>
       <div class="indicator-grid">
@@ -1121,6 +1159,98 @@
         <section class="panel"><div class="panel-heading"><div><h3>Daftar Barang Belum Kembali</h3><p>Peminjaman yang melewati tanggal pengembalian</p></div><button class="btn-quiet" data-nav="loans">Lihat semua <i data-lucide="arrow-right"></i></button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>PEMINJAM</th><th>BARANG</th><th>TERLAMBAT</th><th>STATUS</th></tr></thead><tbody>${lateRows.length ? lateRows.map((row) => `<tr><td><span class="table-title">${esc(row.borrower)}</span></td><td>${esc(titleOfGood(row.goodId))}</td><td><span class="badge danger">Terlambat ${loanLateDays(row)} hari</span></td><td>${statusBadge(displayedStatus("loans", row.status))}</td></tr>`).join("") : `<tr><td colspan="4" class="empty-state">Tidak ada barang yang terlambat dikembalikan.</td></tr>`}</tbody></table></div></section>
         <section class="panel"><div class="panel-heading"><div><h3>Pengadaan</h3><p>Ringkasan usulan terbaru</p></div><select class="chart-select" id="dashboardProcFilter"><option value="Semua">Semua</option><option value="Mendesak">Mendesak</option><option value="Normal">Normal</option></select></div><div class="table-wrap"><table class="data-table"><thead><tr><th>NAMA PENGADAAN</th><th>PRIORITAS</th><th>NOMINAL</th></tr></thead><tbody id="dashboardProcRows">${procurementDashboardRows(procurements)}</tbody></table></div></section>
       </div>`;
+  }
+
+  function renderActivityLog() {
+    const rows = state.activityLogs || [];
+    const body = rows.length ? rows.map((entry) => {
+      const timestamp = new Date(entry.timestamp);
+      const date = Number.isFinite(timestamp.getTime())
+        ? timestamp.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "—";
+      const search = [entry.actor, entry.action, entry.entity, entry.detail].join(" ").toLocaleLowerCase("id-ID");
+      return `<tr data-activity-search="${esc(search)}"><td>${esc(date)}</td><td>${esc(entry.actor || "Sistem")}</td><td><span class="activity-action">${esc(entry.action)}</span></td><td>${esc(entry.entity)}</td><td>${esc(entry.detail)}</td></tr>`;
+    }).join("") : `<tr><td colspan="5"><div class="empty-state"><i data-lucide="history"></i>Belum ada aktivitas tercatat.</div></td></tr>`;
+    return `${pageHeading()}<section class="settings-card"><div class="activity-log-toolbar"><p>Menampilkan hingga 500 aktivitas terbaru.</p><label class="search-field"><i data-lucide="search"></i><input id="activityLogSearch" type="search" placeholder="Cari aktivitas..."></label></div><div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>WAKTU</th><th>PENGGUNA</th><th>AKTIVITAS</th><th>MENU</th><th>KETERANGAN</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>${rows.length} aktivitas</span></div></div></section>`;
+  }
+
+  function trashRecordLabel(record) {
+    return record?.name || record?.title || record?.ticketNo || record?.borrower || record?.applicant || record?.code || record?.date || "Data";
+  }
+
+  function renderTrash() {
+    const records = (state.trash || []).slice().sort((a, b) => String(b.deletedAt || "").localeCompare(String(a.deletedAt || "")));
+    const body = records.length ? records.map((entry) => {
+      const timestamp = new Date(entry.deletedAt);
+      const deletedAt = Number.isFinite(timestamp.getTime())
+        ? timestamp.toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "—";
+      const collectionLabel = collectionConfig[entry.collection]?.title || meta[entry.collection]?.[0] || entry.collection;
+      return `<tr><td><span class="table-title">${esc(trashRecordLabel(entry.record))}</span></td><td>${esc(collectionLabel)}</td><td>${esc(entry.deletedBy || "Sistem")}</td><td>${esc(deletedAt)}</td><td><div class="action-buttons">${canEditPage("trash") ? `<button class="btn-quiet" data-action="restore-trash" data-id="${esc(entry.id)}"><i data-lucide="rotate-ccw"></i>Pulihkan</button>` : ""}${canDeletePage("trash") ? `<button class="mini-action" title="Hapus permanen" data-action="permanent-delete-trash" data-id="${esc(entry.id)}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`;
+    }).join("") : `<tr><td colspan="5"><div class="empty-state"><i data-lucide="trash-2"></i>Kotak sampah kosong.</div></td></tr>`;
+    return `${pageHeading()}<section class="settings-card"><div class="trash-note"><i data-lucide="info"></i><span>Data di sini tidak lagi tampil di menu asal. Pulihkan untuk mengembalikannya, atau hapus permanen jika sudah tidak diperlukan.</span></div><div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>NAMA DATA</th><th>ASAL MENU</th><th>DIHAPUS OLEH</th><th>WAKTU DIHAPUS</th><th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>${records.length} data di kotak sampah</span></div></div></section>`;
+  }
+
+  function renderHelpTickets() {
+    const isAdministrator = activeUser?.role === "Administrator";
+    const tickets = (state.helpTickets || [])
+      .filter((ticket) => isAdministrator || ticket.createdBy === activeUser?.id)
+      .slice()
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    const statusClass = (status) => status === "Selesai" ? "success" : status === "Diproses" ? "info" : "neutral";
+    const cards = tickets.map((ticket) => {
+      const nextStatus = ticket.status === "Baru" ? "Diproses" : ticket.status === "Diproses" ? "Selesai" : "";
+      return `<article class="help-ticket-card"><div class="help-ticket-heading"><div><span class="help-ticket-number">${esc(ticket.ticketNo)}</span><h3>${esc(ticket.title)}</h3></div><span class="badge ${statusClass(ticket.status)}">${esc(ticket.status)}</span></div><p>${esc(ticket.description)}</p><div class="help-ticket-meta"><span>${esc(ticket.category)}</span><span>${esc(ticket.requester)}</span><span>${esc(niceDate(String(ticket.createdAt || "").slice(0, 10)))}</span></div>${isAdministrator && nextStatus ? `<button class="btn-quiet" data-action="help-ticket-status" data-id="${esc(ticket.id)}" data-status="${nextStatus}">${nextStatus === "Diproses" ? "Mulai diproses" : "Tandai selesai"}</button>` : ""}</article>`;
+    }).join("");
+    const addAction = canEditPage("helpTickets") ? `<button class="btn-primary" data-action="new-help-ticket"><i data-lucide="plus"></i>Buat tiket kendala</button>` : "";
+    return `${pageHeading(addAction)}<section class="help-intro-grid"><article class="settings-card"><span class="help-card-icon"><i data-lucide="book-open"></i></span><h3>Petunjuk Pengguna</h3><p>Pelajari cara mengelola inventaris, transaksi, dan laporan.</p><button class="btn-quiet" data-nav="userGuide">Buka petunjuk <i data-lucide="arrow-right"></i></button></article><article class="settings-card"><span class="help-card-icon support"><i data-lucide="headset"></i></span><h3>Hubungi sekolah</h3><p>${esc(state.school?.phone || "Nomor telepon belum diatur")}<br>${esc(state.school?.email || "Email belum diatur")}</p></article></section><section class="settings-card"><div class="panel-heading"><div><h3>Tiket Kendala</h3><p>${isAdministrator ? "Tiket yang dikirim pengguna aplikasi." : "Pantau tiket kendala yang Anda kirim."}</p></div></div><div class="help-ticket-list">${cards || `<div class="empty-state"><i data-lucide="messages-square"></i>Belum ada tiket kendala.</div>`}</div></section>`;
+  }
+
+  function renderUserGuide() {
+    const guideSections = [
+      ["Memulai", "Pilih tahun pelajaran dari bagian atas aplikasi. Data barang dan data master akan mengikuti tahun pelajaran yang aktif. Administrator dapat mengatur akun, hak akses, dan pintasan pada menu Pengaturan."],
+      ["Mengelola barang", "Buka Data Barang untuk menambah atau mengimpor daftar barang. Gunakan Data Item untuk mencatat unit inventaris, Cetak Barcode untuk mencetak kode barang, dan Cek Barang untuk mencari stok atau riwayat barang."],
+      ["Peminjaman dan transaksi", "Catat peminjaman, pengadaan, pemusnahan, dan penyusutan melalui menu Transaksi. Periksa stok dan status sebelum menyimpan. Penggunaan BHP akan mengurangi stok secara langsung."],
+      ["Perbaikan dan pemeliharaan", "Buat tiket perbaikan untuk melaporkan kerusakan. Gunakan Kalender Pemeliharaan untuk menambahkan jadwal rutin, perbaikan, pengecekan, atau pembersihan."],
+      ["Laporan dan keamanan data", "Pilih menu Laporan untuk melihat rekap dan mencetak dokumen. Buat backup berkala melalui Backup & Telegram. Data yang dihapus dapat dipulihkan dari Kotak Sampah selama belum dihapus permanen."],
+      ["Bantuan", "Jika mengalami kendala, buka Bantuan & Tiket Kendala lalu kirim judul, kategori, dan penjelasan agar Administrator dapat menindaklanjuti."]
+    ];
+    return `${pageHeading()}<div class="user-guide-layout"><section class="settings-card user-guide-intro"><span class="help-card-icon"><i data-lucide="book-open-check"></i></span><div><h3>Panduan singkat Sarprah</h3><p>Ikuti bagian berikut untuk menggunakan fitur utama aplikasi secara runtut.</p></div></section>${guideSections.map(([title, description], index) => `<article class="settings-card user-guide-step"><span class="user-guide-number">${String(index + 1).padStart(2, "0")}</span><div><h3>${esc(title)}</h3><p>${esc(description)}</p></div></article>`).join("")}<button class="btn-secondary" data-nav="helpTickets"><i data-lucide="life-buoy"></i>Bantuan & Tiket Kendala</button></div>`;
+  }
+
+  function openHelpTicketForm() {
+    if (!canEditPage("helpTickets")) return showToast("Akun Anda tidak memiliki izin membuat tiket kendala.", true);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="helpTicketTitle"><div class="modal-header"><div><h2 id="helpTicketTitle">Buat tiket kendala</h2><p>Jelaskan kendala agar dapat ditindaklanjuti.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form id="helpTicketForm" class="modal-form"><div class="form-grid"><div class="form-field"><label for="helpTicketCategory">Kategori kendala *</label><select id="helpTicketCategory" name="category" required><option value="">Pilih kategori</option>${["Akun & akses", "Data barang", "Transaksi", "Laporan", "Lainnya"].map((category) => `<option>${category}</option>`).join("")}</select></div><div class="form-field"><label for="helpTicketSubject">Judul kendala *</label><input id="helpTicketSubject" name="title" type="text" maxlength="120" required></div><div class="form-field full"><label for="helpTicketDescription">Deskripsi kendala *</label><textarea id="helpTicketDescription" name="description" rows="5" maxlength="3000" required></textarea></div></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="submit" class="btn-primary"><i data-lucide="send"></i>Kirim tiket</button></div></form></section></div>`);
+  }
+
+  function saveHelpTicket(event) {
+    event.preventDefault();
+    if (!canEditPage("helpTickets")) return showToast("Akun Anda tidak memiliki izin membuat tiket kendala.", true);
+    const form = event.currentTarget;
+    const title = form.elements.title.value.trim();
+    const description = form.elements.description.value.trim();
+    const category = form.elements.category.value;
+    if (!title || !description || !category) return showToast("Lengkapi kategori, judul, dan deskripsi kendala.", true);
+    const ticketSequence = Math.max(0, ...(state.helpTickets || []).map((ticket) => Number(ticket.ticketSequence) || 0)) + 1;
+    const ticket = {
+      id: id(),
+      ticketSequence,
+      ticketNo: `KND-${today.getFullYear()}-${String(ticketSequence).padStart(4, "0")}`,
+      category,
+      title,
+      description,
+      status: "Baru",
+      createdAt: new Date().toISOString(),
+      createdBy: activeUser?.id || "",
+      requester: activeUser?.name || "Pengguna",
+      requesterRole: activeUser?.role || ""
+    };
+    state.helpTickets.unshift(ticket);
+    logActivity("Mengirim tiket", "Bantuan", `${ticket.ticketNo} · ${ticket.title}`);
+    saveState();
+    closeModal();
+    showToast(`Tiket ${ticket.ticketNo} berhasil dikirim.`);
+    renderPage();
   }
 
   function renderGoodsCheck() {
@@ -1790,7 +1920,7 @@
   }
 
   function renderAccounts() {
-    const available = ["dashboard", "goods", "checkGoods", "loans", "procurements", "disposals", "reports", "backup"];
+    const available = ["dashboard", "goods", "checkGoods", "loans", "procurements", "disposals", "reports", "activityLog", "trash", "helpTickets", "userGuide", "backup"];
     if (!Array.isArray(mobileNavDraft)) mobileNavDraft = [...(state.settings.mobileNav || seed.settings.mobileNav)];
     if (mobileNavHighlightDraft === null) mobileNavHighlightDraft = state.settings.mobileNavHighlight || "checkGoods";
     if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("checkGoods") ? "checkGoods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)] || "";
@@ -1938,6 +2068,7 @@
       ensureAcademicYearDefaults();
       ensureBrandingDefaults();
       ensurePermissionDefaults();
+      ensureWorkspaceCollections();
       await persistState();
       activeUser = getById("accounts", activeUser.id) || activeUser;
       applyAppBranding();
@@ -2068,6 +2199,7 @@
     });
     $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
     $("#recordForm")?.addEventListener("submit", saveRecord);
+    $("#helpTicketForm")?.addEventListener("submit", saveHelpTicket);
   }
 
   function setupLoanForm(form) {
@@ -2276,8 +2408,8 @@
     }
   }
 
-  function showDeleteConfirmation(title, description, onConfirm) {
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal logout-confirm-modal delete-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="deleteConfirmTitle" aria-describedby="deleteConfirmDescription"><div class="delete-confirm-icon"><i data-lucide="trash-2"></i></div><h2 id="deleteConfirmTitle">${esc(title)}</h2><p id="deleteConfirmDescription">${esc(description)}</p><div class="logout-confirm-actions"><button class="btn-quiet" type="button" data-action="close">Batal</button><button class="btn-danger" type="button" id="confirmDeleteAction"><i data-lucide="trash-2"></i>Ya, hapus</button></div></section></div>`);
+  function showDeleteConfirmation(title, description, onConfirm, confirmLabel = "Ya, hapus") {
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal logout-confirm-modal delete-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="deleteConfirmTitle" aria-describedby="deleteConfirmDescription"><div class="delete-confirm-icon"><i data-lucide="trash-2"></i></div><h2 id="deleteConfirmTitle">${esc(title)}</h2><p id="deleteConfirmDescription">${esc(description)}</p><div class="logout-confirm-actions"><button class="btn-quiet" type="button" data-action="close">Batal</button><button class="btn-danger" type="button" id="confirmDeleteAction"><i data-lucide="trash-2"></i>${esc(confirmLabel)}</button></div></section></div>`);
     $("#confirmDeleteAction")?.addEventListener("click", () => {
       closeModal();
       onConfirm();
@@ -2332,6 +2464,73 @@
     if (!good) return;
     good.quantity = Number(good.quantity || 0) + (Number(usage.quantity) || 0);
     syncGoodConditionCounts(good);
+  }
+
+  function moveRecordToTrash(collection, record) {
+    if (!Array.isArray(state[collection]) || !record) return false;
+    if (collection === "disposals") restoreDisposalStock(record);
+    if (collection === "loans") restoreLoanStock(record);
+    if (collection === "usages") restoreUsageStock(record);
+    state[collection] = state[collection].filter((row) => row.id !== record.id);
+    const entry = {
+      id: id(),
+      collection,
+      record: structuredClone(record),
+      deletedAt: new Date().toISOString(),
+      deletedBy: activeUser?.name || "Sistem"
+    };
+    if (!Array.isArray(state.trash)) state.trash = [];
+    state.trash.unshift(entry);
+    logActivity("Memindahkan ke kotak sampah", collectionConfig[collection]?.title || meta[collection]?.[0] || collection, trashRecordLabel(record));
+    return true;
+  }
+
+  function restoreTrashEntry(entry) {
+    const collection = entry?.collection;
+    const record = entry?.record;
+    if (!collection || !record || !Array.isArray(state[collection])) {
+      showToast("Data sampah tidak valid dan tidak dapat dipulihkan.", true);
+      return false;
+    }
+    if (state[collection].some((row) => row.id === record.id)) {
+      showToast("Data dengan ID yang sama sudah ada di menu asal.", true);
+      return false;
+    }
+    const requiresStockAdjustment = (collection === "loans" && record.stockAdjusted === true)
+      || (collection === "disposals" && record.stockAdjusted === true)
+      || (collection === "usages" && (record.stockAdjusted === true || record.status === "Disetujui"));
+    if (requiresStockAdjustment) {
+      const good = getById("goods", record.goodId);
+      const quantity = Math.max(0, Number(record.quantity) || 0);
+      if (!good) {
+        showToast("Barang terkait tidak ditemukan; data tidak dapat dipulihkan.", true);
+        return false;
+      }
+      if (quantity > Number(good.quantity || 0)) {
+        showToast(`Stok tidak mencukupi untuk memulihkan transaksi ini. Stok tersedia ${Number(good.quantity) || 0} unit.`, true);
+        return false;
+      }
+      good.quantity = Math.max(0, Number(good.quantity || 0) - quantity);
+      syncGoodConditionCounts(good);
+    }
+    state[collection].unshift(structuredClone(record));
+    state.trash = state.trash.filter((row) => row.id !== entry.id);
+    logActivity("Memulihkan dari kotak sampah", collectionConfig[collection]?.title || meta[collection]?.[0] || collection, trashRecordLabel(record));
+    saveState();
+    showToast("Data berhasil dipulihkan.");
+    renderPage();
+    return true;
+  }
+
+  function permanentlyDeleteTrashEntry(entry) {
+    if (!entry || !Array.isArray(state.trash)) return;
+    const name = trashRecordLabel(entry.record);
+    const collectionLabel = collectionConfig[entry.collection]?.title || meta[entry.collection]?.[0] || entry.collection;
+    state.trash = state.trash.filter((row) => row.id !== entry.id);
+    logActivity("Menghapus permanen", collectionLabel, name);
+    saveState();
+    showToast("Data dihapus permanen.");
+    renderPage();
   }
 
   function showGoodsConditionModal(goodId) {
@@ -2994,7 +3193,9 @@
         activeUser = old;
         syncProfile();
       }
-    } else saveState();
+    }
+    logActivity(old ? "Memperbarui" : "Menambahkan", config.singular, trashRecordLabel(data));
+    saveState();
     closeModal();
     if (key === "academicYears" && !old && copySourceYear) {
       const yearMasters = yearMasterCollections.reduce((total, collection) => total + recordsForAcademicYear(collection, data.id).length, 0);
@@ -3098,7 +3299,11 @@
     if (action === "toggle-account") {
       if (activeUser?.role !== "Administrator") return showToast("Hanya administrator yang dapat mengubah status akun.", true);
       const account = getById("accounts", button.dataset.id);
-      if (account) { account.active = !account.active; saveState(); showToast(`Akun ${account.active ? "diaktifkan" : "dinonaktifkan"}.`); renderPage(); }
+      if (account) {
+        account.active = !account.active;
+        logActivity("Mengubah status akun", "Pengaturan", `${account.name} · ${account.active ? "Aktif" : "Nonaktif"}`);
+        saveState(); showToast(`Akun ${account.active ? "diaktifkan" : "dinonaktifkan"}.`); renderPage();
+      }
     }
     if (action === "add") {
       if (!canEditPage()) return showToast("Akun Anda hanya dapat melihat data ini.", true);
@@ -3125,14 +3330,11 @@
       }
       if (record) {
         const collection = page;
-        const recordName = record.name || record.title || record.code || "ini";
-        showDeleteConfirmation("Hapus data?", `Data "${recordName}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
-          if (collection === "disposals") restoreDisposalStock(record);
-          if (collection === "loans") restoreLoanStock(record);
-          if (collection === "usages") restoreUsageStock(record);
-          state[collection] = state[collection].filter((row) => row.id !== record.id);
-          saveState(); showToast("Data berhasil dihapus."); renderPage();
-        });
+        const recordName = trashRecordLabel(record);
+        showDeleteConfirmation("Pindahkan data ke kotak sampah?", `Data "${recordName}" dapat dipulihkan dari menu Kotak Sampah.`, () => {
+          if (!moveRecordToTrash(collection, record)) return showToast("Data tidak dapat dipindahkan ke kotak sampah.", true);
+          saveState(); showToast("Data dipindahkan ke kotak sampah."); renderPage();
+        }, "Pindahkan ke Sampah");
       }
     } else if (action === "select-visible") {
       $$(".record-select", $("#pageContent")).forEach((check) => { check.checked = true; });
@@ -3143,15 +3345,32 @@
       const selectedRows = (state[page] || []).filter((row) => selectedIds.has(row.id));
       if (!selectedRows.length) return showToast("Pilih minimal satu data untuk dihapus.", true);
       const collection = page;
-      showDeleteConfirmation("Hapus data terpilih?", `${selectedRows.length} data dari ${collectionConfig[collection].title} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
-        if (collection === "disposals") selectedRows.forEach(restoreDisposalStock);
-        if (collection === "loans") selectedRows.forEach(restoreLoanStock);
-        if (collection === "usages") selectedRows.forEach(restoreUsageStock);
-        state[collection] = state[collection].filter((row) => !selectedIds.has(row.id));
+      showDeleteConfirmation("Pindahkan data ke kotak sampah?", `${selectedRows.length} data dari ${collectionConfig[collection].title} dapat dipulihkan dari menu Kotak Sampah.`, () => {
+        selectedRows.forEach((record) => moveRecordToTrash(collection, record));
         saveState();
-        showToast(`${selectedRows.length} data berhasil dihapus.`);
+        showToast(`${selectedRows.length} data dipindahkan ke kotak sampah.`);
         renderPage();
-      });
+      }, "Pindahkan ke Sampah");
+    } else if (action === "restore-trash") {
+      if (!canEditPage("trash")) return showToast("Akun Anda tidak memiliki izin memulihkan data.", true);
+      const entry = (state.trash || []).find((row) => row.id === button.dataset.id);
+      if (entry) restoreTrashEntry(entry);
+    } else if (action === "permanent-delete-trash") {
+      if (!canDeletePage("trash")) return showToast("Akun Anda tidak memiliki izin menghapus permanen.", true);
+      const entry = (state.trash || []).find((row) => row.id === button.dataset.id);
+      if (entry) showDeleteConfirmation("Hapus permanen?", `Data "${trashRecordLabel(entry.record)}" tidak dapat dipulihkan setelah dihapus.`, () => permanentlyDeleteTrashEntry(entry), "Hapus permanen");
+    } else if (action === "new-help-ticket") {
+      openHelpTicketForm();
+    } else if (action === "help-ticket-status") {
+      if (activeUser?.role !== "Administrator") return showToast("Hanya Administrator yang dapat memperbarui status tiket kendala.", true);
+      const ticket = (state.helpTickets || []).find((row) => row.id === button.dataset.id);
+      const allowedNext = ticket?.status === "Baru" ? "Diproses" : ticket?.status === "Diproses" ? "Selesai" : "";
+      if (!ticket || button.dataset.status !== allowedNext) return;
+      ticket.status = allowedNext;
+      logActivity("Memperbarui tiket kendala", "Bantuan", `${ticket.ticketNo} · ${allowedNext}`);
+      saveState();
+      showToast(`Status tiket ${ticket.ticketNo} diperbarui menjadi ${allowedNext}.`);
+      renderPage();
     } else if (action === "restore-pending-state") {
       restorePendingServerState();
     } else if (action === "discard-pending-state") {
@@ -3173,6 +3392,7 @@
       ticket.status = allowedNext;
       if (allowedNext === "Diproses") ticket.startedAt = dateOffset(0);
       if (allowedNext === "Selesai") ticket.completedAt = dateOffset(0);
+      logActivity("Memperbarui status", "Tiket Perbaikan", `${ticket.ticketNo || ""} · ${allowedNext}`);
       saveState();
       showToast(`Tiket ${ticket.ticketNo || ""} diperbarui menjadi ${allowedNext}.`);
       renderPage();
@@ -3203,12 +3423,12 @@
       if (!canDeletePage("maintenanceCalendar")) return showToast("Akun Anda tidak memiliki izin menghapus jadwal.", true);
       const schedule = getById("maintenanceSchedules", button.dataset.id);
       if (!schedule) return;
-      showDeleteConfirmation("Hapus jadwal?", `Jadwal ${titleOfGood(schedule.goodId)} pada ${niceDate(schedule.date)} akan dihapus.`, () => {
-        state.maintenanceSchedules = (state.maintenanceSchedules || []).filter((row) => row.id !== schedule.id);
+      showDeleteConfirmation("Pindahkan jadwal ke kotak sampah?", `Jadwal ${titleOfGood(schedule.goodId)} pada ${niceDate(schedule.date)} dapat dipulihkan dari Kotak Sampah.`, () => {
+        moveRecordToTrash("maintenanceSchedules", schedule);
         saveState();
-        showToast("Jadwal berhasil dihapus.");
+        showToast("Jadwal dipindahkan ke kotak sampah.");
         renderPage();
-      });
+      }, "Pindahkan ke Sampah");
     } else if (action === "status") statusModal(button.dataset.id);
     else if (action === "print-loan") {
       const loan = getById("loans", button.dataset.id);
@@ -3258,6 +3478,7 @@
           record.stockAdjusted = false;
         }
       }
+      logActivity("Memperbarui status", actionLabel, `${record.title || titleOfGood(record.goodId)} · ${next}`);
       saveState(); closeModal(); showToast(`Status ${actionLabel} diperbarui menjadi ${next}.`); renderPage();
     }));
   }
@@ -3265,6 +3486,12 @@
   function bindPageEvents() {
     $("#pageContent").onclick = recordActions;
     $("#pageContent").querySelectorAll("[data-nav]").forEach((el) => el.addEventListener("click", () => navigate(el.dataset.nav)));
+    $("#activityLogSearch")?.addEventListener("input", (event) => {
+      const query = event.target.value.trim().toLocaleLowerCase("id-ID");
+      $$("[data-activity-search]", $("#pageContent")).forEach((row) => {
+        row.hidden = query && !row.dataset.activitySearch.includes(query);
+      });
+    });
     if ($("#schoolForm") && !canEditPage("school")) $$("input,textarea", $("#schoolForm")).forEach((input) => { input.disabled = true; });
     if ($("#printDesignForm") && !canEditPage("printDesign")) $$("input,textarea", $("#printDesignForm")).forEach((input) => { input.disabled = true; });
     if ($("#appBrandingForm") && !canEditPage("school")) $$("input,button", $("#appBrandingForm")).forEach((input) => { input.disabled = true; });
@@ -3763,6 +3990,7 @@
       consumable: row.consumable === "true"
     }));
     state.goods.push(...imported);
+    logActivity("Mengimpor", "Barang", `${imported.length} barang`);
     saveState();
     goodsImportDraft = [];
     closeModal();
@@ -4121,6 +4349,8 @@
         } else saveState();
       }
       sessionStorage.setItem("sarprah-user", JSON.stringify({ id: account.id }));
+      logActivity("Masuk", "Akun", account.name);
+      saveState();
       enterApp();
       if (pendingLocalLogin) showToast("Akun masuk dalam mode lokal dan menunggu sinkronisasi Administrator.");
       else if (online && localStateRecovery && authenticatedRole === "Administrator" && apiAvailable) {
@@ -4187,6 +4417,8 @@
 
   async function confirmLogout() {
     closeModal();
+    logActivity("Keluar", "Akun", activeUser?.name || "Pengguna");
+    saveState();
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* Local mode has no server session. */ }
     sessionStorage.removeItem("sarprah-user"); activeUser = null;
     $("#appShell").classList.add("hidden"); $("#loginScreen").classList.remove("hidden");
@@ -4224,7 +4456,8 @@
     const printDesignChanged = ensurePrintDesignDefaults();
     const brandingChanged = ensureBrandingDefaults();
     const mobileNavigationChanged = ensureMobileNavigationDefaults();
-    if (academicYearsChanged || barcodesChanged || printDesignChanged || brandingChanged || mobileNavigationChanged) saveState();
+    const workspaceCollectionsChanged = ensureWorkspaceCollections();
+    if (academicYearsChanged || barcodesChanged || printDesignChanged || brandingChanged || mobileNavigationChanged || workspaceCollectionsChanged) saveState();
     applyAppBranding();
     if (activeUser) enterApp();
     else {
