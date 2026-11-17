@@ -74,7 +74,7 @@
 
   const seed = {
     school: { name: "SMA Negeri 1 Bandung", npsn: "20219327", phone: "(022) 4204152", email: "info@sman1bdg.sch.id", website: "www.sman1bdg.sch.id", address: "Jl. Ir. H. Juanda No. 93, Bandung", city: "Bandung", principalName: "", principalNip: "", sarprasVicePrincipalName: "", sarprasVicePrincipalNip: "", letterheadLogo: "", footer: "SMA Negeri 1 Bandung · Berkarakter, Berprestasi", logo: "" },
-    types: [{ id: "tp1", name: "Elektronik", type: "sarana" }, { id: "tp2", name: "Mebel", type: "sarana" }, { id: "tp3", name: "Bangunan", type: "prasarana" }, { id: "tp4", name: "Olahraga", type: "sarana" }],
+    types: [{ id: "tp1", name: "Elektronik" }, { id: "tp2", name: "Mebel" }, { id: "tp3", name: "Bangunan" }, { id: "tp4", name: "Olahraga" }],
     categories: [{ id: "ct1", name: "Peralatan TIK", typeId: "tp1", note: "Perangkat teknologi informasi" }, { id: "ct2", name: "Perabot Kelas", typeId: "tp2", note: "Perlengkapan ruang kelas" }, { id: "ct3", name: "Peralatan Olahraga", typeId: "tp4", note: "Alat olahraga dan kebugaran" }, { id: "ct4", name: "Gedung & Ruang", typeId: "tp3", note: "Bangunan dan ruang sekolah" }],
     units: [{ id: "un1", name: "unit" }, { id: "un2", name: "pcs" }, { id: "un3", name: "set" }, { id: "un4", name: "rim" }],
     locations: [{ id: "lo1", name: "Ruang Kepala Sekolah" }, { id: "lo2", name: "Ruang Kelas" }, { id: "lo3", name: "Laboratorium Komputer" }, { id: "lo4", name: "Ruang Olahraga" }, { id: "lo5", name: "Ruang Tata Usaha" }, { id: "lo6", name: "Aula" }],
@@ -149,7 +149,7 @@
     dashboard: ["Dashboard", "Ringkasan kondisi sarana dan prasarana sekolah hari ini.", "layout-dashboard"],
     school: ["Data Sekolah", "Kelola profil sekolah untuk kop laporan dan identitas aplikasi.", "school"],
     printDesign: ["Desain Kop & Tanda Tangan", "Atur teks, logo, tipografi kop, dan informasi penandatangan.", "pen-tool"],
-    types: ["Jenis Barang", "Kelompokkan aset berdasarkan jenis sarana atau prasarana.", "shapes"],
+    types: ["Jenis Barang", "Kelompokkan barang berdasarkan jenisnya.", "shapes"],
     categories: ["Kategori Barang", "Atur kategori agar pendataan aset lebih terstruktur.", "tags"],
     units: ["Satuan", "Kelola satuan untuk pencatatan barang dan stok.", "ruler"],
     locations: ["Ruang / Lokasi", "Daftar ruang dan lokasi penempatan inventaris.", "map-pin"],
@@ -189,7 +189,7 @@
   ];
 
   const collectionConfig = {
-    types: { title: "Jenis Barang", description: "Daftar jenis dan klasifikasi barang.", singular: "Jenis Barang", cols: [["name", "Nama Jenis"], ["type", "Tipe"]], fields: [["name", "Nama Jenis", "text", true], ["type", "Tipe", "select", true, ["sarana", "prasarana"]],] },
+    types: { title: "Jenis Barang", description: "Daftar nama jenis barang.", singular: "Jenis Barang", cols: [["name", "Nama Jenis"]], fields: [["name", "Nama Jenis", "text", true]] },
     categories: { title: "Kategori Barang", description: "Kategori membantu mengelompokkan barang.", singular: "Kategori", cols: [["name", "Nama Kategori"], ["typeId", "Jenis Barang"], ["note", "Keterangan"]], fields: [["name", "Nama Kategori", "text", true], ["typeId", "Jenis Barang", "select", true, "types"], ["note", "Keterangan", "text"]] },
     units: { title: "Satuan", description: "Satuan untuk mencatat jumlah barang.", singular: "Satuan", cols: [["name", "Nama Satuan"]], fields: [["name", "Nama Satuan", "text", true]] },
     locations: { title: "Ruang / Lokasi", description: "Kelola ruang sekolah sebagai prasarana beserta kepemilikan dan ukurannya.", singular: "Ruangan", cols: [["name", "Nama Ruangan"], ["code", "Kode Ruangan"], ["ownershipId", "Kepemilikan"], ["floor", "Lantai Ke"], ["length", "Panjang (m)"], ["width", "Lebar (m)"], ["area", "Luas (m²)"], ["condition", "Kondisi Ruangan"], ["status", "Status"]], fields: [["name", "Nama Ruangan", "text", true], ["code", "Kode Ruangan", "text", true], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["floor", "Lantai Ke", "number", true], ["length", "Panjang (m)", "number", true], ["width", "Lebar (m)", "number", true], ["area", "Luas (m²)", "number"], ["status", "Status", "select", true, ["Aktif", "Nonaktif"]]] },
@@ -495,6 +495,17 @@
       state.settings.appLogo = "";
       changed = true;
     }
+    return changed;
+  }
+
+  function ensureTypeClassificationRemoved() {
+    let changed = false;
+    (Array.isArray(state.types) ? state.types : []).forEach((type) => {
+      if (Object.prototype.hasOwnProperty.call(type, "type")) {
+        delete type.type;
+        changed = true;
+      }
+    });
     return changed;
   }
 
@@ -911,6 +922,7 @@
       } catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
     }
     const ownershipsChanged = ensureOwnershipDefaults();
+    const typeClassificationChanged = ensureTypeClassificationRemoved();
     const goodsOnlyTransactionsChanged = ensureGoodsOnlyTransactionDefaults();
     const rolesChanged = normalizeAccountRoles();
     const permissionsChanged = ensurePermissionDefaults();
@@ -923,7 +935,7 @@
         apiAvailable = false;
         showToast(`Data awal gagal disimpan ke SQLite: ${error.message}`, true);
       }
-    } else if (ownershipsChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged || loanReceiptDefaultsChanged || workspaceCollectionsChanged) saveState();
+    } else if (ownershipsChanged || typeClassificationChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged || loanReceiptDefaultsChanged || workspaceCollectionsChanged) saveState();
   }
 
   async function syncPendingLocalAccounts(pendingAccounts) {
@@ -1199,8 +1211,7 @@
     const rooms = recordsForAcademicYear("locations");
     const goodsById = new Map(goods.map((good) => [good.id, good]));
     const goodCount = goods.length;
-    const sarana = recordsForAcademicYear("types").filter((row) => row.type === "sarana").map((row) => row.id);
-    const saranaAssets = goods.filter((good) => sarana.includes(good.typeId));
+    const saranaAssets = goods;
     const saranaGoods = saranaAssets.reduce((total, good) => total + Math.max(0, Number(good.quantity) || 0), 0);
     const saranaAvailable = saranaAssets.reduce((total, good) => {
       const quantity = Math.max(0, Number(good.quantity) || 0);
@@ -1231,7 +1242,7 @@
         ${indicator("Rusak Sedang", roomsDamagedMedium, "triangle-alert", "amber", "Kondisi ruangan", "locations")}
         ${indicator("Rusak Berat", roomsDamagedHeavy, "triangle-alert", "blue", "Kondisi ruangan", "locations")}
       </div>
-      <div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h3>Statistik Jumlah Sarana dan Prasarana</h3><p>Jumlah kumulatif item inventaris berdasarkan tanggal diterima</p></div><div><select class="chart-select" id="chartPeriod"><option value="12" ${chartPeriod === "12" ? "selected" : ""}>12 bulan terakhir</option><option value="6" ${chartPeriod === "6" ? "selected" : ""}>6 bulan terakhir</option></select></div></div><div class="chart-legend"><span><i class="legend-dot"></i>Sarana</span><span><i class="legend-dot blue"></i>Prasarana</span></div><div class="chart-wrap"><canvas id="inventoryChart"></canvas></div></section>
+      <div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h3>Statistik Jumlah Sarana dan Prasarana</h3><p>Tren item sarana; prasarana mengikuti jumlah ruang pada tahun pelajaran ini</p></div><div><select class="chart-select" id="chartPeriod"><option value="12" ${chartPeriod === "12" ? "selected" : ""}>12 bulan terakhir</option><option value="6" ${chartPeriod === "6" ? "selected" : ""}>6 bulan terakhir</option></select></div></div><div class="chart-legend"><span><i class="legend-dot"></i>Sarana</span><span><i class="legend-dot blue"></i>Prasarana</span></div><div class="chart-wrap"><canvas id="inventoryChart"></canvas></div></section>
       <section class="panel"><div class="panel-heading"><div><h3>Ketersediaan Sarana & Prasarana</h3><p>Item sarana baik dan ruang dengan status aktif</p></div><i data-lucide="chart-no-axes-combined" class="muted"></i></div>
         <div class="availability-row"><div class="availability-label"><b>Prasarana tersedia</b><span>${activeRooms} / ${rooms.length} ruang · ${pct(activeRooms, rooms.length)}%</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct(activeRooms, rooms.length)}%"></div></div></div>
         <div class="availability-row"><div class="availability-label"><b>Sarana tersedia</b><span>${saranaAvailable} / ${saranaGoods} item · ${pct(saranaAvailable, saranaGoods)}%</span></div><div class="progress-track"><div class="progress-fill blue" style="width:${pct(saranaAvailable, saranaGoods)}%"></div></div></div>
@@ -1727,11 +1738,13 @@
       const outsideYear = Boolean((startBoundary && date < startBoundary) || (endBoundary && date > endBoundary));
       const selected = date === calendarSelectedDate;
       const todayClass = date === dateOffset(0) ? " today" : "";
+      const eventClasses = [...new Set(dailySchedules.map((schedule) => maintenanceTypeClasses[schedule.type] || "routine"))]
+        .map((typeClass) => ` event-${typeClass}`).join("");
       const markers = dailySchedules.slice(0, compact ? 3 : 2).map((schedule) => `<i class="calendar-event-dot ${maintenanceTypeClasses[schedule.type] || "routine"}" title="${esc(schedule.type)}"></i>`).join("");
       const eventLabel = compact
         ? `<span class="calendar-day-markers">${markers}</span>`
         : `<span class="calendar-day-markers">${markers}</span>${dailySchedules.length ? `<small>${dailySchedules.length} jadwal</small>` : ""}`;
-      return `<button type="button" class="calendar-day${selected ? " selected" : ""}${todayClass}${dailySchedules.length ? " has-events" : ""}${outsideYear ? " outside-year" : ""}" data-action="calendar-select-date" data-date="${date}" ${outsideYear ? "disabled" : ""} aria-label="${day} ${monthTitle(year, month)}${dailySchedules.length ? `, ${dailySchedules.length} jadwal` : ""}"><span class="calendar-day-number">${day}</span>${eventLabel}</button>`;
+      return `<button type="button" class="calendar-day${selected ? " selected" : ""}${todayClass}${dailySchedules.length ? ` has-events${eventClasses}` : ""}${outsideYear ? " outside-year" : ""}" data-action="calendar-select-date" data-date="${date}" ${outsideYear ? "disabled" : ""} aria-label="${day} ${monthTitle(year, month)}${dailySchedules.length ? `, ${dailySchedules.length} jadwal` : ""}"><span class="calendar-day-number">${day}</span>${eventLabel}</button>`;
     }).join("");
     return `<section class="calendar-month-card${compact ? " compact" : ""}"><h3>${esc(monthTitle(year, month))}</h3><div class="calendar-weekdays">${weekdays.map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-days-grid">${cells}</div></section>`;
   }
@@ -1764,6 +1777,17 @@
       <div class="calendar-schedule-list">${scheduleCards || `<div class="calendar-empty-day"><i data-lucide="calendar-days"></i><p>Belum ada jadwal pada tanggal ini.</p><small>Klik tanggal pada kalender untuk melihat jadwal.</small></div>`}</div>`;
   }
 
+  function renderAllMaintenanceSchedules(schedules) {
+    const sortedSchedules = schedules.slice()
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.type || "").localeCompare(String(b.type || "")));
+    const cards = sortedSchedules.map((schedule) => {
+      const typeClass = maintenanceTypeClasses[schedule.type] || "routine";
+      const actions = `${canEditPage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Edit jadwal" title="Edit jadwal" data-action="edit-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Hapus jadwal" title="Hapus jadwal" data-action="delete-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="trash-2"></i></button>` : ""}`;
+      return `<article class="calendar-schedule-card ${typeClass} calendar-all-schedule-card"><div class="calendar-schedule-card-top"><time class="calendar-all-schedule-date" datetime="${esc(schedule.date)}">${esc(niceDate(schedule.date))}</time><span class="maintenance-type-label ${typeClass}">${esc(schedule.type)}</span><span class="calendar-schedule-actions">${actions}</span></div><h4>${esc(titleOfGood(schedule.goodId))}</h4><p>${esc(schedule.quantity)} unit · ${esc(relatedName("locations", schedule.locationId))}</p>${schedule.technician ? `<p><i data-lucide="user-round"></i>Teknisi: ${esc(schedule.technician)}</p>` : ""}${schedule.description ? `<p class="calendar-schedule-description">${esc(schedule.description)}</p>` : ""}</article>`;
+    }).join("");
+    return `<section class="panel calendar-all-schedules"><div class="panel-heading"><div><h3>Daftar Jadwal Pemeliharaan</h3><p>${sortedSchedules.length} jadwal pada tahun pelajaran ini</p></div></div><div class="calendar-all-schedule-list">${cards || `<div class="empty-state">Belum ada jadwal pemeliharaan.</div>`}</div></section>`;
+  }
+
   function renderMaintenanceCalendar() {
     const schedules = recordsForCurrentAcademicYear("maintenanceSchedules");
     const academicYear = state.academicYears.find((year) => year.id === currentAcademicYearId());
@@ -1785,7 +1809,8 @@
       <div class="maintenance-calendar-layout"><section class="panel maintenance-calendar-panel"><div class="maintenance-calendar-toolbar"><label for="calendarViewMode">Tampilan kalender</label><select class="table-filter" id="calendarViewMode"><option value="month" ${calendarViewMode === "month" ? "selected" : ""}>Per Bulan</option><option value="academicYear" ${calendarViewMode === "academicYear" ? "selected" : ""}>Satu Tahun Pelajaran</option></select><div class="calendar-period-navigation">${navigation}</div></div>
       ${calendarViewMode === "academicYear" && !academicYear ? `<div class="empty-state">Tambahkan tahun pelajaran terlebih dahulu.</div>` : `<div class="${calendarViewMode === "academicYear" ? "academic-year-calendar-grid" : "calendar-single-month"}">${monthGrid}</div>`}
       <div class="calendar-legend">${legend}</div></section>
-      <aside class="panel calendar-day-panel">${renderCalendarSelectedDayPanel()}</aside></div>`;
+      <aside class="panel calendar-day-panel">${renderCalendarSelectedDayPanel()}</aside></div>
+      ${renderAllMaintenanceSchedules(schedules)}`;
   }
 
   function matchesSearch(key, row, query) {
@@ -2748,9 +2773,9 @@
   }
 
   function setupLocationForm(form) {
-    const lengthInput = form.elements.length;
-    const widthInput = form.elements.width;
-    const areaInput = form.elements.area;
+    const lengthInput = form.elements.namedItem("length");
+    const widthInput = form.elements.namedItem("width");
+    const areaInput = form.elements.namedItem("area");
     if (!lengthInput || !widthInput || !areaInput) return;
     const updateArea = () => {
       const area = calculatedRoomArea(lengthInput.value, widthInput.value);
@@ -2953,7 +2978,7 @@
     let priorUsageGood = null;
     let priorUsageQuantity = 0;
     for (const [name, , type] of config.fields) {
-      const input = form.elements[name];
+      const input = form.elements.namedItem(name);
       if (!input) continue;
       if (type === "checkbox") data[name] = input.checked;
       else if (moneyFields.has(name)) data[name] = parseThousands(input.value);
@@ -4313,37 +4338,30 @@
     });
     const monthIndex = new Map(months.map((month, index) => [month.key, index]));
     const goodsById = new Map(recordsForAcademicYear("goods").map((good) => [good.id, good]));
-    const typeById = new Map(recordsForAcademicYear("types").map((type) => [type.id, type.type]));
     const saranaAdded = Array(count).fill(0);
-    const prasaranaAdded = Array(count).fill(0);
     let saranaBeforePeriod = 0;
-    let prasaranaBeforePeriod = 0;
     const firstMonthStart = `${months[0].key}-01`;
     const asOfDate = dateOffset(0);
     state.items.forEach((item) => {
-      const type = typeById.get(goodsById.get(item.goodId)?.typeId);
-      if (!["sarana", "prasarana"].includes(type)) return;
+      if (!goodsById.has(item.goodId)) return;
       const received = String(item.received || "").slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(received)) {
-        if (type === "sarana") saranaBeforePeriod++;
-        else prasaranaBeforePeriod++;
+        saranaBeforePeriod++;
         return;
       }
       if (received > asOfDate) return;
       if (received < firstMonthStart) {
-        if (type === "sarana") saranaBeforePeriod++;
-        else prasaranaBeforePeriod++;
+        saranaBeforePeriod++;
         return;
       }
       const index = monthIndex.get(received.slice(0, 7));
       if (index === undefined) return;
-      if (type === "sarana") saranaAdded[index]++;
-      else prasaranaAdded[index]++;
+      saranaAdded[index]++;
     });
     let saranaTotal = saranaBeforePeriod;
-    let prasaranaTotal = prasaranaBeforePeriod;
     const sarana = saranaAdded.map((added) => { saranaTotal += added; return saranaTotal; });
-    const prasarana = prasaranaAdded.map((added) => { prasaranaTotal += added; return prasaranaTotal; });
+    const prasarana = Array(count).fill(recordsForAcademicYear("locations").length);
+    sarana[count - 1] = [...goodsById.values()].reduce((total, good) => total + Math.max(0, Number(good.quantity) || 0), 0);
     const pad = { top: 13, right: 12, bottom: 24, left: 28 };
     const plotWidth = width - pad.left - pad.right, plotHeight = height - pad.top - pad.bottom;
     const maxValue = Math.max(0, ...sarana, ...prasarana);
