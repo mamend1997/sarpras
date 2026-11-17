@@ -289,7 +289,7 @@ function safePlatformState() {
 function createSchoolState(school, admin) {
   const collections = [
     "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears",
-    "goods", "items", "usages", "stocktakes", "repairTickets", "maintenanceSchedules", "loans",
+    "goods", "items", "usages", "stocktakes", "repairTickets", "maintenanceSchedules", "assetMovements", "loans",
     "procurements", "disposals", "depreciations", "activityLogs", "trash", "helpTickets", "accounts"
   ];
   return {
@@ -303,6 +303,7 @@ function createSchoolState(school, admin) {
       city: "",
       principalName: school.principalName || "",
       principalNip: "",
+      principalWhatsapp: "",
       sarprasVicePrincipalName: "",
       sarprasVicePrincipalNip: "",
       logo: "",

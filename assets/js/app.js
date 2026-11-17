@@ -2237,7 +2237,9 @@
       depreciations: "Laporan Penyusutan Aset"
     };
     let period = `Posisi stok per ${niceDate(dateOffset(0))}`;
-    if (!isInventoryReport(type)) {
+    if (type === "assetLifecycle") {
+      period = `Barang: ${getById("goods", $("#assetLifecycleGood")?.value)?.name || "Pilih barang"}`;
+    } else if (!isInventoryReport(type)) {
       const filter = $("#reportPeriod")?.value || "month";
       if (filter === "month") {
         const [year, month] = ($("#reportMonth")?.value || currentMonth).split("-").map(Number);
@@ -2308,7 +2310,7 @@
       date: row.date || "",
       event: "Pembelian / barang masuk",
       detail: `${Number(row.quantity) || 0} ${relatedName("units", good.unitId)} · ${rupiah((Number(row.quantity) || 0) * (Number(row.unitPrice) || 0))}${row.note ? ` · ${row.note}` : ""}`,
-      related: `${relatedName("funds", row.fundId)} · ${relatedName("suppliers", good.supplierId)}`,
+      related: `${relatedName("funds", row.fundId)} · ${relatedName("suppliers", row.supplierId || good.supplierId)}`,
       actor: row.proposer || "—"
     }));
     if (!purchases.some((row) => row.date === good.receivedDate) && good.receivedDate) {
@@ -2319,7 +2321,7 @@
         related: `${relatedName("funds", good.fundId)} · ${relatedName("suppliers", good.supplierId)}`,
         actor: "Data inventaris"
       });
-    } else if (!purchases.length && !good.receivedDate) {
+    } else if (!good.receivedDate) {
       events.push({
         date: "",
         event: "Data awal barang",
@@ -2714,6 +2716,7 @@
         return `<div class="form-field"><label for="usages-unitName">Satuan</label><input id="usages-unitName" type="text" value="${esc(unitName === "—" ? "" : unitName)}" readonly><input type="hidden" name="unitId" value="${esc(unitId)}"></div>`;
       }
       if (key === "loans" && name === "signature") return `<div class="form-field full"><label for="loanSignatureCanvas">${esc(label)}</label><div class="loan-signature-field"><canvas id="loanSignatureCanvas" class="loan-signature-pad" aria-label="Area tanda tangan peminjam"></canvas><input type="hidden" name="signature" value="${esc(value)}"><button id="clearLoanSignature" class="btn-quiet" type="button"><i data-lucide="eraser"></i>Hapus tanda tangan</button></div><small class="form-help">Tanda tangan dapat diisi dengan mouse atau layar sentuh; biarkan kosong jika tidak diperlukan.</small></div>`;
+      if (key === "loans" && name === "whatsapp") return `<div class="form-field"><label for="${idAttr}">${esc(label)}</label><input id="${idAttr}" name="${name}" type="tel" inputmode="tel" autocomplete="tel" value="${esc(value)}" placeholder="08... atau +628..."><small class="form-help">Opsional, tetapi diperlukan agar peminjam menerima pengingat WhatsApp.</small></div>`;
       if (key === "loans" && name === "dueDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${required ? "required" : ""} readonly><small class="form-help">Dihitung otomatis dari tanggal sewa dan jumlah hari.</small></div>`;
       if (key === "depreciations" && name === "initialValue") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly><small class="form-help">Terisi otomatis dari harga satuan barang.</small></div>`;
       if (key === "depreciations" && name === "method") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><select id="${idAttr}" name="${name}" required>${optionsFor(source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select><small class="form-help">Saldo Menurun Ganda memakai tarif 2 ÷ umur ekonomis dan beralih ke garis lurus saat lebih sesuai. Jumlah Angka Tahun membebankan porsi lebih besar pada awal umur aset.</small></div>`;
@@ -2823,7 +2826,7 @@
     const good = getById("goods", $("#existingGoodId")?.value);
     const purchaseDate = form.elements.date.value;
     const quantity = Number(form.elements.quantity.value);
-    const unitPrice = parseThousands(form.elements.unitPrice.value);
+    const unitPrice = parseGroupedInteger(form.elements.unitPrice.value);
     const fundId = form.elements.fundId.value;
     const supplierId = form.elements.supplierId.value;
     if (!good || !recordsForAcademicYear("goods").some((record) => record.id === good.id)) {
@@ -2856,6 +2859,7 @@
       quantity,
       unitPrice,
       fundId,
+      supplierId,
       date: purchaseDate,
       note: "Pembelian barang yang sudah terdaftar dan penambahan stok.",
       status: "Diterima"
@@ -4512,17 +4516,25 @@
       const type = $("#reportType")?.value;
       if (!type) return;
       const inventory = isInventoryReport(type);
+      const lifecycle = type === "assetLifecycle";
       const period = $("#reportPeriod")?.value || "month";
-      const range = inventory ? null : reportDateRange();
+      const range = inventory || lifecycle ? null : reportDateRange();
       $("#reportHeading").innerHTML = reportHeading(type, range);
-      $("#reportPeriodField")?.classList.toggle("hidden", inventory);
-      $("#reportMonthField")?.classList.toggle("hidden", inventory || period !== "month");
-      $("#reportAcademicYearField")?.classList.toggle("hidden", inventory || period !== "academicYear");
+      $("#reportPeriodField")?.classList.toggle("hidden", inventory || lifecycle);
+      $("#reportMonthField")?.classList.toggle("hidden", inventory || lifecycle || period !== "month");
+      $("#reportAcademicYearField")?.classList.toggle("hidden", inventory || lifecycle || period !== "academicYear");
+      $("#assetLifecycleGoodField")?.classList.toggle("hidden", !lifecycle);
       $("#reportInventoryDetailsField")?.classList.toggle("hidden", !inventory);
-      $("#reportDateRange")?.classList.toggle("hidden", inventory || period !== "custom");
+      $("#reportDateRange")?.classList.toggle("hidden", inventory || lifecycle || period !== "custom");
       $("#reportPeriodNotice")?.classList.toggle("hidden", !inventory);
       if (inventory) {
         $("#reportBody").innerHTML = reportTable(type);
+        return;
+      }
+      if (lifecycle) {
+        $("#reportBody").innerHTML = $("#assetLifecycleGood")?.value
+          ? reportTable(type)
+          : `<p class="empty-state">Tambahkan data barang terlebih dahulu untuk melihat riwayat siklus aset.</p>`;
         return;
       }
       if (!range) {
@@ -4539,6 +4551,7 @@
     $("#reportPeriod")?.addEventListener("change", updateReport);
     $("#reportMonth")?.addEventListener("change", updateReport);
     $("#reportAcademicYear")?.addEventListener("change", updateReport);
+    $("#assetLifecycleGood")?.addEventListener("change", updateReport);
     $("#reportInventoryDetails")?.addEventListener("change", (event) => {
       state.settings.reportInventoryDetails = event.target.checked;
       saveState();
@@ -4869,8 +4882,9 @@
   function exportReport() {
     const type = $("#reportType")?.value || "inventarisBhp";
     const inventory = isInventoryReport(type);
-    const range = inventory ? null : reportDateRange();
-    if (!inventory && !range) {
+    const lifecycle = type === "assetLifecycle";
+    const range = inventory || lifecycle ? null : reportDateRange();
+    if (!inventory && !lifecycle && !range) {
       showToast("Pilih tahun pelajaran dengan format, misalnya 2026/2027.", true);
       return;
     }
@@ -4888,6 +4902,12 @@
       const reportName = type === "inventarisBhp" ? "bhp" : "barang-modal";
       const totalLabel = type === "inventarisBhp" ? "Grand Total Nilai BHP" : "Grand Total Nilai Barang Modal";
       downloadExcel(`laporan-rekapitulasi-${reportName}.xlsx`, [...headingRows, exportHeaders, ...rows, [totalLabel, ...Array(headers.length - 2).fill(""), grandTotal]]);
+      return;
+    }
+    if (lifecycle) {
+      const { headers, rows } = assetLifecycleReportData($("#assetLifecycleGood")?.value || "");
+      if (!rows.length) return showToast("Tidak ada riwayat aset untuk barang yang dipilih.", true);
+      downloadExcel("laporan-riwayat-pergerakan-aset.xlsx", [...headingRows, headers, ...rows]);
       return;
     }
     const config = collectionConfig[type];
