@@ -1825,33 +1825,32 @@
     const actions = canEditPage("assetMovements")
       ? `<button class="btn-primary" data-action="add-asset-movement"><i data-lucide="move-right"></i>Pindahkan Barang</button>` : "";
     return `${pageHeading(actions)}<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari nama barang, kode item, ruang..." value="${esc(searchTerm)}"></label><span class="badge neutral">${filtered.length} pemindahan</span></div></div>
-      <div class="settings-card movement-intro"><i data-lucide="route"></i><p>Pilih item inventaris untuk memindahkannya ke ruang lain. Lokasi item diperbarui dan catatan asal, tujuan, tanggal, serta penanggung jawab disimpan untuk laporan siklus aset.</p></div>
+      <div class="settings-card movement-intro"><i data-lucide="route"></i><p>Pilih barang dari Data Barang untuk memindahkannya ke ruang lain. Lokasi barang dan item inventaris terkait diperbarui; catatan asal, tujuan, tanggal, serta penanggung jawab disimpan untuk laporan siklus aset.</p></div>
       <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tanggal Pemindahan</th><th>Kode Item</th><th>Nama Barang</th><th>Dari Ruang</th><th>Ke Ruang</th><th>Penanggung Jawab</th><th>Keterangan</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${records.length} pemindahan</span></div></div>`;
   }
 
   function openAssetMovementForm() {
     if (!canEditPage("assetMovements")) return showToast("Akun Anda tidak memiliki izin memindahkan barang.", true);
-    const items = (state.items || []).filter((item) => getById("goods", item.goodId))
-      .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
-    const itemOptions = items.map((item) => `<option value="${esc(item.id)}">${esc(item.code || "Tanpa kode")} — ${esc(titleOfGood(item.goodId))}</option>`).join("");
+    const goods = [...recordsForCurrentAcademicYear("goods")]
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id-ID"));
+    const goodOptions = goods.map((good) => `<option value="${esc(good.id)}">${esc(good.name)}</option>`).join("");
     const locations = recordsForAcademicYear("locations").filter((room) => room.status !== "Nonaktif")
       .map((room) => `<option value="${esc(room.id)}">${esc(room.name)}</option>`).join("");
     showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="assetMovementTitle">
-      <div class="modal-header"><div><h2 id="assetMovementTitle">Pindah Ruang Barang</h2><p>Catat perpindahan satu item inventaris dan penanggung jawabnya.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div>
+      <div class="modal-header"><div><h2 id="assetMovementTitle">Pindah Ruang Barang</h2><p>Catat perpindahan barang dari Data Barang beserta penanggung jawabnya.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div>
       <form id="assetMovementForm" class="modal-form"><div class="form-grid">
         <div class="form-field"><label for="movementDate">Tanggal Pemindahan *</label><input id="movementDate" name="date" type="date" value="${dateOffset(0)}" required></div>
-        <div class="form-field"><label for="movementItem">Barang / Item Inventaris *</label><select id="movementItem" name="itemId" required><option value="">Pilih item inventaris</option>${itemOptions}</select><small class="form-help">Pilih kode unit barang yang dipindahkan.</small></div>
-        <div class="form-field"><label>Ruang Asal</label><input id="movementFromRoom" type="text" value="" readonly placeholder="Otomatis dari lokasi item"><input id="movementFromRoomId" name="fromLocationId" type="hidden"></div>
+        <div class="form-field"><label for="movementGood">Nama Barang *</label><select id="movementGood" name="goodId" required><option value="">Pilih barang dari Data Barang</option>${goodOptions}</select><small class="form-help">Perpindahan memperbarui ruang barang dan lokasi seluruh item inventaris terkait.</small></div>
+        <div class="form-field"><label>Ruang Asal</label><input id="movementFromRoom" type="text" value="" readonly placeholder="Otomatis dari Data Barang"><input id="movementFromRoomId" name="fromLocationId" type="hidden"></div>
         <div class="form-field"><label for="movementToRoom">Ruang Tujuan *</label><select id="movementToRoom" name="toLocationId" required><option value="">Pilih ruang tujuan</option>${locations}</select></div>
         <div class="form-field full"><label for="movementResponsible">Nama Penanggung Jawab *</label><input id="movementResponsible" name="responsible" type="text" maxlength="120" required></div>
         <div class="form-field full"><label for="movementNote">Keterangan (opsional)</label><textarea id="movementNote" name="note" rows="3" maxlength="500"></textarea></div>
       </div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="submit" class="btn-primary"><i data-lucide="save"></i>Simpan pemindahan</button></div></form>
     </section></div>`);
     const form = $("#assetMovementForm");
-    $("#movementItem")?.addEventListener("change", (event) => {
-      const item = getById("items", event.target.value);
-      const good = getById("goods", item?.goodId);
-      const locationId = item?.locationId || good?.locationId || "";
+    $("#movementGood")?.addEventListener("change", (event) => {
+      const good = getById("goods", event.target.value);
+      const locationId = good?.locationId || "";
       $("#movementFromRoomId").value = locationId;
       $("#movementFromRoom").value = locationId ? relatedName("locations", locationId) : "Belum ditentukan";
       if ($("#movementToRoom").value === locationId) $("#movementToRoom").value = "";
@@ -1863,8 +1862,7 @@
     event.preventDefault();
     if (!canEditPage("assetMovements")) return showToast("Akun Anda tidak memiliki izin memindahkan barang.", true);
     const form = event.currentTarget;
-    const item = getById("items", form.elements.itemId.value);
-    const good = getById("goods", item?.goodId);
+    const good = getById("goods", form.elements.goodId.value);
     const toLocationId = form.elements.toLocationId.value;
     const toRoom = getById("locations", toLocationId);
     const fromLocationId = form.elements.fromLocationId.value;
@@ -1872,7 +1870,7 @@
     const date = form.elements.date.value;
     const parsedDate = new Date(`${date}T00:00:00Z`);
     const responsible = form.elements.responsible.value.trim();
-    if (!item || !good) return showToast("Pilih item inventaris yang valid.", true);
+    if (!good) return showToast("Pilih barang dari Data Barang yang valid.", true);
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date) {
       return showToast("Tanggal pemindahan wajib diisi dengan tanggal yang valid.", true);
     }
@@ -1882,8 +1880,6 @@
     if (!Array.isArray(state.assetMovements)) state.assetMovements = [];
     const movement = {
       id: id(),
-      itemId: item.id,
-      itemCode: item.code || "",
       goodId: good.id,
       goodName: good.name,
       date,
@@ -1895,7 +1891,9 @@
       note: form.elements.note.value.trim(),
       createdBy: activeUser?.name || "Administrator"
     };
-    item.locationId = toLocationId;
+    good.locationId = toLocationId;
+    (state.items || []).filter((item) => item.goodId === good.id)
+      .forEach((item) => { item.locationId = toLocationId; });
     state.assetMovements.unshift(movement);
     logActivity("Memindahkan barang", "Pindah Ruang Barang", `${good.name} · ${movement.fromLocationName} → ${toRoom.name}`);
     saveState();
