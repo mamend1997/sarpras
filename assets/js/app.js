@@ -167,7 +167,7 @@
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
-    disposals: { title: "Pemusnahan Barang", description: "Kelola pengajuan pemusnahan barang sekolah.", singular: "Pemusnahan", cols: [["goodId", "Barang"], ["locationId", "Lokasi"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pengajuan"], ["status", "Status"]], fields: [["goodId", "Barang", "select", true, "goods"], ["locationId", "Lokasi", "select", true, "locations"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pengajuan", "date", true]] },
+    disposals: { title: "Pemusnahan Barang", description: "Catat pemusnahan barang dan pengurangan stok secara langsung.", singular: "Pemusnahan", cols: [["goodId", "Nama Barang"], ["quantity", "Jumlah Barang"], ["locationId", "Lokasi"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pemusnahan"], ["status", "Status"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pemusnahan", "date", true]] },
     depreciations: { title: "Penyusutan Nilai Aset", description: "Catat penyusutan nilai barang secara berkala.", singular: "Penyusutan", cols: [["date", "Tanggal"], ["goodId", "Barang"], ["initialValue", "Harga Awal"], ["amount", "Penyusutan"], ["finalValue", "Harga Akhir"]], fields: [["date", "Tanggal", "date", true], ["goodId", "Barang", "select", true, "goods"], ["initialValue", "Harga Awal (Rp)", "number", true], ["amount", "Penyusutan (Rp)", "number", true]] },
     accounts: { title: "Pengaturan", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
@@ -186,14 +186,21 @@
   const relatedName = (collection, value, key = "name") => getById(collection, value)?.[key] || "—";
   const titleOfGood = (value) => relatedName("goods", value);
   const isBhp = (good) => good.consumable === true || ["true", "bhp", "barang habis pakai", "barang habis pakai (bhp)"].includes(String(good.consumable || "").trim().toLocaleLowerCase("id-ID"));
+  const activeLoanQuantity = (goodId, excludeLoanId = "") => (state.loans || []).reduce((total, loan) => {
+    if (loan.id === excludeLoanId || loan.goodId !== goodId || loan.status !== "Diterima" || loan.stockAdjusted === true) return total;
+    return total + Math.max(1, Number(loan.quantity) || 1);
+  }, 0);
   const availableLoanQuantity = (goodId, excludeLoanId = "") => {
     const good = getById("goods", goodId);
     if (!good || isBhp(good)) return 0;
-    const borrowed = (state.loans || []).reduce((total, loan) => {
-      if (loan.id === excludeLoanId || loan.goodId !== goodId || loan.status !== "Diterima") return total;
-      return total + Math.max(1, Number(loan.quantity) || 1);
-    }, 0);
-    return Math.max(0, Number(good.quantity || 0) - borrowed);
+    return Math.max(0, Number(good.quantity || 0) - activeLoanQuantity(goodId, excludeLoanId));
+  };
+  const loanFormAvailableQuantity = (goodId, loanId = "") => {
+    const loan = loanId ? getById("loans", loanId) : null;
+    const restored = loan?.stockAdjusted === true && loan.status === "Diterima" && loan.goodId === goodId
+      ? Math.max(1, Number(loan.quantity) || 1)
+      : 0;
+    return availableLoanQuantity(goodId, loanId) + restored;
   };
   const isInventoryReport = (type) => inventoryReportTypes.has(type);
 
@@ -1313,7 +1320,7 @@
       return `<tr>${selection}${displayCols.map(([field]) => {
         const currency = ["price", "totalPrice", "unitPrice", "initialValue", "amount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
-      }).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}</div></td></tr>`;
+      }).join("")}<td><div class="action-buttons">${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (!["loans", "disposals"].includes(key) && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
@@ -1686,6 +1693,7 @@
         : key === "academicYears" && name === "status" ? "Aktif"
           : key === "accounts" && name === "active" ? true
             : key === "loans" && name === "quantity" ? 1
+              : key === "disposals" && name === "quantity" ? 1
               : key === "loans" && name === "durationDays" ? loanDuration
                 : key === "loans" && name === "dueDate" ? addDaysToDate(dateOffset(0), 1)
                   : type === "date" ? (key === "academicYears" ? "" : dateOffset(0)) : "");
@@ -1697,6 +1705,7 @@
       }
       if (key === "loans" && name === "signature") return `<div class="form-field full"><label for="loanSignatureCanvas">${esc(label)}</label><div class="loan-signature-field"><canvas id="loanSignatureCanvas" class="loan-signature-pad" aria-label="Area tanda tangan peminjam"></canvas><input type="hidden" name="signature" value="${esc(value)}"><button id="clearLoanSignature" class="btn-quiet" type="button"><i data-lucide="eraser"></i>Hapus tanda tangan</button></div><small class="form-help">Tanda tangan dapat diisi dengan mouse atau layar sentuh; biarkan kosong jika tidak diperlukan.</small></div>`;
       if (key === "loans" && name === "dueDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${required ? "required" : ""} readonly><small class="form-help">Dihitung otomatis dari tanggal sewa dan jumlah hari.</small></div>`;
+      if (key === "depreciations" && name === "initialValue") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly><small class="form-help">Terisi otomatis dari harga satuan barang.</small></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
       if (key === "goods" && name === "consumable") return `<div class="form-field"><label for="${idAttr}">Status BHP *</label><select id="${idAttr}" name="${name}" required><option value="true" ${isBhp({ consumable: value }) ? "selected" : ""}>Barang Habis Pakai (BHP)</option><option value="false" ${isBhp({ consumable: value }) ? "" : "selected"}>Barang Modal</option></select></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source, recordYearId).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
@@ -1706,11 +1715,13 @@
       const money = moneyFields.has(name);
       const inputType = money ? "text" : type;
       const inputValue = money ? formatThousands(value) : value;
-      const numberAttributes = type === "number"
-        ? key === "usages" && name === "quantity" ? 'min="0.01" step="any"'
-          : key === "loans" && ["quantity", "durationDays"].includes(name) ? 'min="1" step="1"' : 'min="0"'
-        : "";
-      const help = key === "loans" && name === "quantity" ? `<small class="form-help" id="loanAvailableQuantity" aria-live="polite"></small>` : "";
+      const numberAttributes = type !== "number" ? ""
+        : key === "usages" && name === "quantity" ? 'min="0.01" step="any"'
+          : key === "loans" && ["quantity", "durationDays"].includes(name) ? 'min="1" step="1"'
+            : key === "disposals" && name === "quantity" ? 'min="1" step="1"' : 'min="0"';
+      const help = key === "loans" && name === "quantity"
+        ? `<small class="form-help" id="loanAvailableQuantity" aria-live="polite"></small>`
+        : key === "disposals" && name === "quantity" ? `<small class="form-help" id="disposalAvailableQuantity" aria-live="polite"></small>` : "";
       return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : numberAttributes}>${help}</div>`;
     }).join("");
     const footer = key === "loans"
@@ -1728,6 +1739,8 @@
     const form = $("#recordForm");
     if (form) setupMoneyInputs(form);
     if (form && form.dataset.collection === "loans") setupLoanForm(form);
+    if (form && form.dataset.collection === "disposals") setupDisposalForm(form);
+    if (form && form.dataset.collection === "depreciations") setupDepreciationForm(form);
     if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
     if (form && form.dataset.collection === "usages") setupUsageForm(form);
     if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
@@ -1752,7 +1765,7 @@
     const dueDate = form.elements.dueDate;
     const refreshAvailability = () => {
       if (!good || !quantity) return;
-      const available = availableLoanQuantity(good.value, form.dataset.record);
+      const available = loanFormAvailableQuantity(good.value, form.dataset.record);
       quantity.max = String(available);
       if (availableLabel) availableLabel.textContent = good.value ? `Stok yang tersedia untuk dipinjam: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
     };
@@ -1766,6 +1779,37 @@
     refreshAvailability();
     refreshDueDate();
     setupLoanSignature(form);
+  }
+
+  function setupDisposalForm(form) {
+    const goodSelect = form.elements.goodId;
+    const quantity = form.elements.quantity;
+    const availableLabel = $("#disposalAvailableQuantity", form);
+    const refreshAvailability = () => {
+      if (!goodSelect || !quantity) return;
+      const good = getById("goods", goodSelect.value);
+      const old = form.dataset.record ? getById("disposals", form.dataset.record) : null;
+      const restored = old?.stockAdjusted && old.goodId === good?.id ? Math.max(1, Number(old.quantity) || 1) : 0;
+      const available = good
+        ? Math.max(0, Number(good.quantity || 0) - activeLoanQuantity(good.id) + restored)
+        : 0;
+      quantity.max = String(available);
+      if (availableLabel) availableLabel.textContent = goodSelect.value ? `Stok yang dapat dimusnahkan: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
+    };
+    goodSelect?.addEventListener("change", refreshAvailability);
+    refreshAvailability();
+  }
+
+  function setupDepreciationForm(form) {
+    const goodSelect = form.elements.goodId;
+    const initialValue = form.elements.initialValue;
+    if (!goodSelect || !initialValue) return;
+    const updateInitialValue = () => {
+      const good = getById("goods", goodSelect.value);
+      initialValue.value = good ? formatThousands(good.price) : "";
+    };
+    goodSelect.addEventListener("change", updateInitialValue);
+    if (!form.dataset.record) updateInitialValue();
   }
 
   function setupLoanSignature(form) {
@@ -1854,6 +1898,14 @@
     const damaged = Math.min(total, Math.max(0, Number(good.damagedConditionCount) || 0));
     good.damagedConditionCount = damaged;
     good.goodConditionCount = total - damaged;
+  }
+
+  function restoreDisposalStock(disposal) {
+    if (disposal?.stockAdjusted !== true) return;
+    const good = getById("goods", disposal.goodId);
+    if (!good) return;
+    good.quantity = Number(good.quantity || 0) + Math.max(1, Number(disposal.quantity) || 1);
+    syncGoodConditionCounts(good);
   }
 
   function showGoodsConditionModal(goodId) {
@@ -1981,7 +2033,7 @@
       }
       if (key === "loans" && form.elements.quantity) form.elements.quantity.value = "1";
       const stock = `${good.quantity} ${relatedName("units", good.unitId)}`;
-      const loanAvailability = key === "loans" ? ` · Tersedia untuk dipinjam: ${availableLoanQuantity(good.id, form.dataset.record)}` : "";
+      const loanAvailability = key === "loans" ? ` · Tersedia untuk dipinjam: ${loanFormAvailableQuantity(good.id, form.dataset.record)}` : "";
       setStatus(`${item.code} · ${good.name} · Stok saat ini: ${stock}${loanAvailability}.`);
       return true;
     };
@@ -2089,6 +2141,9 @@
     const data = old ? { ...old } : { id: id() };
     let copySourceYear = null;
     let accountSyncPending = false;
+    let loanGood = null;
+    let priorLoanGood = null;
+    let priorLoanQuantity = 0;
     for (const [name, , type] of config.fields) {
       const input = form.elements[name];
       if (!input) continue;
@@ -2189,10 +2244,13 @@
         showToast("Jumlah barang yang dipinjam minimal 1 unit.", true);
         return;
       }
-      const available = availableLoanQuantity(data.goodId, old?.id);
-      if (data.quantity > available) {
-        showToast(`Jumlah melebihi stok yang dapat dipinjam. Maksimal tersedia ${available} unit.`, true);
-        return;
+      data.status = old?.status && old.status !== "Pengajuan" ? old.status : "Diterima";
+      if (data.status === "Diterima") {
+        const available = loanFormAvailableQuantity(data.goodId, old?.id);
+        if (data.quantity > available) {
+          showToast(`Jumlah melebihi stok yang dapat dipinjam. Maksimal tersedia ${available} unit.`, true);
+          return;
+        }
       }
       if (!Number.isInteger(data.durationDays) || data.durationDays < 1) {
         showToast("Jumlah hari peminjaman minimal 1 hari.", true);
@@ -2207,10 +2265,41 @@
         showToast("Tanggal kembali tidak dapat dihitung. Periksa tanggal sewa.", true);
         return;
       }
-      data.status = old?.status || "Diterima";
+      loanGood = good;
+      if (old?.stockAdjusted === true) {
+        priorLoanGood = getById("goods", old.goodId);
+        priorLoanQuantity = Math.max(1, Number(old.quantity) || 1);
+      }
+      data.stockAdjusted = data.status === "Diterima";
     }
     if (key === "procurements") data.status = old?.status || "Pengajuan";
-    if (key === "disposals") data.status = old?.status || "Pengajuan";
+    let disposalGood = null;
+    let priorDisposalGood = null;
+    let priorDisposalQuantity = 0;
+    if (key === "disposals") {
+      disposalGood = getById("goods", data.goodId);
+      if (!disposalGood) {
+        showToast("Pilih barang yang valid untuk dimusnahkan.", true);
+        return;
+      }
+      if (!Number.isInteger(data.quantity) || data.quantity < 1) {
+        showToast("Jumlah barang yang dimusnahkan minimal 1 unit.", true);
+        return;
+      }
+      const restoresOldDisposal = old?.stockAdjusted === true && old.goodId === disposalGood.id;
+      const restoredQuantity = restoresOldDisposal ? Math.max(1, Number(old.quantity) || 1) : 0;
+      const available = Math.max(0, Number(disposalGood.quantity || 0) - activeLoanQuantity(disposalGood.id) + restoredQuantity);
+      if (data.quantity > available) {
+        showToast(`Jumlah pemusnahan melebihi stok yang dapat dimusnahkan. Maksimal tersedia ${available} unit.`, true);
+        return;
+      }
+      if (old?.stockAdjusted === true) {
+        priorDisposalGood = getById("goods", old.goodId);
+        priorDisposalQuantity = Math.max(1, Number(old.quantity) || 1);
+      }
+      data.status = "Selesai";
+      data.stockAdjusted = true;
+    }
     let stocktakeGood = null;
     if (key === "stocktakes") {
       stocktakeGood = getById("goods", data.goodId);
@@ -2245,6 +2334,22 @@
       stocktakeGood.quantity = data.newStock;
       syncGoodConditionCounts(stocktakeGood);
     }
+    if (priorLoanGood) {
+      priorLoanGood.quantity = Number(priorLoanGood.quantity || 0) + priorLoanQuantity;
+      syncGoodConditionCounts(priorLoanGood);
+    }
+    if (loanGood && data.status === "Diterima") {
+      loanGood.quantity = Math.max(0, Number(loanGood.quantity || 0) - data.quantity);
+      syncGoodConditionCounts(loanGood);
+    }
+    if (priorDisposalGood) {
+      priorDisposalGood.quantity = Number(priorDisposalGood.quantity || 0) + priorDisposalQuantity;
+      syncGoodConditionCounts(priorDisposalGood);
+    }
+    if (disposalGood) {
+      disposalGood.quantity = Math.max(0, Number(disposalGood.quantity || 0) - data.quantity);
+      syncGoodConditionCounts(disposalGood);
+    }
     if (key === "accounts") {
       try {
         const synced = await persistAccounts();
@@ -2272,6 +2377,8 @@
       const yearMasters = yearMasterCollections.reduce((total, collection) => total + recordsForAcademicYear(collection, data.id).length, 0);
       const yearGoods = recordsForAcademicYear("goods", data.id).length;
       showToast(`${config.singular} berhasil ditambahkan dengan menyalin ${yearMasters} data master dan ${yearGoods} barang beserta stok terakhir.`);
+    } else if (key === "disposals") {
+      showToast(`Pemusnahan berhasil ${old ? "diperbarui" : "dicatat"}. Stok ${disposalGood.name} berkurang ${data.quantity} unit.`);
     } else if (key === "accounts" && accountSyncPending) {
       showToast("Server belum tersambung atau menolak sinkronisasi. Perubahan akun hanya tersimpan di perangkat ini; pastikan server aktif lalu buka kembali aplikasi sebagai Administrator.", true);
     } else showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
@@ -2363,6 +2470,7 @@
         const collection = page;
         const recordName = record.name || record.title || record.code || "ini";
         showDeleteConfirmation("Hapus data?", `Data "${recordName}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
+          if (collection === "disposals") restoreDisposalStock(record);
           state[collection] = state[collection].filter((row) => row.id !== record.id);
           saveState(); showToast("Data berhasil dihapus."); renderPage();
         });
@@ -2377,6 +2485,7 @@
       if (!selectedRows.length) return showToast("Pilih minimal satu data untuk dihapus.", true);
       const collection = page;
       showDeleteConfirmation("Hapus data terpilih?", `${selectedRows.length} data dari ${collectionConfig[collection].title} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
+        if (collection === "disposals") selectedRows.forEach(restoreDisposalStock);
         state[collection] = state[collection].filter((row) => !selectedIds.has(row.id));
         saveState();
         showToast(`${selectedRows.length} data berhasil dihapus.`);
@@ -2409,6 +2518,7 @@
   }
 
   function statusModal(recordId) {
+    if (page === "disposals") return;
     const record = getById(page, recordId);
     if (!record) return;
     const actionLabel = page === "usages" ? "permintaan penggunaan BHP" : page === "loans" ? "peminjaman" : page === "procurements" ? "pengadaan" : "pemusnahan";
