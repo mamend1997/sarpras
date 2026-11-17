@@ -19,7 +19,7 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "types", "categories", "units", "locations", "suppliers", "funds", "goods", "items", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "suppliers", "funds", "academicYears", "goods", "checkGoods", "items", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
   const defaultMenuPermissions = { dashboard: "view", goods: "edit", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
@@ -28,13 +28,14 @@
   const niceDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
   const seed = {
-    school: { name: "SMA Negeri 1 Bandung", npsn: "20219327", phone: "(022) 4204152", email: "info@sman1bdg.sch.id", website: "www.sman1bdg.sch.id", address: "Jl. Ir. H. Juanda No. 93, Bandung", footer: "SMA Negeri 1 Bandung · Berkarakter, Berprestasi", logo: "" },
+    school: { name: "SMA Negeri 1 Bandung", npsn: "20219327", phone: "(022) 4204152", email: "info@sman1bdg.sch.id", website: "www.sman1bdg.sch.id", address: "Jl. Ir. H. Juanda No. 93, Bandung", city: "Bandung", principalName: "", sarprasVicePrincipalName: "", footer: "SMA Negeri 1 Bandung · Berkarakter, Berprestasi", logo: "" },
     types: [{ id: "tp1", name: "Elektronik", type: "sarana" }, { id: "tp2", name: "Mebel", type: "sarana" }, { id: "tp3", name: "Bangunan", type: "prasarana" }, { id: "tp4", name: "Olahraga", type: "sarana" }],
     categories: [{ id: "ct1", name: "Peralatan TIK", typeId: "tp1", note: "Perangkat teknologi informasi" }, { id: "ct2", name: "Perabot Kelas", typeId: "tp2", note: "Perlengkapan ruang kelas" }, { id: "ct3", name: "Peralatan Olahraga", typeId: "tp4", note: "Alat olahraga dan kebugaran" }, { id: "ct4", name: "Gedung & Ruang", typeId: "tp3", note: "Bangunan dan ruang sekolah" }],
     units: [{ id: "un1", name: "unit" }, { id: "un2", name: "pcs" }, { id: "un3", name: "set" }, { id: "un4", name: "rim" }],
     locations: [{ id: "lo1", name: "Ruang Kepala Sekolah" }, { id: "lo2", name: "Ruang Kelas" }, { id: "lo3", name: "Laboratorium Komputer" }, { id: "lo4", name: "Ruang Olahraga" }, { id: "lo5", name: "Ruang Tata Usaha" }, { id: "lo6", name: "Aula" }],
     suppliers: [{ id: "sp1", name: "CV Sumber Teknologi", address: "Jl. Asia Afrika No. 18, Bandung", phone: "(022) 4201188", email: "info@sumberteknologi.id" }, { id: "sp2", name: "PT Maju Jaya Abadi", address: "Jl. Soekarno Hatta No. 210, Bandung", phone: "(022) 7302210", email: "kontak@majujaya.id" }, { id: "sp3", name: "Koperasi Sekolah", address: "Jl. Ir. H. Juanda No. 93, Bandung", phone: "(022) 4204152", email: "" }],
     funds: [{ id: "fd1", name: "BOS", description: "Bantuan Operasional Sekolah" }, { id: "fd2", name: "Komite Sekolah", description: "Dana partisipasi komite" }, { id: "fd3", name: "Kenang-kenangan Siswa", description: "Hibah dan kenang-kenangan" }],
+    academicYears: [{ id: "ay1", name: "2026/2027", status: "Aktif" }],
     goods: [
       { id: "gd1", name: "Laptop Lenovo ThinkPad", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un1", supplierId: "sp1", quantity: 24, price: 8750000, consumable: false },
       { id: "gd2", name: "Proyektor Epson EB-X06", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un1", supplierId: "sp1", quantity: 8, price: 6200000, consumable: false },
@@ -68,7 +69,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", itemIds: ["it3"], reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), itemId: "it1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), itemId: "it4", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appLogo: "", mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: createDefaultPermissions() },
+    settings: { appName: "Sarprah", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true }, mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: createDefaultPermissions() },
     months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
   };
 
@@ -77,6 +78,8 @@
   let activeUser = null;
   let apiAvailable = false;
   let activeBarcodeScanner = null;
+  let goodsCheckStream = null;
+  let goodsCheckTimer = null;
   let searchTerm = "";
   let selectedFilter = "Semua";
   let chartPeriod = "12";
@@ -84,13 +87,16 @@
   const meta = {
     dashboard: ["Dashboard", "Ringkasan kondisi sarana dan prasarana sekolah hari ini.", "layout-dashboard"],
     school: ["Data Sekolah", "Kelola profil sekolah untuk kop laporan dan identitas aplikasi.", "school"],
+    printDesign: ["Desain Kop & Tanda Tangan", "Atur tampilan kop laporan dan nama pejabat penandatangan.", "pen-tool"],
     types: ["Jenis Barang", "Kelompokkan aset berdasarkan jenis sarana atau prasarana.", "shapes"],
     categories: ["Kategori Barang", "Atur kategori agar pendataan aset lebih terstruktur.", "tags"],
     units: ["Satuan", "Kelola satuan untuk pencatatan barang dan stok.", "ruler"],
     locations: ["Ruang / Lokasi", "Daftar ruang dan lokasi penempatan inventaris.", "map-pin"],
     suppliers: ["Penyedia / Supplier", "Kelola supplier sekolah beserta alamat dan informasi kontak.", "truck"],
     funds: ["Sumber Dana", "Kelola sumber pendanaan dan hibah aset.", "wallet"],
+    academicYears: ["Tahun Pelajaran", "Kelola daftar tahun pelajaran sekolah.", "calendar-days"],
     goods: ["Data Barang", "Daftar master barang dan informasi pengadaan aset.", "package"],
+    checkGoods: ["Cek Barang", "Pindai barcode atau cari barang untuk melihat detail dan riwayat stok.", "scan-search"],
     items: ["Data Item", "Pantau kondisi, lokasi, dan kode unik setiap unit inventaris.", "scan-line"],
     usages: ["Penggunaan BHP", "Tinjau dan catat permintaan penggunaan barang habis pakai.", "clipboard-list"],
     stocktakes: ["Stock Opname", "Rekam hasil pemeriksaan dan penyesuaian stok.", "clipboard-check"],
@@ -107,8 +113,8 @@
   const navGroups = [
     { section: "RINGKASAN", links: [{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard" }] },
     { section: "PENGELOLAAN", groups: [
-      { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"]] },
-      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["items", "Data Item"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
+      { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] },
+      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["items", "Data Item"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] }
     ] },
     { section: "LAINNYA", links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
@@ -121,6 +127,7 @@
     locations: { title: "Ruang / Lokasi", description: "Daftar ruang penyimpanan dan penggunaan barang.", singular: "Lokasi", cols: [["name", "Nama Ruang / Lokasi"]], fields: [["name", "Nama Ruang / Lokasi", "text", true]] },
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
+    academicYears: { title: "Tahun Pelajaran", description: "Daftar tahun pelajaran yang berlaku di sekolah.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
     goods: { title: "Data Barang", description: "Informasi barang, nilai, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengaju"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["applicant", "Nama Pengaju", "text", true], ["goodId", "Barang BHP", "select", true, "bhpGoods"], ["quantity", "Jumlah Barang", "number", true], ["date", "Tanggal", "date", true]] },
@@ -204,6 +211,29 @@
     $("#topbarUser")?.setAttribute("aria-expanded", "false");
   }
 
+  function closeNotificationDropdown() {
+    $("#notificationDropdown")?.classList.add("hidden");
+    $("#notificationToggle")?.setAttribute("aria-expanded", "false");
+  }
+
+  function restoreLocalUserSession() {
+    const stored = sessionStorage.getItem("sarprah-user");
+    if (!stored) return false;
+    let session;
+    try { session = JSON.parse(stored); }
+    catch {
+      sessionStorage.removeItem("sarprah-user");
+      return false;
+    }
+    const account = getById("accounts", session?.id);
+    if (!account?.active) {
+      sessionStorage.removeItem("sarprah-user");
+      return false;
+    }
+    activeUser = account;
+    return true;
+  }
+
   function openTopbarSearch() {
     $("#topbarSearch").classList.add("open");
     $("#searchTrigger").classList.add("hidden");
@@ -250,6 +280,26 @@
       state.settings.appLogo = "";
       changed = true;
     }
+    return changed;
+  }
+
+  function ensureAcademicYearDefaults() {
+    if (Array.isArray(state.academicYears)) return false;
+    state.academicYears = structuredClone(seed.academicYears);
+    return true;
+  }
+
+  function ensurePrintDesignDefaults() {
+    const settings = state.settings || (state.settings = {});
+    const current = settings.printDesign || {};
+    const defaults = seed.settings.printDesign;
+    const next = {
+      showLogo: typeof current.showLogo === "boolean" ? current.showLogo : defaults.showLogo,
+      showNpsn: typeof current.showNpsn === "boolean" ? current.showNpsn : defaults.showNpsn,
+      showContact: typeof current.showContact === "boolean" ? current.showContact : defaults.showContact
+    };
+    const changed = JSON.stringify(current) !== JSON.stringify(next);
+    settings.printDesign = next;
     return changed;
   }
 
@@ -376,7 +426,6 @@
         if (cached) Object.assign(state, JSON.parse(cached));
         saveState();
       }
-      showToast("Data tersimpan di SQLite.");
     } catch {
       apiAvailable = false;
       try {
@@ -447,8 +496,8 @@
     const visibleLinks = links.slice(0, 5);
     const shortLabels = {
       dashboard: "Beranda", school: "Sekolah", types: "Jenis", categories: "Kategori",
-      units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana",
-      goods: "Barang", items: "Item", usages: "BHP", stocktakes: "Opname", barcode: "QR",
+      units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana", academicYears: "Tahun",
+      goods: "Barang", checkGoods: "Cek", items: "Item", usages: "BHP", stocktakes: "Opname", barcode: "QR",
       loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
       depreciations: "Susut", reports: "Laporan", accounts: "Akun", backup: "Backup"
     };
@@ -462,6 +511,7 @@
   function navigate(next) {
     if (!meta[next]) return;
     if (!canViewPage(next)) next = permissionPages.find(canViewPage) || "";
+    if (page === "checkGoods" && next !== "checkGoods") stopGoodsCheckCamera();
     page = next;
     selectedFilter = "Semua";
     searchTerm = "";
@@ -503,6 +553,8 @@
     }
     if (page === "dashboard") root.innerHTML = renderDashboard();
     else if (page === "school") root.innerHTML = renderSchool();
+    else if (page === "printDesign") root.innerHTML = renderPrintDesign();
+    else if (page === "checkGoods") root.innerHTML = renderGoodsCheck();
     else if (page === "barcode") root.innerHTML = renderBarcode();
     else if (page === "reports") root.innerHTML = renderReports();
     else if (page === "accounts") root.innerHTML = renderAccounts();
@@ -513,6 +565,10 @@
     if (page === "barcode") drawBarcodes();
     bindPageEvents();
     if (page === "backup") loadTelegramSettings();
+    if (page === "checkGoods") {
+      setupGoodsCheck();
+      startGoodsCheckCamera();
+    }
   }
 
   function renderDashboard() {
@@ -569,11 +625,43 @@
         ${formInput("npsn", "NPSN", school.npsn, "text")}
         ${formInput("phone", "Telepon", school.phone, "tel")}
         ${formInput("email", "Email", school.email, "email")}
-        <div class="form-field"><label>Website</label><input name="website" type="text" inputmode="url" autocomplete="url" placeholder="contoh: https://sekolah.sch.id" value="${esc(school.website)}"></div>
+        <div class="form-field"><label>Website</label><input name="website" type="text" inputmode="url" autocomplete="url" placeholder="contoh: sekolah.sch.id" value="${esc(school.website)}"></div>
         <div class="form-field full"><label>Alamat</label><textarea name="address" ${canEditPage("school") ? "" : "disabled"}>${esc(school.address)}</textarea></div>
         <div class="form-field full"><label>Unggah Logo Sekolah</label><input name="logoFile" type="file" accept="image/*">${school.logo ? `<img src="${esc(school.logo)}" alt="Logo sekolah" style="max-width:90px;max-height:70px;object-fit:contain;margin-top:8px">` : ""}<small class="form-help">Format gambar, maksimal 2 MB.</small></div>
         <div class="form-field full"><label>Footer Laporan</label><input name="footer" value="${esc(school.footer)}"></div>
         </div></form>`;
+  }
+
+  function printSchoolHeaderMarkup(school, design) {
+    const contact = [
+      design.showNpsn && school.npsn && `NPSN ${school.npsn}`,
+      design.showContact && school.phone,
+      design.showContact && school.email,
+      design.showContact && school.website
+    ].filter(Boolean).join(" · ");
+    const logo = design.showLogo && school.logo
+      ? `<img class="print-school-logo" src="${esc(school.logo)}" alt="">`
+      : `<span class="print-school-initial">${esc((school.name || "S").slice(0, 1))}</span>`;
+    return `${logo}<div class="print-school-copy"><h1>${esc(school.name)}</h1><p>${esc(school.address)}</p>${contact ? `<p>${esc(contact)}</p>` : ""}</div>`;
+  }
+
+  function reportSignatures(school) {
+    return `<div class="report-signatures"><div><span>Mengetahui,</span><p>Kepala Sekolah</p><b>${esc(school.principalName || "( _________________________ )")}</b></div><div><span>${esc(school.city || "................")}, ${niceDate(dateOffset(0))}</span><p>Wakasek Sarpras</p><b>${esc(school.sarprasVicePrincipalName || "( _________________________ )")}</b></div></div>`;
+  }
+
+  function renderPrintDesign() {
+    const school = state.school || seed.school;
+    const design = state.settings.printDesign || seed.settings.printDesign;
+    return `${pageHeading(canEditPage("printDesign") ? `<button class="btn-primary" type="submit" form="printDesignForm"><i data-lucide="save"></i>Simpan desain</button>` : "")}
+      <form id="printDesignForm" class="settings-card"><h3>Informasi penandatangan</h3><p>Kop cetak menggunakan identitas sekolah pada menu Data Sekolah.</p><div class="form-grid">
+        ${formInput("city", "Tempat tanda tangan", school.city, "text")}
+        ${formInput("principalName", "Nama Kepala Sekolah", school.principalName, "text")}
+        ${formInput("sarprasVicePrincipalName", "Nama Wakasek Sarpras", school.sarprasVicePrincipalName, "text")}
+        <div class="form-field full"><label class="form-check"><input name="showLogo" type="checkbox" ${design.showLogo ? "checked" : ""}><span>Tampilkan logo sekolah pada kop</span></label></div>
+        <div class="form-field full"><label class="form-check"><input name="showNpsn" type="checkbox" ${design.showNpsn ? "checked" : ""}><span>Tampilkan NPSN</span></label></div>
+        <div class="form-field full"><label class="form-check"><input name="showContact" type="checkbox" ${design.showContact ? "checked" : ""}><span>Tampilkan telepon, email, dan website</span></label></div>
+      </div></form>
+      <section class="settings-card"><h3>Pratinjau kop dan tanda tangan</h3><div class="print-design-preview"><div class="print-school-header print-design-header-preview">${printSchoolHeaderMarkup(school, design)}</div>${reportSignatures(school)}</div></section>`;
   }
 
   function renderAppBranding() {
@@ -587,11 +675,12 @@
   function renderCollection(key) {
     const config = collectionConfig[key];
     const rows = state[key] || [];
-    const actions = `<button class="btn-secondary" data-action="export"><i data-lucide="download"></i>Ekspor</button>${canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : ""}`;
+    const hideExportControls = ["types", "categories", "units", "locations", "suppliers", "funds", "academicYears"].includes(key);
+    const actions = canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : "";
     const importControls = key === "goods"
-      ? `<button class="btn-quiet" data-action="goods-template"><i data-lucide="download"></i>Template CSV</button>${canEditPage(key) ? `<label class="btn-quiet" for="goodsImport"><i data-lucide="upload"></i>Impor Barang</label><input type="file" id="goodsImport" accept=".csv,text/csv" class="hidden">` : ""}`
-      : key === "units" ? `<label class="btn-quiet" for="unitImport"><i data-lucide="upload"></i>Impor</label><input type="file" id="unitImport" accept=".csv,text/csv" class="hidden">` : "";
-    let toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div><div class="table-toolbar-right">${importControls}<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel / CSV</button></div></div>`;
+      ? `<button class="btn-quiet" data-action="goods-template"><i data-lucide="download"></i>Template Excel</button>${canEditPage(key) ? `<label class="btn-quiet" for="goodsImport"><i data-lucide="upload"></i>Impor Barang</label><input type="file" id="goodsImport" accept=".xlsx,.xls,.csv" class="hidden">` : ""}`
+      : "";
+    let toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div>${importControls || !hideExportControls ? `<div class="table-toolbar-right">${importControls}${hideExportControls ? "" : `<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel</button>`}</div>` : ""}</div>`;
     const filtered = rows.filter((row) => matchesSearch(key, row, searchTerm) && (!statusPages.has(key) || selectedFilter === "Semua" || row.status === selectedFilter));
     const headers = config.cols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
     const body = filtered.length ? filtered.map((row) => `<tr>${config.cols.map(([field]) => `<td>${formatCell(key, field, row)}</td>`).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`).join("") : `<tr><td colspan="${config.cols.length + 1}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
@@ -657,11 +746,11 @@
     const goodsQty = state.goods.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
     const value = state.goods.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.price || 0), 0);
     const reportOptions = [["inventaris", "Rekapitulasi Inventaris"], ["loans", "Laporan Peminjaman"], ["usages", "Penggunaan BHP"], ["procurements", "Pengadaan Barang"], ["disposals", "Pemusnahan Barang"], ["depreciations", "Penyusutan Aset"]];
-    return `${pageHeading(`<button class="btn-secondary" data-action="export-report"><i data-lucide="download"></i>Ekspor CSV</button><button class="btn-primary" data-action="print"><i data-lucide="printer"></i>Cetak laporan</button>`)}
+    return `${pageHeading(`<button class="btn-secondary" data-action="export-report"><i data-lucide="download"></i>Ekspor Excel</button><button class="btn-primary" data-action="print"><i data-lucide="printer"></i>Cetak laporan</button>`)}
       <section class="panel"><div class="report-heading">${state.school.logo ? `<img class="report-logo" src="${esc(state.school.logo)}" alt="Logo sekolah">` : `<div class="school-avatar">${esc((state.school.name || "S").slice(0, 1))}</div>`}<div><h2>${esc(state.school.name)}</h2><p>${esc(state.school.address)} · ${esc(state.school.phone)}</p><p>${esc(state.school.email)} · ${esc(state.school.website)}</p></div></div>
       <div class="table-toolbar" style="border:0;padding:0 0 14px"><div class="table-toolbar-left"><select class="table-filter" id="reportType">${reportOptions.map(([val, label]) => `<option value="${val}">${label}</option>`).join("")}</select><input id="reportStart" class="table-filter" type="date" value="${currentMonth}-01"><input id="reportEnd" class="table-filter" type="date" value="${dateOffset(0)}"></div><div class="table-toolbar-right"><span class="badge info">Diperbarui ${niceDate(dateOffset(0))}</span></div></div>
       <div id="reportBody">${reportTable("inventaris")}</div>
-      <div class="report-signatures"><div><span>Mengetahui,</span><p>Kepala Sekolah</p><b>( _________________________ )</b></div><div><span>Bandung, ${niceDate(dateOffset(0))}</span><p>Wakasek Sarpras</p><b>( _________________________ )</b></div></div>
+      ${reportSignatures(state.school)}
       <p class="muted" style="font-size:9px;text-align:center;margin:28px 0 0">${esc(state.school.footer)}</p></section>`;
   }
   function reportTable(type, startDate, endDate) {
@@ -679,7 +768,7 @@
   }
 
   function renderAccounts() {
-    const available = ["dashboard", "goods", "items", "loans", "procurements", "disposals", "reports", "backup"];
+    const available = ["dashboard", "goods", "checkGoods", "items", "loans", "procurements", "disposals", "reports", "backup"];
     const mobile = state.settings.mobileNav || [];
     const labels = Object.fromEntries([...available, ...permissionPages, "accounts"].map((key) => [key, meta[key][0]]));
     const accessMenus = permissionPages.map((key) => `
@@ -1253,7 +1342,7 @@
     else if (action === "print") window.print();
     else if (action === "export-report") exportReport();
     else if (action === "export" || action === "export-dashboard") exportRows(page);
-    else if (action === "goods-template") downloadCsv("template-impor-barang.csv", [goodsImportHeaders]);
+    else if (action === "goods-template") downloadGoodsTemplate();
     else if (action === "barcode-options") barcodeOptionsModal();
     else if (action === "download-backup") downloadBackup();
     else if (action === "telegram-test") testTelegram();
@@ -1301,6 +1390,7 @@
     $("#pageContent").onclick = recordActions;
     $("#pageContent").querySelectorAll("[data-nav]").forEach((el) => el.addEventListener("click", () => navigate(el.dataset.nav)));
     if ($("#schoolForm") && !canEditPage("school")) $$("input,textarea", $("#schoolForm")).forEach((input) => { input.disabled = true; });
+    if ($("#printDesignForm") && !canEditPage("printDesign")) $$("input,textarea", $("#printDesignForm")).forEach((input) => { input.disabled = true; });
     if ($("#appBrandingForm") && !canEditPage("school")) $$("input,button", $("#appBrandingForm")).forEach((input) => { input.disabled = true; });
     $("#tableSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#tableSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#statusFilter")?.addEventListener("change", (event) => { selectedFilter = event.target.value; renderPage(); });
@@ -1316,11 +1406,8 @@
       const file = form.elements.logoFile.files?.[0];
       delete data.logoFile;
       const commit = () => {
-        const website = String(data.website || "").trim();
-        if (website && !/^https?:\/\//i.test(website)) data.website = `https://${website}`;
         Object.assign(state.school, data);
         saveState();
-        $("#sidebarSchool").textContent = state.school.name;
         $("#headerSchoolName").textContent = state.school.name;
         showToast("Profil sekolah berhasil disimpan.");
         renderPage();
@@ -1331,6 +1418,22 @@
       reader.onload = () => { data.logo = reader.result; commit(); };
       reader.onerror = () => showToast("File logo tidak dapat dibaca.", true);
       reader.readAsDataURL(file);
+    });
+    $("#printDesignForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!canEditPage("printDesign")) return showToast("Akun Anda tidak memiliki izin mengubah desain kop.", true);
+      const form = event.currentTarget;
+      state.school.city = form.elements.city.value.trim();
+      state.school.principalName = form.elements.principalName.value.trim();
+      state.school.sarprasVicePrincipalName = form.elements.sarprasVicePrincipalName.value.trim();
+      state.settings.printDesign = {
+        showLogo: form.elements.showLogo.checked,
+        showNpsn: form.elements.showNpsn.checked,
+        showContact: form.elements.showContact.checked
+      };
+      saveState();
+      showToast("Desain kop dan tanda tangan berhasil disimpan.");
+      renderPage();
     });
     $("#appBrandingForm")?.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -1372,7 +1475,6 @@
       if (file) restoreBackup(file);
       event.target.value = "";
     });
-    $("#unitImport")?.addEventListener("change", importUnits);
     $("#goodsImport")?.addEventListener("change", importGoods);
     const updateReport = () => {
       const type = $("#reportType")?.value;
@@ -1398,7 +1500,18 @@
   }
 
   function parseCsvRows(text) {
-    const source = String(text || "").replace(/^\uFEFF/, "");
+    let source = String(text || "").replace(/^\uFEFF/, "");
+    let delimiter = ",";
+    const separatorDirective = /^sep=(,|;|\t)\r?\n/i.exec(source);
+    if (separatorDirective) {
+      delimiter = separatorDirective[1];
+      source = source.slice(separatorDirective[0].length);
+    } else {
+      const firstLine = source.split(/\r?\n/, 1)[0] || "";
+      const counts = [",", ";", "\t"].map((candidate) => [candidate, firstLine.split(candidate).length - 1]);
+      const [detectedDelimiter, count] = counts.sort((a, b) => b[1] - a[1])[0];
+      delimiter = count ? detectedDelimiter : ",";
+    }
     const rows = [];
     let row = [];
     let cell = "";
@@ -1410,23 +1523,31 @@
           cell += '"';
           index += 1;
         } else quoted = !quoted;
-      } else if (character === "," && !quoted) {
+      } else if (character === delimiter && !quoted) {
         row.push(cell);
         cell = "";
       } else if ((character === "\n" || character === "\r") && !quoted) {
         if (character === "\r" && source[index + 1] === "\n") index += 1;
         row.push(cell);
-        if (row.some((value) => value.trim())) rows.push(row);
+        if (row.length > 1 || row.some((value) => value.trim())) rows.push(row);
         row = [];
         cell = "";
       } else cell += character;
     }
-    if (quoted) throw new Error("CSV memiliki tanda kutip yang tidak berpasangan.");
+    if (quoted) throw new Error("File memiliki tanda kutip yang tidak berpasangan.");
     if (cell.length || row.length) {
       row.push(cell);
-      if (row.some((value) => value.trim())) rows.push(row);
+      if (row.length > 1 || row.some((value) => value.trim())) rows.push(row);
     }
     return rows;
+  }
+
+  function parseExcelRows(data) {
+    if (!window.XLSX) throw new Error("Komponen Excel belum siap. Muat ulang aplikasi lalu coba lagi.");
+    const workbook = XLSX.read(data, { type: "array", raw: false });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!sheet) throw new Error("File Excel tidak memiliki lembar kerja.");
+    return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
   }
 
   function importGoods(event) {
@@ -1438,16 +1559,17 @@
       showToast("Akun Anda tidak memiliki izin mengimpor barang.", true);
       return;
     }
-    if (!file.name.toLowerCase().endsWith(".csv")) {
+    const extension = file.name.toLowerCase().split(".").pop();
+    if (!["xlsx", "xls", "csv"].includes(extension)) {
       input.value = "";
-      showToast("Pilih file CSV sesuai template impor barang.", true);
+      showToast("Pilih file Excel sesuai template impor barang.", true);
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const rows = parseCsvRows(reader.result);
-        if (rows.length < 2) throw new Error("File harus berisi header dan minimal satu baris data.");
+        const rows = extension === "csv" ? parseCsvRows(reader.result) : parseExcelRows(reader.result);
+        if (!rows.length) throw new Error("File Excel kosong.");
         const normalize = (value) => String(value || "").trim().toLocaleLowerCase("id-ID");
         const headers = rows[0].map(normalize);
         const column = (...names) => headers.findIndex((header) => names.some((name) => header === normalize(name)));
@@ -1470,6 +1592,10 @@
         };
         const missingColumns = requiredColumns.filter((name) => columns[name] < 0).map((name) => columnLabels[name]);
         if (missingColumns.length) throw new Error(`Kolom template tidak lengkap: ${missingColumns.join(", ")}.`);
+        if (rows.length < 2) {
+          showToast("Belum ada baris barang untuk diimpor.");
+          return;
+        }
 
         const valueAt = (row, name) => String(row[columns[name]] || "").trim();
         const findByName = (collection, name) => state[collection].find((record) => normalize(record.name) === normalize(name));
@@ -1551,34 +1677,21 @@
     };
     reader.onerror = () => {
       input.value = "";
-      showToast("File CSV tidak dapat dibaca.", true);
+      showToast("File Excel tidak dapat dibaca.", true);
     };
-    reader.readAsText(file);
-  }
-
-  function importUnits(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const names = String(reader.result).split(/\r?\n/).map((line) => line.split(",")[0].replace(/^"|"$/g, "").trim()).filter(Boolean);
-      const fresh = names.filter((name) => !state.units.some((row) => row.name.toLowerCase() === name.toLowerCase()));
-      fresh.forEach((name) => state.units.push({ id: id(), name }));
-      saveState(); showToast(`${fresh.length} satuan berhasil diimpor.`); renderPage();
-    };
-    reader.onerror = () => showToast("File CSV tidak dapat dibaca.", true);
-    reader.readAsText(file);
+    if (extension === "csv") reader.readAsText(file);
+    else reader.readAsArrayBuffer(file);
   }
 
   function exportRows(key) {
     const config = collectionConfig[key];
     if (!config) {
       const rows = [["Kategori", "Jumlah"], ["Barang", state.goods.length], ["Item", state.items.length], ["Peminjaman", state.loans.length], ["Pengadaan", state.procurements.length]];
-      downloadCsv("ringkasan-sarprah.csv", rows);
+      downloadExcel("ringkasan-sarprah.xlsx", rows);
       return;
     }
     const rows = [config.cols.map(([, label]) => label), ...(state[key] || []).map((row) => config.cols.map(([field]) => plainCell(key, field, row)))];
-    downloadCsv(`${key}-sarprah.csv`, rows);
+    downloadExcel(`${key}-sarprah.xlsx`, rows);
   }
 
   function exportReport() {
@@ -1589,15 +1702,28 @@
     const dateField = ({ loans: "startDate", usages: "date", procurements: "date", disposals: "date", depreciations: "date" })[type];
     const start = $("#reportStart")?.value, end = $("#reportEnd")?.value;
     const records = (state[type] || []).filter((row) => !dateField || ((!start || row[dateField] >= start) && (!end || row[dateField] <= end)));
-    downloadCsv(`laporan-${type}.csv`, [config.cols.map(([, label]) => label), ...records.map((row) => config.cols.map(([field]) => plainCell(type, field, row)))]);
+    downloadExcel(`laporan-${type}.xlsx`, [config.cols.map(([, label]) => label), ...records.map((row) => config.cols.map(([field]) => plainCell(type, field, row)))]);
   }
 
-  function downloadCsv(filename, rows) {
-    const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }));
-    link.download = filename; link.click(); URL.revokeObjectURL(link.href);
-    showToast("File CSV berhasil diekspor.");
+  function downloadGoodsTemplate() {
+    downloadExcel("template-impor-barang.xlsx", [goodsImportHeaders, Array(goodsImportHeaders.length).fill("")]);
+  }
+
+  function downloadExcel(filename, rows) {
+    if (!window.XLSX) {
+      showToast("Fitur ekspor Excel belum siap. Periksa koneksi lalu muat ulang aplikasi.", true);
+      return;
+    }
+    try {
+      const worksheet = XLSX.utils.aoa_to_sheet(rows);
+      worksheet["!cols"] = (rows[0] || []).map((heading) => ({ wch: Math.min(36, Math.max(14, String(heading).length + 3)) }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+      XLSX.writeFile(workbook, filename, { bookType: "xlsx", compression: true });
+      showToast("File Excel berhasil diekspor.");
+    } catch (error) {
+      showToast(`File Excel gagal dibuat: ${error.message}`, true);
+    }
   }
 
   function barcodeOptionsModal() {
@@ -1712,6 +1838,16 @@
     document.addEventListener("click", (event) => {
       if (!$("#topbarSearch").contains(event.target)) closeTopbarSearch();
     });
+    $("#notificationToggle").addEventListener("click", () => {
+      const dropdown = $("#notificationDropdown");
+      const open = dropdown.classList.contains("hidden");
+      dropdown.classList.toggle("hidden", !open);
+      $("#notificationToggle").setAttribute("aria-expanded", String(open));
+      if (open && window.lucide) lucide.createIcons({ nodes: [dropdown] });
+    });
+    document.addEventListener("click", (event) => {
+      if (!$("#topbarNotifications").contains(event.target)) closeNotificationDropdown();
+    });
     $("#topbarUser").addEventListener("click", () => {
       const menu = $("#topbarProfileMenu");
       const isOpen = !menu.classList.contains("hidden");
@@ -1769,10 +1905,13 @@
     });
     document.addEventListener("keydown", (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openTopbarSearch(); }
-      if (event.key === "Escape") { closeModal(); closeTopbarProfileMenu(); closeTopbarSearch(); }
+      if (event.key === "Escape") { closeModal(); closeTopbarProfileMenu(); closeNotificationDropdown(); closeTopbarSearch(); }
     });
     window.addEventListener("resize", () => { if (page === "dashboard") drawChart(); });
     window.addEventListener("beforeprint", () => {
+      const school = state.school || seed.school;
+      const printHeader = $("#printSchoolHeader");
+      if (printHeader) printHeader.innerHTML = printSchoolHeaderMarkup(school, state.settings.printDesign || seed.settings.printDesign);
       if (page !== "barcode") return;
       $$(".barcode-card").forEach((card) => { card.dataset.previousDisplay = card.style.display; card.style.display = card.querySelector(".barcode-check").checked ? "" : "none"; });
       const grid = $(".barcode-grid");
@@ -1791,7 +1930,6 @@
     activeUser = getById("accounts", activeUser?.id) || activeUser;
     applyAppBranding();
     syncProfile();
-    $("#sidebarSchool").textContent = state.school.name;
     $("#headerSchoolName").textContent = state.school.name;
     renderNavigation(); navigate(page);
   }
@@ -1812,7 +1950,8 @@
       const brandingResponse = await fetch("/api/branding");
       if (brandingResponse.ok) Object.assign(state.settings, await brandingResponse.json());
       const response = await fetch("/api/auth/session");
-      if (response.ok) sessionUser = (await response.json()).user;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      sessionUser = (await response.json()).user;
       if (sessionUser) {
         apiAvailable = true;
         await loadState();
@@ -1821,12 +1960,17 @@
         apiAvailable = true;
         const cached = localStorage.getItem(STORE_KEY);
         if (cached) Object.assign(state, JSON.parse(cached));
+        if (restoreLocalUserSession()) apiAvailable = false;
       }
     } catch {
       apiAvailable = false;
       await loadState();
+      restoreLocalUserSession();
     }
-    if (ensureBrandingDefaults()) saveState();
+    const academicYearsChanged = ensureAcademicYearDefaults();
+    const printDesignChanged = ensurePrintDesignDefaults();
+    const brandingChanged = ensureBrandingDefaults();
+    if (academicYearsChanged || printDesignChanged || brandingChanged) saveState();
     applyAppBranding();
     if (activeUser) enterApp();
     else {
