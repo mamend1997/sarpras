@@ -192,7 +192,7 @@
     types: { title: "Jenis Barang", description: "Daftar jenis dan klasifikasi barang.", singular: "Jenis Barang", cols: [["name", "Nama Jenis"], ["type", "Tipe"]], fields: [["name", "Nama Jenis", "text", true], ["type", "Tipe", "select", true, ["sarana", "prasarana"]],] },
     categories: { title: "Kategori Barang", description: "Kategori membantu mengelompokkan barang.", singular: "Kategori", cols: [["name", "Nama Kategori"], ["typeId", "Jenis Barang"], ["note", "Keterangan"]], fields: [["name", "Nama Kategori", "text", true], ["typeId", "Jenis Barang", "select", true, "types"], ["note", "Keterangan", "text"]] },
     units: { title: "Satuan", description: "Satuan untuk mencatat jumlah barang.", singular: "Satuan", cols: [["name", "Nama Satuan"]], fields: [["name", "Nama Satuan", "text", true]] },
-    locations: { title: "Ruang / Lokasi", description: "Daftar ruang penyimpanan dan penggunaan barang.", singular: "Lokasi", cols: [["name", "Nama Ruang / Lokasi"]], fields: [["name", "Nama Ruang / Lokasi", "text", true]] },
+    locations: { title: "Ruang / Lokasi", description: "Kelola ruang sekolah sebagai prasarana beserta kepemilikan dan ukurannya.", singular: "Ruangan", cols: [["name", "Nama Ruangan"], ["code", "Kode Ruangan"], ["ownershipId", "Kepemilikan"], ["floor", "Lantai Ke"], ["length", "Panjang (m)"], ["width", "Lebar (m)"], ["area", "Luas (m²)"], ["condition", "Kondisi Ruangan"], ["status", "Status"]], fields: [["name", "Nama Ruangan", "text", true], ["code", "Kode Ruangan", "text", true], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["floor", "Lantai Ke", "number", true], ["length", "Panjang (m)", "number", true], ["width", "Lebar (m)", "number", true], ["area", "Luas (m²)", "number"], ["status", "Status", "select", true, ["Aktif", "Nonaktif"]]] },
     ownerships: { title: "Kepemilikan", description: "Daftar jenis kepemilikan yang dapat dipilih pada Data Barang.", singular: "Kepemilikan", cols: [["name", "Nama Kepemilikan"]], fields: [["name", "Nama Kepemilikan", "text", true]] },
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
@@ -221,6 +221,34 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const getById = (collection, value) => (state[collection] || []).find((row) => row.id === value);
+  function nextLocationCode(academicYearId = currentAcademicYearId(), reservedCodes = []) {
+    const matchesYear = (location) => !academicYearId || !location.academicYearId || location.academicYearId === academicYearId;
+    const locations = (state.locations || []).filter(matchesYear);
+    const trashedLocations = (state.trash || [])
+      .filter((entry) => entry.collection === "locations" && matchesYear(entry.record || {}))
+      .map((entry) => entry.record);
+    const codes = [...locations, ...trashedLocations].map((location) => String(location.code || "").trim().toUpperCase());
+    const usedCodes = new Set([...codes, ...reservedCodes.map((code) => String(code || "").trim().toUpperCase())]);
+    const highestSequence = [...usedCodes].reduce((highest, code) => {
+      const match = /^RNG-(\d+)$/i.exec(code);
+      return match ? Math.max(highest, Number(match[1])) : highest;
+    }, 0);
+    let sequence = highestSequence + 1;
+    let code = `RNG-${String(sequence).padStart(4, "0")}`;
+    while (usedCodes.has(code)) {
+      sequence += 1;
+      code = `RNG-${String(sequence).padStart(4, "0")}`;
+    }
+    return code;
+  }
+
+  function calculatedRoomArea(length, width) {
+    const roomLength = Number(length), roomWidth = Number(width);
+    return roomLength > 0 && roomWidth > 0
+      ? Math.round(roomLength * roomWidth * 100) / 100
+      : "";
+  }
+
   function logActivity(action, entity, detail) {
     if (!Array.isArray(state.activityLogs)) state.activityLogs = [];
     state.activityLogs.unshift({
@@ -687,6 +715,45 @@
     return changed;
   }
 
+  function ensureLocationDefaults() {
+    if (!Array.isArray(state.locations)) {
+      state.locations = [];
+      return true;
+    }
+    let changed = false;
+    const usedCodesByYear = new Map();
+    state.locations = state.locations.map((location) => {
+      const academicYearId = location.academicYearId || currentAcademicYearId();
+      const usedCodes = usedCodesByYear.get(academicYearId) || new Set();
+      const currentCode = String(location.code || "").trim();
+      const normalizedCode = currentCode.toUpperCase();
+      const code = !currentCode || usedCodes.has(normalizedCode)
+        ? nextLocationCode(academicYearId, [...usedCodes])
+        : currentCode;
+      usedCodes.add(code.toUpperCase());
+      usedCodesByYear.set(academicYearId, usedCodes);
+      const numberOrEmpty = (value) => value === "" || value == null || !Number.isFinite(Number(value))
+        ? ""
+        : Math.max(0, Number(value));
+      const length = numberOrEmpty(location.length);
+      const width = numberOrEmpty(location.width);
+      const savedStatus = String(location.status || "").toLocaleLowerCase("id-ID");
+      const status = ["nonaktif", "nonaktifkan", "inactive"].includes(savedStatus) ? "Nonaktif" : "Aktif";
+      const next = {
+        ...location,
+        code,
+        floor: numberOrEmpty(location.floor),
+        length,
+        width,
+        area: calculatedRoomArea(length, width),
+        status
+      };
+      if (JSON.stringify(location) !== JSON.stringify(next)) changed = true;
+      return next;
+    });
+    return changed;
+  }
+
   function applyAppBranding() {
     ensureBrandingDefaults();
     const appName = state.settings.appName.trim() || "Sarprah";
@@ -1129,15 +1196,25 @@
     const damaged = state.items.filter((row) => row.condition === "Rusak").length;
     const outstanding = state.loans.filter((row) => ["Diterima", "Pengajuan"].includes(row.status)).length;
     const goods = recordsForAcademicYear("goods");
+    const rooms = recordsForAcademicYear("locations");
     const goodsById = new Map(goods.map((good) => [good.id, good]));
     const goodCount = goods.length;
     const sarana = recordsForAcademicYear("types").filter((row) => row.type === "sarana").map((row) => row.id);
-    const prasarana = recordsForAcademicYear("types").filter((row) => row.type === "prasarana").map((row) => row.id);
-    const yearItems = state.items.filter((row) => goodsById.has(row.goodId));
-    const saranaGoods = yearItems.filter((row) => sarana.includes(goodsById.get(row.goodId)?.typeId)).length;
-    const prasaranaGoods = yearItems.filter((row) => prasarana.includes(goodsById.get(row.goodId)?.typeId)).length;
-    const saranaAvailable = yearItems.filter((row) => row.condition === "Baik" && sarana.includes(goodsById.get(row.goodId)?.typeId)).length;
-    const prasaranaAvailable = yearItems.filter((row) => row.condition === "Baik" && prasarana.includes(goodsById.get(row.goodId)?.typeId)).length;
+    const saranaAssets = goods.filter((good) => sarana.includes(good.typeId));
+    const saranaGoods = saranaAssets.reduce((total, good) => total + Math.max(0, Number(good.quantity) || 0), 0);
+    const saranaAvailable = saranaAssets.reduce((total, good) => {
+      const quantity = Math.max(0, Number(good.quantity) || 0);
+      const hasConditionCount = Object.prototype.hasOwnProperty.call(good, "goodConditionCount")
+        && good.goodConditionCount !== "" && good.goodConditionCount != null
+        && Number.isFinite(Number(good.goodConditionCount));
+      const available = hasConditionCount
+        ? Number(good.goodConditionCount)
+        : quantity;
+      return total + Math.min(quantity, Math.max(0, available));
+    }, 0);
+    const activeRooms = rooms.filter((room) => room.status === "Aktif").length;
+    const roomsDamagedMedium = rooms.filter((room) => room.condition === "Rusak Sedang").length;
+    const roomsDamagedHeavy = rooms.filter((room) => room.condition === "Rusak Berat").length;
     const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
     const lateRows = state.loans.filter((row) => row.status === "Diterima" && loanLateDays(row) > 0).slice(0, 4);
     const procurements = state.procurements.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
@@ -1149,9 +1226,14 @@
         ${indicator("Item Rusak", damaged, "triangle-alert", "blue", `${itemsTotal ? Math.round(damaged / itemsTotal * 100) : 0}% dari item terdata`)}
         ${indicator("Item Belum Kembali", outstanding, "clock-3", "amber", "Peminjaman aktif")}
       </div>
+      <div class="indicator-grid">
+        ${indicator("Total Prasarana", rooms.length, "building-2", "coral", `${activeRooms} ruang aktif`, "locations")}
+        ${indicator("Rusak Sedang", roomsDamagedMedium, "triangle-alert", "amber", "Kondisi ruangan", "locations")}
+        ${indicator("Rusak Berat", roomsDamagedHeavy, "triangle-alert", "blue", "Kondisi ruangan", "locations")}
+      </div>
       <div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h3>Statistik Jumlah Sarana dan Prasarana</h3><p>Jumlah kumulatif item inventaris berdasarkan tanggal diterima</p></div><div><select class="chart-select" id="chartPeriod"><option value="12" ${chartPeriod === "12" ? "selected" : ""}>12 bulan terakhir</option><option value="6" ${chartPeriod === "6" ? "selected" : ""}>6 bulan terakhir</option></select></div></div><div class="chart-legend"><span><i class="legend-dot"></i>Sarana</span><span><i class="legend-dot blue"></i>Prasarana</span></div><div class="chart-wrap"><canvas id="inventoryChart"></canvas></div></section>
-      <section class="panel"><div class="panel-heading"><div><h3>Ketersediaan Item</h3><p>Kondisi item baik dan siap digunakan</p></div><i data-lucide="chart-no-axes-combined" class="muted"></i></div>
-        <div class="availability-row"><div class="availability-label"><b>Prasarana tersedia</b><span>${prasaranaAvailable} / ${prasaranaGoods} item · ${pct(prasaranaAvailable, prasaranaGoods)}%</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct(prasaranaAvailable, prasaranaGoods)}%"></div></div></div>
+      <section class="panel"><div class="panel-heading"><div><h3>Ketersediaan Sarana & Prasarana</h3><p>Item sarana baik dan ruang dengan status aktif</p></div><i data-lucide="chart-no-axes-combined" class="muted"></i></div>
+        <div class="availability-row"><div class="availability-label"><b>Prasarana tersedia</b><span>${activeRooms} / ${rooms.length} ruang · ${pct(activeRooms, rooms.length)}%</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct(activeRooms, rooms.length)}%"></div></div></div>
         <div class="availability-row"><div class="availability-label"><b>Sarana tersedia</b><span>${saranaAvailable} / ${saranaGoods} item · ${pct(saranaAvailable, saranaGoods)}%</span></div><div class="progress-track"><div class="progress-fill blue" style="width:${pct(saranaAvailable, saranaGoods)}%"></div></div></div>
         <div style="margin-top:20px;padding:12px;border-radius:9px;background:#fff8f1;display:flex;gap:10px;align-items:flex-start"><i data-lucide="lightbulb" style="color:#e98939;width:17px;height:17px"></i><div><b style="font-size:10px">Catatan inventaris</b><p style="font-size:9px;color:#8d95a2;margin:4px 0 0;line-height:1.55">Periksa berkala item rusak agar pemeliharaan dan pengadaan dapat direncanakan tepat waktu.</p></div></div>
       </section></div>
@@ -1449,8 +1531,8 @@
     }
   }
 
-  function indicator(label, value, icon, tone, foot) {
-    return `<div class="indicator-card" data-nav="goods"><span class="indicator-icon ${tone}"><i data-lucide="${icon}"></i></span><div><small>${label}</small><b>${value}</b><small style="margin:3px 0 0">${foot}</small></div></div>`;
+  function indicator(label, value, icon, tone, foot, destination = "goods") {
+    return `<div class="indicator-card" data-nav="${destination}"><span class="indicator-icon ${tone}"><i data-lucide="${icon}"></i></span><div><small>${label}</small><b>${value}</b><small style="margin:3px 0 0">${foot}</small></div></div>`;
   }
   function procurementDashboardRows(rows) {
     return rows.length ? rows.map((row) => `<tr data-priority="${esc(row.priority)}"><td><span class="table-title">${esc(row.title)}</span><div class="table-sub">${esc(niceDate(row.date))}</div></td><td>${row.priority === "Mendesak" ? `<span class="badge danger">Mendesak</span>` : `<span class="badge neutral">Normal</span>`}</td><td class="goods-price-cell">${currencyCell(row.quantity * row.unitPrice)}</td></tr>`).join("") : `<tr><td colspan="3" class="empty-state">Belum ada data pengadaan.</td></tr>`;
@@ -1571,7 +1653,7 @@
       return `<tr>${selection}${displayCols.map(([field]) => {
         const currency = ["price", "totalPrice", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
-      }).join("")}<td><div class="action-buttons">${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
+      }).join("")}<td><div class="action-buttons">${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${key === "locations" && canEditPage(key) ? `<button class="mini-action" title="Kondisi ruangan" aria-label="Kondisi ruangan ${esc(row.name)}" data-action="room-condition" data-id="${row.id}"><i data-lucide="triangle-alert"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
@@ -1732,8 +1814,13 @@
     if (field === "fundId" || field === "typeId" || field === "categoryId" || field === "unitId" || field === "supplierId" || field === "goodId" || field === "locationId" || field === "ownershipId") return esc(relatedName(({ fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations", ownershipId: "ownerships" })[field], value));
     if (field === "image") return value ? `<img src="${esc(value)}" alt="Gambar supplier" style="width:34px;height:34px;object-fit:cover;border-radius:7px">` : `<span class="badge neutral">—</span>`;
     if (field === "evidence") return value ? `<a href="${esc(value)}" target="_blank" rel="noopener" class="badge info">Lihat foto</a>` : `<span class="badge neutral">—</span>`;
-    if (field === "status") return statusBadge(displayedStatus(key, value));
+    if (field === "status") return statusBadge(key === "locations" ? value : displayedStatus(key, value));
     if (field === "priority") return value === "Mendesak" ? `<span class="badge danger">Mendesak</span>` : `<span class="badge neutral">${esc(value || "Normal")}</span>`;
+    if (key === "locations" && field === "condition") {
+      if (!value) return `<span class="badge neutral">—</span>`;
+      const tone = value === "Rusak Ringan" ? "warning" : "danger";
+      return `<span class="badge ${tone}">${esc(value)}</span>`;
+    }
     if (field === "condition") return value === "Rusak" ? `<span class="badge danger">Rusak</span>` : value === "Dihapus" ? `<span class="badge neutral">Dihapus</span>` : `<span class="badge success">Baik</span>`;
     if (field === "type") return `<span class="badge ${value === "prasarana" ? "info" : "warning"}">${esc(value)}</span>`;
     if (["date", "received", "startDate", "endDate", "dueDate"].includes(field)) return esc(niceDate(value));
@@ -1751,11 +1838,16 @@
     if (field === "consumable") return `<span class="badge ${isBhp(row) ? "success" : "neutral"}">${isBhp(row) ? "BHP" : "Barang Modal"}</span>`;
     if (field === "active") return `<span class="badge ${value ? "success" : "neutral"}">${value ? "Aktif" : "Nonaktif"}</span>`;
     if (field === "name" && key === "accounts") return `<span class="table-title">${esc(value)}</span>`;
+    if (key === "locations" && field === "floor") return value === "" || value == null ? "—" : `Lantai ${esc(value)}`;
+    if (key === "locations" && ["length", "width"].includes(field)) return value === "" || value == null ? "—" : `${esc(value)} m`;
+    if (key === "locations" && field === "area") return value === "" || value == null ? "—" : `${esc(value)} m²`;
     return esc(value || "—");
   }
 
   function statusBadge(value) {
-    const tone = ["Diterima", "Dipinjam", "Disetujui", "Selesai"].includes(value) ? "success" : ["Pengajuan", "Pending"].includes(value) ? "warning" : value === "Ditolak" ? "danger" : "neutral";
+    const tone = ["Aktif", "Diterima", "Dipinjam", "Disetujui", "Selesai"].includes(value)
+      ? "success"
+      : ["Pengajuan", "Pending"].includes(value) ? "warning" : value === "Ditolak" ? "danger" : "neutral";
     return `<span class="badge ${tone}">${esc(value || "—")}</span>`;
   }
 
@@ -2121,6 +2213,8 @@
                   : key === "maintenanceSchedules" && name === "date" ? calendarPrefillDate || dateOffset(0)
               : key === "loans" && name === "durationDays" ? loanDuration
                 : key === "loans" && name === "dueDate" ? addDaysToDate(dateOffset(0), 1)
+                  : key === "locations" && name === "code" ? nextLocationCode(recordYearId)
+                    : key === "locations" && name === "status" ? "Aktif"
                   : key === "depreciations" && name === "periodType" ? depreciationPeriodType
                     : key === "depreciations" && name === "method" ? depreciationMethods.straightLine
                       : key === "depreciations" && name === "residualValue" ? 0
@@ -2129,6 +2223,8 @@
                   : type === "date" ? (key === "academicYears" ? "" : dateOffset(0)) : "");
       if (key === "depreciations" && name === "method" && value === "Garis Lurus") value = depreciationMethods.straightLine;
       const idAttr = `${key}-${name}`;
+      if (key === "locations" && name === "code") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" required readonly><small class="form-help">Kode unik terisi otomatis.</small></div>`;
+      if (key === "locations" && name === "area") return `<div class="form-field"><label for="${idAttr}">${esc(label)}</label><input id="${idAttr}" name="${name}" type="number" value="${esc(value)}" readonly><small class="form-help" id="locationAreaHelp" aria-live="polite">Luas dihitung otomatis dari panjang × lebar.</small></div>`;
       if (key === "usages" && name === "unitId") {
         const unitId = record?.unitId || getById("goods", record?.goodId)?.unitId || "";
         const unitName = relatedName("units", unitId);
@@ -2150,6 +2246,8 @@
       const inputType = money ? "text" : type;
       const inputValue = money ? formatThousands(value) : value;
       const numberAttributes = type !== "number" ? ""
+        : key === "locations" && name === "floor" ? 'min="0" step="1"'
+          : key === "locations" && ["length", "width"].includes(name) ? 'min="0.01" step="any"'
         : key === "usages" && name === "quantity" ? 'min="0.01" step="any"'
           : ["repairTickets", "maintenanceSchedules"].includes(key) && name === "quantity" ? 'min="1" step="1"'
             : key === "stocktakes" && name === "newStock" ? 'min="0" step="1"'
@@ -2184,6 +2282,7 @@
     if (form && form.dataset.collection === "depreciations") setupDepreciationForm(form);
     if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
     if (form && form.dataset.collection === "usages") setupUsageForm(form);
+    if (form && form.dataset.collection === "locations") setupLocationForm(form);
     if (form && ["repairTickets", "maintenanceSchedules"].includes(form.dataset.collection)) {
       const helpId = form.dataset.collection === "repairTickets" ? "repairTicketAvailableQuantity" : "maintenanceScheduleAvailableQuantity";
       setupGoodQuantityLimitForm(form, helpId);
@@ -2561,6 +2660,26 @@
     });
   }
 
+  function showRoomConditionModal(locationId) {
+    const room = getById("locations", locationId);
+    if (!room) return;
+    const conditions = [
+      ["", "Baik · kosongkan kondisi"],
+      ["Rusak Ringan", "Rusak ringan"],
+      ["Rusak Sedang", "Rusak sedang"],
+      ["Rusak Berat", "Rusak berat"]
+    ];
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Kondisi Ruangan</h2><p>${esc(room.name)}</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><p class="muted">Pilih tingkat kerusakan. Jika kondisi ruangan baik, pilih opsi pertama agar kondisi dikosongkan.</p><div class="room-condition-options">${conditions.map(([value, label]) => `<button type="button" class="${room.condition === value ? "btn-primary" : "btn-quiet"}" data-room-condition="${esc(value)}">${esc(label)}</button>`).join("")}</div></div></section></div>`);
+    $$("[data-room-condition]", $("#modalRoot")).forEach((button) => button.addEventListener("click", () => {
+      room.condition = button.dataset.roomCondition || "";
+      logActivity("Memperbarui kondisi ruangan", "Ruangan", `${room.name} · ${room.condition || "Baik (kosong)"}`);
+      saveState();
+      closeModal();
+      showToast(room.condition ? `Kondisi ${room.name} diperbarui: ${room.condition}.` : `Kondisi ${room.name} dikosongkan.`);
+      renderPage();
+    }));
+  }
+
   function setupStocktakeForm(form) {
     const goodSelect = form.elements.goodId;
     const oldStockInput = form.elements.oldStock;
@@ -2625,6 +2744,20 @@
     goodSelect.addEventListener("change", updateAvailability);
     quantityInput.addEventListener("input", updateAvailability);
     updateAvailability();
+  }
+
+  function setupLocationForm(form) {
+    const lengthInput = form.elements.length;
+    const widthInput = form.elements.width;
+    const areaInput = form.elements.area;
+    if (!lengthInput || !widthInput || !areaInput) return;
+    const updateArea = () => {
+      const area = calculatedRoomArea(lengthInput.value, widthInput.value);
+      areaInput.value = area === "" ? "" : area.toFixed(2);
+    };
+    lengthInput.addEventListener("input", updateArea);
+    widthInput.addEventListener("input", updateArea);
+    updateArea();
   }
 
   function setupRecordBarcodeScanner(form) {
@@ -2871,6 +3004,35 @@
     if (!old && yearScopedCollections.has(key)) data.academicYearId = currentAcademicYearId();
     if (key === "goods") {
       if (!recordsForAcademicYear("ownerships").some((ownership) => ownership.id === data.ownershipId)) { showToast("Pilih kepemilikan barang yang valid.", true); return; }
+    }
+    if (key === "locations") {
+      if (!recordsForAcademicYear("ownerships", data.academicYearId).some((ownership) => ownership.id === data.ownershipId)) {
+        showToast("Pilih kepemilikan ruangan yang valid.", true);
+        return;
+      }
+      if (!Number.isInteger(data.floor) || data.floor < 0) {
+        showToast("Lantai harus berupa angka bulat nol atau lebih.", true);
+        return;
+      }
+      if (!Number.isFinite(data.length) || data.length <= 0 || !Number.isFinite(data.width) || data.width <= 0) {
+        showToast("Panjang dan lebar ruangan harus lebih dari nol.", true);
+        return;
+      }
+      if (!["Aktif", "Nonaktif"].includes(data.status)) {
+        showToast("Pilih status ruangan yang valid.", true);
+        return;
+      }
+      data.area = calculatedRoomArea(data.length, data.width);
+      data.code = old?.code || nextLocationCode(data.academicYearId);
+      const codeTaken = recordsForAcademicYear("locations", data.academicYearId).some((room) =>
+        room.id !== old?.id && String(room.code || "").trim().toUpperCase() === data.code.toUpperCase());
+      if (codeTaken) {
+        if (old) {
+          showToast("Kode ruangan sudah digunakan. Muat ulang data sebelum mengedit ruangan ini.", true);
+          return;
+        }
+        data.code = nextLocationCode(data.academicYearId, [data.code]);
+      }
     }
     if (key === "accounts") {
       const emailTaken = state.accounts.some((account) => account.id !== old?.id && account.email.toLowerCase() === data.email.toLowerCase());
@@ -3315,6 +3477,9 @@
     } else if (action === "goods-condition") {
       if (page !== "goods" || !canEditPage("goods")) return showToast("Akun Anda tidak memiliki izin mengubah kondisi barang.", true);
       showGoodsConditionModal(button.dataset.id);
+    } else if (action === "room-condition") {
+      if (page !== "locations" || !canEditPage("locations")) return showToast("Akun Anda tidak memiliki izin mengubah kondisi ruangan.", true);
+      showRoomConditionModal(button.dataset.id);
     } else if (action === "delete") {
       if (!canDeletePage()) return showToast("Akun Anda tidak memiliki izin menghapus data.", true);
       const record = getById(page, button.dataset.id);
@@ -4457,7 +4622,8 @@
     const brandingChanged = ensureBrandingDefaults();
     const mobileNavigationChanged = ensureMobileNavigationDefaults();
     const workspaceCollectionsChanged = ensureWorkspaceCollections();
-    if (academicYearsChanged || barcodesChanged || printDesignChanged || brandingChanged || mobileNavigationChanged || workspaceCollectionsChanged) saveState();
+    const locationDefaultsChanged = ensureLocationDefaults();
+    if (academicYearsChanged || barcodesChanged || printDesignChanged || brandingChanged || mobileNavigationChanged || workspaceCollectionsChanged || locationDefaultsChanged) saveState();
     applyAppBranding();
     if (activeUser) enterApp();
     else {
