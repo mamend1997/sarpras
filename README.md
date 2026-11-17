@@ -22,6 +22,8 @@ Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web se
 
 Jika database sebelumnya tersimpan pada filesystem sementara Railway, salin database beserta `.sarprah-key` ke Volume atau pulihkan backup yang sesuai sebelum menghapus sumber lama. Database baru yang kosong tidak berisi akun Super Admin maupun sekolah lama.
 
+Untuk memulihkan backup sekolah JSON lama, unggah file ke Volume dan set `SARPRAH_LEGACY_BACKUP_PATH` ke path file tersebut (misalnya `/data/sarprah-backup.json`). Pada database yang belum berisi sekolah, server mengimpor backup satu kali lalu memigrasikannya sebagai tenant awal `0001`; impor dilewati jika database sudah memiliki data. Backup sekolah ini tidak memuat akun Super Admin platform. Jika belum ada akun Super Admin pada database persisten, buat akun tersebut sekali setelah pemulihan; backup platform diperlukan untuk memulihkan kredensial Super Admin lama.
+
 ## Akun sekolah lama
 
 - Email: `admin@sarprah.id`

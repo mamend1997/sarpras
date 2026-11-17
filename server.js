@@ -366,6 +366,39 @@ function createSchoolState(school, admin) {
   };
 }
 
+function importLegacySchoolBackupIfConfigured() {
+  const backupPath = process.env.SARPRAH_LEGACY_BACKUP_PATH?.trim();
+  if (!backupPath) return;
+  if (getSaasMigration.get("legacy_json_backup_import")) return;
+  if (currentState() || getAllSchools.all().length) {
+    console.warn("Impor backup sekolah dilewati karena database sudah memiliki data sekolah.");
+    return;
+  }
+  let backup;
+  try { backup = JSON.parse(fs.readFileSync(path.resolve(backupPath), "utf8")); }
+  catch (error) { throw new Error(`Backup sekolah tidak dapat dibaca: ${error.message}`); }
+  const state = backup?.state;
+  const admins = Array.isArray(state?.accounts)
+    ? state.accounts.filter((account) => account?.role === "Administrator")
+    : [];
+  if (backup.app !== "Sarprah" || backup.formatVersion !== 1 ||
+      !state || typeof state.school?.name !== "string" || !state.school.name.trim() ||
+      admins.length !== 1) {
+    throw new Error("Format backup sekolah tidak valid atau tidak memiliki tepat satu Administrator.");
+  }
+  validateAccounts(state.accounts, admins[0].id);
+  db.exec("BEGIN");
+  try {
+    saveState.run(JSON.stringify(state));
+    saveSaasMigration.run("legacy_json_backup_import", "formatVersion=1");
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  console.info("Backup sekolah lama berhasil dimuat untuk migrasi tenant satu kali.");
+}
+
 function ensurePlatformBootstrap() {
   const existing = getPlatformStateRow.get();
   if (!existing) savePlatformState(defaultPlatformState());
@@ -444,6 +477,7 @@ function ensurePlatformBootstrap() {
   }
 }
 
+importLegacySchoolBackupIfConfigured();
 ensurePlatformBootstrap();
 
 function hashPassword(password, salt) {
