@@ -9,20 +9,28 @@ const publicRoot = path.resolve(root);
 const port = Number(process.env.PORT || 3000);
 const railwayDeployment = Boolean(process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_ENVIRONMENT_ID);
 const railwayVolumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH?.trim();
-if (railwayDeployment && !railwayVolumePath) {
-  throw new Error("Railway memerlukan Volume persisten. Hubungkan Volume ke service sebelum menjalankan Sarprah.");
+const configuredDbPath = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : "";
+function isWithinDirectory(directory, target) {
+  const relativePath = path.relative(directory, target);
+  return relativePath === "" ||
+    (relativePath !== ".." && !relativePath.startsWith(`..${path.sep}`) && !path.isAbsolute(relativePath));
 }
-const defaultDbPath = railwayVolumePath
-  ? path.join(railwayVolumePath, "sarprah.sqlite")
-  : path.join(root, "sarprah.sqlite");
-const dbPath = path.resolve(process.env.DB_PATH || defaultDbPath);
+let dbPath;
 if (railwayVolumePath) {
   const volumeRoot = path.resolve(railwayVolumePath);
-  const relativeDbPath = path.relative(volumeRoot, dbPath);
-  if (relativeDbPath === ".." || relativeDbPath.startsWith(`..${path.sep}`) || path.isAbsolute(relativeDbPath)) {
-    throw new Error("DB_PATH harus berada di dalam Railway Volume agar data Super Admin dan sekolah tidak hilang saat deployment.");
+  if (configuredDbPath && isWithinDirectory(volumeRoot, configuredDbPath)) {
+    dbPath = configuredDbPath;
+  } else {
+    if (configuredDbPath) console.warn("DB_PATH berada di luar Railway Volume; database akan disimpan di Volume.");
+    dbPath = path.join(volumeRoot, "sarprah.sqlite");
+  }
+} else {
+  dbPath = configuredDbPath || path.join(root, "sarprah.sqlite");
+  if (railwayDeployment) {
+    console.warn("Railway Volume tidak terdeteksi; database memakai filesystem lokal yang mungkin tidak bertahan setelah redeploy.");
   }
 }
+dbPath = path.resolve(dbPath);
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 function loadEncryptionKey() {

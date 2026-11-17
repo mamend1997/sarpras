@@ -18,7 +18,7 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 2. Jalankan `npm start`.
 3. Buka `http://localhost:3000`.
 
-Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web service Railway. Secara lokal, berkas database `sarprah.sqlite` dibuat otomatis di folder proyek dan tidak perlu di-commit. Di Railway, hubungkan Volume persisten ke service; aplikasi otomatis menyimpan database `sarprah.sqlite` dan kunci enkripsinya di dalam direktori Volume. Jika `DB_PATH` diatur manual, pastikan lokasinya berada di dalam Volume. Server menolak startup di Railway tanpa Volume atau jika `DB_PATH` berada di luar Volume, untuk mencegah data Super Admin dan sekolah hilang saat deployment.
+Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web service Railway. Secara lokal, berkas database `sarprah.sqlite` dibuat otomatis di folder proyek dan tidak perlu di-commit. Di Railway, hubungkan Volume persisten ke service; aplikasi otomatis menyimpan database `sarprah.sqlite` dan kunci enkripsinya di dalam direktori Volume. Jika `DB_PATH` menunjuk ke luar Volume, aplikasi memakai lokasi default di dalam Volume. Tanpa Volume, aplikasi tetap berjalan menggunakan filesystem lokal Railway dan memberi peringatan, tetapi data dapat hilang saat redeploy.
 
 Jika database sebelumnya tersimpan pada filesystem sementara Railway, salin database beserta `.sarprah-key` ke Volume atau pulihkan backup yang sesuai sebelum menghapus sumber lama. Database baru yang kosong tidak berisi akun Super Admin maupun sekolah lama.
 
