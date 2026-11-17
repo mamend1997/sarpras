@@ -70,7 +70,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", itemIds: ["it3"], reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), itemId: "it1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), itemId: "it4", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, headerBold: true, headerItalic: false }, mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: createDefaultPermissions() },
+    settings: { appName: "Sarprah", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, headerBold: true, headerItalic: false }, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() },
     months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
   };
 
@@ -81,6 +81,8 @@
   let activeBarcodeScanner = null;
   let goodsCheckStream = null;
   let goodsCheckTimer = null;
+  let mobileNavDraft = null;
+  let mobileNavHighlightDraft = null;
   let searchTerm = "";
   let selectedFilter = "Semua";
   let chartPeriod = "12";
@@ -113,11 +115,11 @@
   const navGroups = [
     { section: "RINGKASAN", links: [{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard" }] },
     { section: "PENGELOLAAN", groups: [
-      { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] },
+      { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] },
       { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
-      { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] }
+      { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
     ] },
-    { section: "LAINNYA", links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
+    { links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
   ];
 
   const collectionConfig = {
@@ -306,6 +308,31 @@
     const settings = state.settings || (state.settings = {});
     if (!state.academicYears.some((year) => year.id === settings.selectedAcademicYearId)) {
       settings.selectedAcademicYearId = (state.academicYears.find((year) => year.status === "Aktif") || state.academicYears[0])?.id || "";
+      changed = true;
+    }
+    return changed;
+  }
+
+  function ensureMobileNavigationDefaults() {
+    const settings = state.settings || (state.settings = {});
+    let changed = false;
+    if (!Array.isArray(settings.mobileNav)) {
+      settings.mobileNav = [...seed.settings.mobileNav];
+      changed = true;
+    } else {
+      const mobileNav = settings.mobileNav.filter((key, index, values) => key !== "items" && values.indexOf(key) === index).slice(0, 5);
+      if (JSON.stringify(mobileNav) !== JSON.stringify(settings.mobileNav)) {
+        settings.mobileNav = mobileNav;
+        changed = true;
+      }
+    }
+    if (!settings.mobileNav.includes(settings.mobileNavHighlight)) {
+      if (!settings.mobileNav.includes("checkGoods")) {
+        const center = Math.floor(settings.mobileNav.length / 2);
+        if (settings.mobileNav.length >= 5) settings.mobileNav[center] = "checkGoods";
+        else settings.mobileNav.splice(center, 0, "checkGoods");
+      }
+      settings.mobileNavHighlight = "checkGoods";
       changed = true;
     }
     return changed;
@@ -515,7 +542,7 @@
         const open = item.children.some(([key]) => key === page);
         return `<button class="nav-group-toggle ${open ? "open" : ""}" data-group="${item.label}"><i data-lucide="${item.icon}"></i><span>${item.label}</span><i class="group-chevron" data-lucide="chevron-right"></i></button><div class="nav-children ${open ? "open" : ""}">${item.children.map(([key, label]) => `<div class="nav-child ${page === key ? "active" : ""}" data-page="${key}">${label}</div>`).join("")}</div>`;
       }).join("");
-      return `<div class="nav-section-label">${group.section}</div>${linkHtml}${groupHtml}`;
+      return `${group.section ? `<div class="nav-section-label">${group.section}</div>` : ""}${linkHtml}${groupHtml}`;
     }).join("");
     $("#sideNav").querySelectorAll("[data-page]").forEach((el) => el.addEventListener("click", () => navigate(el.dataset.page)));
     $("#sideNav").querySelectorAll("[data-group]").forEach((el) => el.addEventListener("click", () => {
@@ -536,6 +563,14 @@
   function renderMobileNav() {
     const links = (state.settings?.mobileNav || seed.settings.mobileNav).filter((key) => key !== "items" && canViewPage(key));
     const visibleLinks = links.slice(0, 5);
+    const highlightKey = visibleLinks.includes(state.settings?.mobileNavHighlight)
+      ? state.settings.mobileNavHighlight
+      : visibleLinks[Math.floor(visibleLinks.length / 2)];
+    const centeredLinks = [...visibleLinks];
+    if (highlightKey) {
+      centeredLinks.splice(centeredLinks.indexOf(highlightKey), 1);
+      centeredLinks.splice(Math.floor(centeredLinks.length / 2), 0, highlightKey);
+    }
     const shortLabels = {
       dashboard: "Beranda", school: "Sekolah", types: "Jenis", categories: "Kategori",
       units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana", academicYears: "Tahun",
@@ -543,9 +578,9 @@
       loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
       depreciations: "Susut", reports: "Laporan", accounts: "Akun", backup: "Backup"
     };
-    $("#mobileNav").innerHTML = visibleLinks.map((key, index) => {
-      const center = visibleLinks.length > 1 && index === Math.floor(visibleLinks.length / 2);
-      return `<button class="mobile-nav-item ${page === key ? "active" : ""} ${center ? "mobile-nav-center" : ""}" aria-label="${meta[key]?.[0] || key}" data-page="${key}"><i data-lucide="${meta[key]?.[2] || "circle"}"></i><span>${shortLabels[key] || meta[key]?.[0] || key}</span></button>`;
+    $("#mobileNav").innerHTML = centeredLinks.map((key) => {
+      const highlighted = key === highlightKey;
+      return `<button class="mobile-nav-item ${page === key ? "active" : ""} ${highlighted ? "mobile-nav-center" : ""}" aria-label="${meta[key]?.[0] || key}" title="${esc(meta[key]?.[0] || key)}" data-page="${key}"><i data-lucide="${meta[key]?.[2] || "circle"}"></i>${highlighted ? "" : `<span>${shortLabels[key] || meta[key]?.[0] || key}</span>`}</button>`;
     }).join("");
     $$("#mobileNav [data-page]").forEach((el) => el.addEventListener("click", () => navigate(el.dataset.page)));
   }
@@ -553,6 +588,10 @@
   function navigate(next) {
     if (!meta[next]) return;
     if (!canViewPage(next)) next = permissionPages.find(canViewPage) || "";
+    if (page === "accounts" && next !== "accounts") {
+      mobileNavDraft = null;
+      mobileNavHighlightDraft = null;
+    }
     if (page === "checkGoods" && next !== "checkGoods") stopGoodsCheckCamera();
     page = next;
     selectedFilter = "Semua";
@@ -938,10 +977,10 @@
     const toolbarRight = importControls || bulkControls || exportControls ? `<div class="table-toolbar-right">${importControls}${bulkControls}${exportControls}</div>` : "";
     const toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div>${toolbarRight}</div>`;
     const filtered = rows.filter((row) => matchesSearch(key, row, searchTerm) && (!statusPages.has(key) || selectedFilter === "Semua" || row.status === selectedFilter));
-    const selectHeader = bulkDeletable ? `<th><input id="selectAllRecords" type="checkbox" aria-label="Pilih semua data yang tampil"></th>` : "";
+    const selectHeader = bulkDeletable ? `<th class="bulk-select-column"><input id="selectAllRecords" type="checkbox" aria-label="Pilih semua data yang tampil"></th>` : "";
     const headers = config.cols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
     const body = filtered.length ? filtered.map((row) => {
-      const selection = bulkDeletable ? `<td><input type="checkbox" class="record-select" value="${esc(row.id)}" aria-label="Pilih ${esc(row.name || row.title || row.borrower || row.applicant || row.date || config.singular)}"></td>` : "";
+      const selection = bulkDeletable ? `<td class="bulk-select-column"><input type="checkbox" class="record-select" value="${esc(row.id)}" aria-label="Pilih ${esc(row.name || row.title || row.borrower || row.applicant || row.date || config.singular)}"></td>` : "";
       return `<tr>${selection}${config.cols.map(([field]) => `<td>${formatCell(key, field, row)}</td>`).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${config.cols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
@@ -1031,29 +1070,38 @@
 
   function renderAccounts() {
     const available = ["dashboard", "goods", "checkGoods", "loans", "procurements", "disposals", "reports", "backup"];
-    const mobile = state.settings.mobileNav || [];
+    if (!Array.isArray(mobileNavDraft)) mobileNavDraft = [...(state.settings.mobileNav || seed.settings.mobileNav)];
+    if (mobileNavHighlightDraft === null) mobileNavHighlightDraft = state.settings.mobileNavHighlight || "checkGoods";
+    if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("checkGoods") ? "checkGoods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)] || "";
     const labels = Object.fromEntries([...available, ...permissionPages, "accounts"].map((key) => [key, meta[key][0]]));
     const accessMenus = permissionPages.map((key) => `
-      <div class="role-permission-menu">
-        <h4>${esc(labels[key])}</h4>
+      <details class="role-permission-menu">
+        <summary>${esc(labels[key])}</summary>
         <div class="role-permission-list">
           <div class="role-permission-row role-permission-admin"><span class="role-permission-name">Administrator</span><span class="role-permission-level">Lihat, edit & hapus</span></div>
           ${permissionRoles.map((role) => `<div class="role-permission-row"><span class="role-permission-name">${esc(role)}</span><select class="table-filter permission-select role-permission-select" data-menu="${key}" data-role="${esc(role)}" ${canEditPage("accounts") ? "" : "disabled"}><option value="hidden" ${state.settings.permissions[role][key] === "hidden" ? "selected" : ""}>Tidak terlihat</option><option value="view" ${state.settings.permissions[role][key] === "view" ? "selected" : ""}>Lihat saja</option><option value="edit" ${state.settings.permissions[role][key] === "edit" ? "selected" : ""}>Lihat & edit</option><option value="delete" ${state.settings.permissions[role][key] === "delete" ? "selected" : ""}>Lihat, edit & hapus</option></select></div>`).join("")}
         </div>
-      </div>`).join("");
+      </details>`).join("");
     const adminOnlyMenus = ["accounts", "backup"].map((key) => `
-      <div class="role-permission-menu">
-        <h4>${esc(labels[key])}</h4>
+      <details class="role-permission-menu">
+        <summary>${esc(labels[key])}</summary>
         <div class="role-permission-list">
           <div class="role-permission-row role-permission-admin"><span class="role-permission-name">Administrator</span><span class="role-permission-level">Akses penuh</span></div>
           ${permissionRoles.map((role) => `<div class="role-permission-row"><span class="role-permission-name">${esc(role)}</span><span class="role-permission-level">Khusus Administrator</span></div>`).join("")}
         </div>
-      </div>`).join("");
+      </details>`).join("");
+    const mobileNavOrder = [...mobileNavDraft, ...available.filter((key) => !mobileNavDraft.includes(key))];
+    const mobileNavRows = mobileNavOrder.map((key) => {
+      const position = mobileNavDraft.indexOf(key);
+      const selected = position >= 0;
+      const canMove = canEditPage("accounts") && selected;
+      return `<div class="mobile-nav-setting-row"><label class="mobile-nav-setting-check"><input class="mobile-nav-check" type="checkbox" value="${key}" ${selected ? "checked" : ""} ${!canEditPage("accounts") || !selected && mobileNavDraft.length >= 5 ? "disabled" : ""}><b>${esc(labels[key])}</b></label><div class="mobile-nav-order-controls">${selected ? `<span class="mobile-nav-position">Posisi ${position + 1}</span><button class="mini-action" type="button" title="Geser ke atas" aria-label="Geser ${esc(labels[key])} ke atas" data-action="move-mobile-nav" data-direction="up" data-key="${key}" ${!canMove || position === 0 ? "disabled" : ""}><i data-lucide="chevron-up"></i></button><button class="mini-action" type="button" title="Geser ke bawah" aria-label="Geser ${esc(labels[key])} ke bawah" data-action="move-mobile-nav" data-direction="down" data-key="${key}" ${!canMove || position === mobileNavDraft.length - 1 ? "disabled" : ""}><i data-lucide="chevron-down"></i></button>` : `<span class="mobile-nav-position">Tidak dipilih</span>`}</div></div>`;
+    }).join("");
     return `${pageHeading(canEditPage("accounts") ? `<button class="btn-primary" data-action="add"><i data-lucide="user-plus"></i>Tambah Akun</button>` : "")}
       ${renderAppBranding()}
       <section class="settings-card"><h3>Akun Pengguna</h3><p>Kelola akses dan status akun yang menggunakan aplikasi.</p>${state.accounts.map((account) => `<div class="settings-row"><div style="display:flex;align-items:center;gap:10px"><span class="avatar">${esc(account.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase())}</span><div><b>${esc(account.name)} <span class="badge ${account.role === "Administrator" ? "info" : "neutral"}">${esc(account.role)}</span></b><small>${esc(account.email)}</small></div></div><div class="action-buttons">${canEditPage("accounts") ? `<button class="toggle ${account.active ? "on" : ""}" title="${account.active ? "Nonaktifkan" : "Aktifkan"}" data-action="toggle-account" data-id="${account.id}"></button><button class="mini-action" title="Ubah" data-action="edit" data-id="${account.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("accounts") ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${account.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></div>`).join("")}</section>
       <section class="settings-card role-permissions-card"><h3>Hak Akses Menu</h3><p>Atur hak akses setiap role untuk masing-masing menu. Administrator selalu memiliki akses penuh.</p>${accessMenus}${adminOnlyMenus}</section>
-      <section class="settings-card"><h3>Navigasi Mobile</h3><p>Pilih hingga 5 pintasan yang ditampilkan di navbar perangkat seluler.</p><div class="form-grid">${available.map((key) => `<label class="settings-row" style="justify-content:flex-start;border:0;padding:7px"><input class="mobile-nav-check" type="checkbox" value="${key}" ${mobile.includes(key) ? "checked" : ""} ${mobile.length >= 5 && !mobile.includes(key) || !canEditPage("accounts") ? "disabled" : ""} style="accent-color:#f27622"><b>${labels[key]}</b></label>`).join("")}</div>${canEditPage("accounts") ? `<button class="btn-primary" data-action="save-mobile"><i data-lucide="save"></i>Simpan navigasi</button>` : ""}</section>`;
+      <section class="settings-card"><h3>Navigasi Mobile</h3><p>Pilih hingga 5 pintasan, atur urutannya, lalu tentukan menu sorotan di tengah. Menu sorotan hanya menampilkan ikon.</p><div class="mobile-nav-settings-list">${mobileNavRows}</div><div class="form-field mobile-nav-highlight-field"><label for="mobileNavHighlight">Menu sorotan di tengah</label><select id="mobileNavHighlight" class="table-filter" ${canEditPage("accounts") ? "" : "disabled"}>${mobileNavDraft.map((key) => `<option value="${key}" ${mobileNavHighlightDraft === key ? "selected" : ""}>${esc(labels[key])}</option>`).join("")}</select></div>${canEditPage("accounts") ? `<button class="btn-primary" data-action="save-mobile"><i data-lucide="save"></i>Simpan navigasi</button>` : ""}</section>`;
   }
 
   function renderBackup() {
@@ -1651,6 +1699,13 @@
         showToast(`${selectedRows.length} data berhasil dihapus.`);
         renderPage();
       }
+    } else if (action === "move-mobile-nav") {
+      if (!canEditPage("accounts")) return showToast("Akun Anda tidak memiliki izin mengubah navigasi.", true);
+      const currentIndex = mobileNavDraft?.indexOf(button.dataset.key) ?? -1;
+      const nextIndex = currentIndex + (button.dataset.direction === "up" ? -1 : 1);
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= mobileNavDraft.length) return;
+      [mobileNavDraft[currentIndex], mobileNavDraft[nextIndex]] = [mobileNavDraft[nextIndex], mobileNavDraft[currentIndex]];
+      renderPage();
     } else if (action === "status") statusModal(button.dataset.id);
     else if (action === "print") window.print();
     else if (action === "export-report") exportReport();
@@ -1838,9 +1893,20 @@
       saveState(); showToast("Hak akses berhasil diperbarui.");
     }));
     $$(".mobile-nav-check").forEach((input) => input.addEventListener("change", () => {
-      const checked = $$(".mobile-nav-check:checked").length;
-      $$(".mobile-nav-check:not(:checked)").forEach((option) => { option.disabled = checked >= 5; });
+      if (input.checked) {
+        if (mobileNavDraft.length >= 5) { input.checked = false; return showToast("Pilih maksimal 5 pintasan.", true); }
+        if (!mobileNavDraft.includes(input.value)) mobileNavDraft.push(input.value);
+      } else {
+        if (mobileNavDraft.length === 1) { input.checked = true; return showToast("Pilih minimal satu pintasan.", true); }
+        mobileNavDraft = mobileNavDraft.filter((key) => key !== input.value);
+      }
+      if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("checkGoods") ? "checkGoods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)];
+      renderPage();
     }));
+    $("#mobileNavHighlight")?.addEventListener("change", (event) => {
+      mobileNavHighlightDraft = event.target.value;
+      renderPage();
+    });
     $("#barcodeSearch")?.addEventListener("input", (event) => {
       const query = event.target.value.toLowerCase();
       $$(".barcode-card").forEach((card) => { card.hidden = !card.textContent.toLowerCase().includes(query); });
@@ -2097,11 +2163,16 @@
   }
 
   function saveMobileNavigation() {
-    const selected = $$(".mobile-nav-check:checked").map((input) => input.value);
+    const selected = [...(mobileNavDraft || [])];
     if (selected.length > 5) { showToast("Pilih maksimal 5 pintasan.", true); return; }
     if (!selected.length) { showToast("Pilih minimal satu pintasan.", true); return; }
+    const highlight = mobileNavHighlightDraft || $("#mobileNavHighlight")?.value || "";
+    if (!selected.includes(highlight)) { showToast("Pilih menu sorotan dari pintasan yang aktif.", true); return; }
     state.settings.mobileNav = selected;
-    saveState(); renderMobileNav(); showToast("Navigasi mobile berhasil disimpan.");
+    state.settings.mobileNavHighlight = highlight;
+    mobileNavDraft = [...selected];
+    mobileNavHighlightDraft = highlight;
+    saveState(); renderMobileNav(); renderPage(); showToast("Urutan dan navigasi mobile berhasil disimpan.");
   }
 
   function drawChart() {
@@ -2379,7 +2450,8 @@
     const academicYearsChanged = ensureAcademicYearDefaults();
     const printDesignChanged = ensurePrintDesignDefaults();
     const brandingChanged = ensureBrandingDefaults();
-    if (academicYearsChanged || printDesignChanged || brandingChanged) saveState();
+    const mobileNavigationChanged = ensureMobileNavigationDefaults();
+    if (academicYearsChanged || printDesignChanged || brandingChanged || mobileNavigationChanged) saveState();
     applyAppBranding();
     if (activeUser) enterApp();
     else {
