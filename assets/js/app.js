@@ -1877,6 +1877,7 @@
     const old = recordId ? getById(key, recordId) : null;
     const data = old ? { ...old } : { id: id() };
     let copySourceYear = null;
+    let accountSyncPending = false;
     for (const [name, , type] of config.fields) {
       const input = form.elements[name];
       if (!input) continue;
@@ -2009,7 +2010,8 @@
     }
     if (key === "accounts") {
       try {
-        await persistState();
+        const synced = await persistState();
+        accountSyncPending = !synced || !apiAvailable;
       } catch (error) {
         if (old && previous) Object.assign(old, previous);
         else state.accounts = state.accounts.filter((account) => account.id !== data.id);
@@ -2022,7 +2024,7 @@
         showToast(`Perubahan akun gagal disimpan: ${error.message}`, true);
         return;
       }
-      if (!old && !apiAvailable) markPendingLocalAccount(data);
+      if (!old && accountSyncPending) markPendingLocalAccount(data);
       if (old?.id === activeUser?.id) {
         activeUser = old;
         syncProfile();
@@ -2033,6 +2035,8 @@
       const yearMasters = yearMasterCollections.reduce((total, collection) => total + recordsForAcademicYear(collection, data.id).length, 0);
       const yearGoods = recordsForAcademicYear("goods", data.id).length;
       showToast(`${config.singular} berhasil ditambahkan dengan menyalin ${yearMasters} data master dan ${yearGoods} barang beserta stok terakhir.`);
+    } else if (key === "accounts" && accountSyncPending) {
+      showToast("Perubahan akun tersimpan lokal, tetapi belum tersinkron ke server. Akun baru akan disinkronkan saat Administrator masuk kembali.", true);
     } else showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
     renderPage();
   }
@@ -2853,20 +2857,39 @@
           apiAvailable = true;
           authenticatedRole = auth.user?.role || "";
           await loadState();
-          if (apiAvailable && authenticatedRole === "Administrator" && !localStateRecovery && pendingLocalAccounts.length) {
-            const syncedIds = [];
+          if (apiAvailable && authenticatedRole === "Administrator" && pendingLocalAccounts.length) {
+            let accountsAdded = false;
+            let accountConflict = false;
+            const accountsToClear = [];
             pendingLocalAccounts.forEach((account) => {
-              const exists = state.accounts.some((row) => row.id === account.id || row.email.toLowerCase() === account.email.toLowerCase());
-              if (!exists) state.accounts.unshift(account);
-              syncedIds.push(account);
+              const email = String(account.email || "").toLowerCase();
+              const existing = state.accounts.find((row) => row.id === account.id || String(row.email || "").toLowerCase() === email);
+              if (!existing) {
+                state.accounts.unshift(account);
+                accountsAdded = true;
+                accountsToClear.push(account);
+              } else if (existing.id === account.id
+                && String(existing.email || "").toLowerCase() === email
+                && existing.passwordSalt === account.passwordSalt
+                && existing.passwordHash === account.passwordHash) {
+                accountsToClear.push(account);
+              } else {
+                accountConflict = true;
+              }
             });
-            try {
-              const synced = await persistState();
-              if (synced) syncedIds.forEach(clearPendingLocalAccount);
-            } catch (error) {
-              apiAvailable = false;
-              showToast(`Akun lokal belum tersinkron ke server: ${error.message}`, true);
+            if (accountsAdded) {
+              try {
+                const synced = await persistState();
+                if (synced && apiAvailable) accountsToClear.forEach(clearPendingLocalAccount);
+                else showToast("Akun lokal belum berhasil disinkronkan ke server. Akun tetap tersimpan di perangkat ini dan akan dicoba kembali saat Administrator masuk.", true);
+              } catch (error) {
+                apiAvailable = false;
+                showToast(`Akun lokal belum tersinkron ke server: ${error.message}`, true);
+              }
+            } else {
+              accountsToClear.forEach(clearPendingLocalAccount);
             }
+            if (accountConflict) showToast("Email akun lokal bertentangan dengan akun di server. Periksa dan sesuaikan akun melalui menu Pengaturan.", true);
           }
         }
       } catch {
