@@ -158,7 +158,7 @@
     checkGoods: ["Cek Barang", "Pindai barcode atau cari barang untuk melihat detail dan riwayat stok.", "scan-search"],
     usages: ["Penggunaan BHP", "Catat penggunaan barang habis pakai dan pantau stok.", "clipboard-list"],
     stocktakes: ["Stock Opname", "Rekam hasil pemeriksaan dan penyesuaian stok.", "clipboard-check"],
-    barcode: ["Cetak Barcode", "Pilih item inventaris dan cetak label QR Code.", "qr-code"],
+    barcode: ["Cetak Barcode", "Kelola dan cetak barcode untuk data barang.", "qr-code"],
     repairTickets: ["Tiket Perbaikan", "Kelola laporan kerusakan sarana dan prasarana.", "ticket"],
     maintenanceCalendar: ["Kalender Pemeliharaan", "Atur jadwal perawatan, perbaikan, dan pengecekan barang.", "calendar-days"],
     loans: ["Peminjaman & Pengembalian", "Kelola pengajuan, peminjaman, dan pengembalian barang.", "repeat-2"],
@@ -193,7 +193,7 @@
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
-    repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan", "file", true], ["goodId", "Barang", "select", true, "repairGoods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
+    repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan", "file", true], ["goodId", "Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
     maintenanceSchedules: { title: "Jadwal Pemeliharaan", description: "Atur jadwal perawatan dan pengecekan barang.", singular: "Jadwal", cols: [["date", "Tanggal"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["type", "Jenis Perawatan"], ["technician", "Teknisi"], ["description", "Deskripsi"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["type", "Jenis Perawatan", "select", true, maintenanceTypes], ["date", "Tanggal", "date", true], ["technician", "Nama Teknisi (opsional)", "text"], ["description", "Deskripsi", "textarea"]] },
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
@@ -213,6 +213,31 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const getById = (collection, value) => (state[collection] || []).find((row) => row.id === value);
+  function nextGoodBarcode(reservedCodes = []) {
+    const goods = state.goods || [];
+    const usedCodes = new Set([...goods.map((good) => String(good.barcode || "").trim().toUpperCase()), ...reservedCodes.map((code) => String(code || "").trim().toUpperCase())]);
+    const highestSequence = goods.reduce((highest, good) => {
+      const match = /^BRG-(\d+)$/i.exec(String(good.barcode || "").trim());
+      return match ? Math.max(highest, Number(match[1])) : highest;
+    }, 0);
+    let sequence = highestSequence + 1;
+    let barcode = `BRG-${String(sequence).padStart(5, "0")}`;
+    while (usedCodes.has(barcode)) {
+      sequence += 1;
+      barcode = `BRG-${String(sequence).padStart(5, "0")}`;
+    }
+    return barcode;
+  }
+  function ensureGoodBarcodes() {
+    let changed = false;
+    (state.goods || []).forEach((good) => {
+      if (!String(good.barcode || "").trim()) {
+        good.barcode = nextGoodBarcode();
+        changed = true;
+      }
+    });
+    return changed;
+  }
   const relatedName = (collection, value, key = "name") => getById(collection, value)?.[key] || "—";
   const titleOfGood = (value) => relatedName("goods", value);
   const isBhp = (good) => good.consumable === true || ["true", "bhp", "barang habis pakai", "barang habis pakai (bhp)"].includes(String(good.consumable || "").trim().toLocaleLowerCase("id-ID"));
@@ -699,6 +724,7 @@
   }
 
   async function persistState() {
+    ensureGoodBarcodes();
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     if (apiAvailable) {
       try {
@@ -743,6 +769,7 @@
   }
 
   function saveState() {
+    ensureGoodBarcodes();
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
     catch (error) { showToast(`Penyimpanan lokal gagal: ${error.message}`, true); }
     if (!apiAvailable) {
@@ -1184,15 +1211,17 @@
       return;
     }
     const currentGoodIds = new Set(recordsForAcademicYear("goods").map((good) => good.id));
+    const exactGood = recordsForAcademicYear("goods").find((good) => String(good.barcode || "").toLocaleLowerCase("id-ID") === normalized);
+    if (exactGood) return showGoodsCheckResult(exactGood.id);
     const exactItem = state.items.find((item) => currentGoodIds.has(item.goodId) && String(item.code || "").toLocaleLowerCase("id-ID") === normalized);
     if (exactItem) return showGoodsCheckResult(exactItem.goodId, exactItem.id);
     state.items.filter((item) => currentGoodIds.has(item.goodId) && String(item.code || "").toLocaleLowerCase("id-ID").includes(normalized))
       .forEach((item) => matches.push({ good: getById("goods", item.goodId), item }));
-    recordsForAcademicYear("goods").filter((good) => String(good.name || "").toLocaleLowerCase("id-ID").includes(normalized))
+    recordsForAcademicYear("goods").filter((good) => [good.name, good.barcode].some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(normalized)))
       .forEach((good) => { if (!matches.some((match) => match.good?.id === good.id)) matches.push({ good, item: null }); });
     const validMatches = matches.filter((match) => match.good);
     if (!validMatches.length) {
-      $("#goodsCheckStatus").textContent = "Barang tidak ditemukan. Coba kode item atau nama barang lain.";
+      $("#goodsCheckStatus").textContent = "Barang tidak ditemukan. Coba kode barcode atau nama barang lain.";
       $("#goodsCheckMatches").innerHTML = "";
       $("#goodsCheckResult").innerHTML = `<div class="empty-state"><i data-lucide="search-x"></i>Tidak ada barang yang cocok dengan pencarian.</div>`;
       if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckResult")] });
@@ -1200,7 +1229,7 @@
     }
     if (validMatches.length === 1) return showGoodsCheckResult(validMatches[0].good.id, validMatches[0].item?.id || "");
     $("#goodsCheckStatus").textContent = `Ditemukan ${validMatches.length} hasil. Pilih barang yang sesuai.`;
-    $("#goodsCheckMatches").innerHTML = validMatches.map(({ good, item }) => `<button class="goods-check-match" type="button" data-check-good="${esc(good.id)}" data-check-item="${esc(item?.id || "")}"><i data-lucide="package"></i><span><b>${esc(good.name)}</b><small>${item ? `Kode item ${esc(item.code)}` : `${esc(good.quantity ?? 0)} ${esc(relatedName("units", good.unitId))} tersisa`}</small></span><i data-lucide="chevron-right"></i></button>`).join("");
+    $("#goodsCheckMatches").innerHTML = validMatches.map(({ good, item }) => `<button class="goods-check-match" type="button" data-check-good="${esc(good.id)}" data-check-item="${esc(item?.id || "")}"><i data-lucide="package"></i><span><b>${esc(good.name)}</b><small>${item ? `Kode item ${esc(item.code)}` : `${esc(good.barcode || "Kode belum tersedia")} · ${esc(good.quantity ?? 0)} ${esc(relatedName("units", good.unitId))} tersisa`}</small></span><i data-lucide="chevron-right"></i></button>`).join("");
     if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckMatches")] });
   }
 
@@ -1608,15 +1637,34 @@
   }
 
   function renderBarcode() {
-    const activeGoodIds = new Set(recordsForAcademicYear("goods").map((good) => good.id));
-    const items = state.items.filter((item) => activeGoodIds.has(item.goodId) && item.condition !== "Dihapus");
+    const goods = recordsForAcademicYear("goods");
     return `${pageHeading(`<button class="btn-secondary" data-action="barcode-options"><i data-lucide="sliders-horizontal"></i>Opsi cetak QR Code</button><button class="btn-primary" data-action="print"><i data-lucide="printer"></i>Cetak barcode</button>`)}
-      <div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="barcodeSearch" placeholder="Cari kode atau nama barang..."></label><span class="badge neutral">${items.length} item inventaris</span></div><div class="table-toolbar-right"><button class="btn-quiet" data-action="select-all"><i data-lucide="check-check"></i>Pilih semua</button></div></div>
-      <div class="panel"><div class="barcode-grid" id="barcodeGrid">${items.map((item) => barcodeCard(item)).join("")}</div></div>`;
+      <div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="barcodeSearch" placeholder="Cari kode atau nama barang..."></label><span class="badge neutral">${goods.length} barang</span></div><div class="table-toolbar-right"><button class="btn-quiet" data-action="select-all"><i data-lucide="check-check"></i>Pilih semua</button></div></div>
+      <div class="panel"><div class="barcode-grid" id="barcodeGrid">${goods.map((good) => barcodeCard(good)).join("") || `<div class="empty-state"><i data-lucide="inbox"></i>Belum ada data barang untuk dicetak.</div>`}</div></div>`;
   }
-  function barcodeCard(item) {
+  function barcodeCard(good) {
     const schoolLogo = state.school.logo || state.school.letterheadLogo || "";
-    return `<label class="barcode-card"><input type="checkbox" class="barcode-check" data-id="${item.id}" checked style="accent-color:#f27622;float:left"><div class="qr-target" style="width:82px;height:82px;margin:5px auto 8px"><div class="qr-code-canvas" data-value="${esc(item.code)}"></div>${schoolLogo ? `<img class="qr-center-logo" src="${esc(schoolLogo)}" alt="Logo sekolah">` : ""}</div><b>${esc(item.code)}</b><small>${esc(titleOfGood(item.goodId))}</small></label>`;
+    return `<article class="barcode-card"><input type="checkbox" class="barcode-check" data-id="${esc(good.id)}" checked aria-label="Pilih ${esc(good.name)} untuk dicetak" style="accent-color:#f27622;float:left"><div class="qr-target" style="width:82px;height:82px;margin:5px auto 8px"><div class="qr-code-canvas" data-value="${esc(good.barcode)}"></div>${schoolLogo ? `<img class="qr-center-logo" src="${esc(schoolLogo)}" alt="Logo sekolah">` : ""}</div><b>${esc(good.barcode)}</b><small>${esc(good.name)}</small>${canEditPage("barcode") ? `<button type="button" class="btn-quiet barcode-edit-button no-print" data-action="edit-good-barcode" data-id="${esc(good.id)}"><i data-lucide="pencil"></i>Edit kode</button>` : ""}</article>`;
+  }
+  function editGoodBarcode(goodId) {
+    if (!canEditPage("barcode")) return showToast("Akun Anda tidak memiliki izin mengubah kode barcode barang.", true);
+    const good = getById("goods", goodId);
+    if (!good || !recordsForAcademicYear("goods").some((record) => record.id === good.id)) return;
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Edit Kode Barcode</h2><p>${esc(good.name)}</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form id="barcodeEditForm" class="modal-form" data-good-id="${esc(good.id)}"><div class="form-field"><label for="goodBarcodeValue">Kode barcode</label><input id="goodBarcodeValue" name="barcode" type="text" value="${esc(good.barcode)}" required autocomplete="off"><small class="form-help">Kode harus unik pada data barang aktif.</small></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="submit" class="btn-primary"><i data-lucide="save"></i>Simpan kode</button></div></form></section></div>`);
+    $("#barcodeEditForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const value = String(new FormData(event.currentTarget).get("barcode") || "").trim();
+      if (!value) return showToast("Kode barcode tidak boleh kosong.", true);
+      const normalized = value.toLocaleLowerCase("id-ID");
+      const duplicate = recordsForAcademicYear("goods").some((record) => record.id !== good.id
+        && String(record.barcode || "").trim().toLocaleLowerCase("id-ID") === normalized);
+      if (duplicate) return showToast("Kode barcode tersebut sudah digunakan barang lain.", true);
+      good.barcode = value;
+      saveState();
+      closeModal();
+      showToast("Kode barcode berhasil diperbarui.");
+      renderPage();
+    });
   }
 
   function renderReports() {
@@ -2632,8 +2680,8 @@
     }
     if (key === "repairTickets") {
       const good = getById("goods", data.goodId);
-      if (!good || !recordsForAcademicYear("goods").some((row) => row.id === good.id) || isBhp(good)) {
-        showToast("Pilih barang modal yang masih aktif untuk tiket perbaikan.", true);
+      if (!good || !recordsForAcademicYear("goods").some((row) => row.id === good.id)) {
+        showToast("Pilih barang yang masih aktif pada tahun pelajaran ini.", true);
         return;
       }
       if (!Number.isInteger(data.quantity) || data.quantity < 1) {
@@ -3122,6 +3170,7 @@
     else if (action === "goods-template") downloadGoodsTemplate();
     else if (action === "goods-import") showGoodsImportModal();
     else if (action === "barcode-options") barcodeOptionsModal();
+    else if (action === "edit-good-barcode") editGoodBarcode(button.dataset.id);
     else if (action === "download-backup") downloadBackup();
     else if (action === "telegram-test") testTelegram();
     else if (action === "edit-profile") showProfileEditor();
@@ -4121,10 +4170,11 @@
       restoreLocalUserSession();
     }
     const academicYearsChanged = ensureAcademicYearDefaults();
+    const barcodesChanged = ensureGoodBarcodes();
     const printDesignChanged = ensurePrintDesignDefaults();
     const brandingChanged = ensureBrandingDefaults();
     const mobileNavigationChanged = ensureMobileNavigationDefaults();
-    if (academicYearsChanged || printDesignChanged || brandingChanged || mobileNavigationChanged) saveState();
+    if (academicYearsChanged || barcodesChanged || printDesignChanged || brandingChanged || mobileNavigationChanged) saveState();
     applyAppBranding();
     if (activeUser) enterApp();
     else {
