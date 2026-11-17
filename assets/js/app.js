@@ -1351,7 +1351,7 @@
       ? [["name", "Nama Barang"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "Status BHP"]]
       : config.cols;
     const rows = recordsForCurrentAcademicYear(key);
-    const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears"].includes(key);
+    const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "loans", "procurements", "disposals", "depreciations", "usages", "stocktakes"].includes(key);
     const bulkDeletable = bulkDeletePages.has(key) && canDeletePage(key);
     const actions = canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : "";
     const importControls = key === "goods"
@@ -1417,8 +1417,7 @@
     if (["date", "received", "startDate", "endDate", "dueDate"].includes(field)) return esc(niceDate(value));
     if (field === "late") {
       const lateDays = loanLateDays(row);
-      if (lateDays === null) return `<span class="badge neutral">—</span>`;
-      return lateDays > 0 ? `<span class="badge danger">Terlambat ${lateDays} hari</span>` : `<span class="badge success">Tepat waktu</span>`;
+      return lateDays > 0 ? `<span class="badge danger">Terlambat ${lateDays} hari</span>` : "";
     }
     if (field === "total") return key === "procurements" ? currencyCell(row.quantity * row.unitPrice) : esc(value ?? "—");
     if (key === "goods" && ["price", "totalPrice"].includes(field)) {
