@@ -1366,12 +1366,14 @@ async function handleApi(req, res) {
     const reminderDays = Number(input.reminderDays);
     const sendTime = String(input.sendTime || "08:00");
     const timezone = String(input.timezone || "Asia/Jakarta");
-    if (token && !/^[A-Za-z0-9_-]{20,200}$/.test(token)) throw new Error("Format token Fonnte tidak valid.");
-    if (!Number.isInteger(reminderDays) || reminderDays < 0 || reminderDays > 30) throw new Error("Pengingat peminjaman harus antara 0 sampai 30 hari.");
-    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(sendTime)) throw new Error("Waktu pengiriman harus berformat HH:MM.");
-    if (!timezones.has(timezone)) throw new Error("Zona waktu tidak didukung.");
+    const tenant = tenantState(session.schoolId);
+    if (token && !/^[A-Za-z0-9_-]{20,200}$/.test(token)) return send(res, 400, JSON.stringify({ error: "Format token Fonnte tidak valid." }));
+    if (!Number.isInteger(reminderDays) || reminderDays < 0 || reminderDays > 30) return send(res, 400, JSON.stringify({ error: "Pengingat peminjaman harus antara 0 sampai 30 hari." }));
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(sendTime)) return send(res, 400, JSON.stringify({ error: "Waktu pengiriman harus berformat HH:MM." }));
+    if (!timezones.has(timezone)) return send(res, 400, JSON.stringify({ error: "Zona waktu tidak didukung." }));
+    if (enabled && notifyProcurements && !normalizeWhatsAppNumber(tenant?.school?.principalWhatsapp)) return send(res, 400, JSON.stringify({ error: "Nomor WhatsApp Kepala Sekolah yang valid diperlukan untuk notifikasi pengadaan." }));
     const tokenCipher = token ? encryptToken(token) : config.token_cipher;
-    if (enabled && (notifyLoans || notifyProcurements) && !tokenCipher) throw new Error("Masukkan token Fonnte sebelum mengaktifkan notifikasi.");
+    if (enabled && (notifyLoans || notifyProcurements) && !tokenCipher) return send(res, 400, JSON.stringify({ error: "Masukkan token Fonnte sebelum mengaktifkan notifikasi." }));
     saveTenantWhatsAppConfig.run(
       session.schoolId, tokenCipher, enabled ? 1 : 0, notifyLoans ? 1 : 0,
       notifyProcurements ? 1 : 0, reminderDays, sendTime, timezone, config.last_run_date || ""
@@ -1387,8 +1389,8 @@ async function handleApi(req, res) {
     const config = getTenantWhatsAppConfig.get(session.schoolId);
     const tenant = tenantState(session.schoolId);
     const recipient = tenant?.school?.principalWhatsapp || "";
-    if (!config?.token_cipher) throw new Error("Simpan token Fonnte terlebih dahulu.");
-    if (!normalizeWhatsAppNumber(recipient)) throw new Error("Isi nomor WhatsApp Kepala Sekolah pada Profil Sekolah terlebih dahulu.");
+    if (!config?.token_cipher) return send(res, 400, JSON.stringify({ error: "Simpan token Fonnte terlebih dahulu." }));
+    if (!normalizeWhatsAppNumber(recipient)) return send(res, 400, JSON.stringify({ error: "Isi nomor WhatsApp Kepala Sekolah pada Profil Sekolah terlebih dahulu." }));
     await sendFonnteMessage(config.token_cipher, recipient, `Uji koneksi WhatsApp Sarprah ${tenant.school.name || ""}. Notifikasi siap digunakan.`);
     return send(res, 200, JSON.stringify({ ok: true }));
   }

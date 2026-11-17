@@ -2761,6 +2761,30 @@
     $("#modalRoot").onclick = recordActions;
     if (wide) $(".modal", $("#modalRoot"))?.classList.add("modal-wide");
     if (window.lucide) lucide.createIcons({ nodes: [$("#modalRoot")] });
+    const form = $("#recordForm");
+    if (form) setupMoneyInputs(form);
+    if (form && form.dataset.collection === "loans") setupLoanForm(form);
+    if (form && form.dataset.collection === "disposals") setupDisposalForm(form);
+    if (form && form.dataset.collection === "depreciations") setupDepreciationForm(form);
+    if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
+    if (form && form.dataset.collection === "usages") setupUsageForm(form);
+    if (form && form.dataset.collection === "locations") setupLocationForm(form);
+    if (form && ["repairTickets", "maintenanceSchedules"].includes(form.dataset.collection)) {
+      const helpId = form.dataset.collection === "repairTickets" ? "repairTicketAvailableQuantity" : "maintenanceScheduleAvailableQuantity";
+      setupGoodQuantityLimitForm(form, helpId);
+    }
+    if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
+    const fileInput = $(".form-file", $("#modalRoot"));
+    fileInput?.addEventListener("change", () => {
+      const file = fileInput.files?.[0], preview = $(".file-preview", $("#modalRoot"));
+      if (file && preview) {
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove("hidden");
+      }
+    });
+    $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
+    $("#recordForm")?.addEventListener("submit", saveRecord);
+    $("#helpTicketForm")?.addEventListener("submit", saveHelpTicket);
   }
 
   function showExistingGoodPurchaseModal() {
@@ -2869,30 +2893,6 @@
     closeModal();
     showToast(`Pembelian ${good.name} tersimpan. Stok bertambah ${integerId.format(quantity)} unit.`);
     renderPage();
-    const form = $("#recordForm");
-    if (form) setupMoneyInputs(form);
-    if (form && form.dataset.collection === "loans") setupLoanForm(form);
-    if (form && form.dataset.collection === "disposals") setupDisposalForm(form);
-    if (form && form.dataset.collection === "depreciations") setupDepreciationForm(form);
-    if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
-    if (form && form.dataset.collection === "usages") setupUsageForm(form);
-    if (form && form.dataset.collection === "locations") setupLocationForm(form);
-    if (form && ["repairTickets", "maintenanceSchedules"].includes(form.dataset.collection)) {
-      const helpId = form.dataset.collection === "repairTickets" ? "repairTicketAvailableQuantity" : "maintenanceScheduleAvailableQuantity";
-      setupGoodQuantityLimitForm(form, helpId);
-    }
-    if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
-    const fileInput = $(".form-file", $("#modalRoot"));
-    fileInput?.addEventListener("change", () => {
-      const file = fileInput.files?.[0], preview = $(".file-preview", $("#modalRoot"));
-      if (file && preview) {
-        preview.src = URL.createObjectURL(file);
-        preview.classList.remove("hidden");
-      }
-    });
-    $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
-    $("#recordForm")?.addEventListener("submit", saveRecord);
-    $("#helpTicketForm")?.addEventListener("submit", saveHelpTicket);
   }
 
   function setupLoanForm(form) {

@@ -36,12 +36,20 @@ Data contoh lama tetap tersedia setelah database dimigrasikan. Sekolah baru dapa
 
 - Formulir tambah peminjaman, pengadaan, pemusnahan, penyusutan, dan stock opname menyediakan pemindaian melalui kamera atau input kode manual. Pemindaian kamera membutuhkan browser yang mendukung `BarcodeDetector` dan akses kamera; scanner USB juga dapat digunakan melalui kolom kode.
 - Di **Barang → Data Barang**, unduh **Template CSV** sebelum impor. Isi nama sumber dana, jenis, kategori, satuan, dan supplier sesuai data master yang sudah terdaftar. Nilai harga boleh ditulis seperti `1.000.000`; impor dibatalkan jika ada referensi atau nilai yang tidak valid, sedangkan nama barang duplikat dilewati.
+- **Tambah barang yang sudah ada** mencatat tanggal pembelian, sumber dana, supplier, jumlah, dan harga lalu menambahkan stok tanpa membuat master barang baru. **Tambah barang baru** tetap tersedia untuk mendaftarkan barang berbeda.
+- Menu **Pindah Ruang Barang** mencatat perpindahan per item inventaris, tanggal pemindahan, ruang asal/tujuan, dan penanggung jawab. Laporan **Riwayat Pergerakan Aset** merangkum barang masuk, peminjaman, perpindahan, dan pemusnahan untuk barang yang dipilih.
 - Pada form harga, pemisah ribuan menggunakan titik dan nilai tetap disimpan sebagai angka. Pada stock opname, pilih barang manual atau pindai kode item; stok lama terisi otomatis dari stok saat ini, stok baru wajib diisi, dan total stok tetap ditampilkan sebagai jumlah tanpa awalan Rp.
 - Data supplier mencakup nama, alamat, nomor telepon, serta email opsional.
 - Grup navigasi sidebar bekerja sebagai accordion: hanya satu grup submenu yang terbuka pada satu waktu.
 - Buat bot melalui `@BotFather`, mulai percakapan dengan bot, lalu masukkan chat ID serta token bot di pengaturan. Token disimpan terenkripsi di server dan tidak dikirim balik ke browser.
 - Jadwal awal adalah setiap hari pukul **16.00 WIB**. Pilih zona WIB/WITA/WIT, simpan pengaturan, lalu gunakan **Uji koneksi**. Scheduler hanya berjalan saat service Node aktif.
 - Secara default server membuat kunci enkripsi `.sarprah-key` di direktori database. Untuk Railway, letakkan database dan kunci pada Volume persisten yang sama. Alternatifnya, set `SARPRAH_ENCRYPTION_KEY` berisi 64 karakter hexadecimal; simpan nilainya sebagai secret Railway dan jangan menggantinya setelah token Telegram disimpan.
+
+## Notifikasi WhatsApp
+
+- Administrator dapat membuka **Notifikasi WhatsApp**, memasukkan token API Fonnte, memilih pengingat jatuh tempo dan zona waktu, lalu mengaktifkan notifikasi yang diperlukan. Token disimpan terenkripsi di server.
+- Isi nomor WhatsApp Kepala Sekolah di **Data Sekolah** untuk notifikasi pengajuan pengadaan dan uji koneksi. Nomor WhatsApp peminjam di formulir peminjaman bersifat opsional, tetapi diperlukan untuk pengingat kepada peminjam.
+- Pengingat peminjaman dikirim pada waktu harian yang dipilih. Pengajuan pengadaan yang belum diberitahukan diproses otomatis oleh scheduler. Scheduler hanya bekerja ketika server Node aktif dan pengiriman mengikuti layanan serta kebijakan Fonnte.
 
 ## Pengguna dan keamanan
 
