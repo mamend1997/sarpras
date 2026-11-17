@@ -39,3 +39,16 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 @media(max-width:520px){.logout-confirm-modal{padding:23px 18px 18px}.logout-confirm-actions button{min-width:0;flex:1}}
 @media(max-width:800px){.mobile-nav-item.mobile-nav-center{width:48px;height:48px;min-width:48px;margin-top:-22px;border-radius:50%;background:linear-gradient(135deg,#fb9b40,#ed6718);color:#fff;box-shadow:0 7px 16px rgba(235,105,24,.28)}.mobile-nav-item.mobile-nav-center.active{color:#fff}.mobile-nav-item.mobile-nav-center i{width:23px;height:23px}}
 @media print{.bulk-select-column{display:none!important}}
+.goods-price-cell{text-align:right}
+.goods-price-value{width:100%;min-width:110px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-variant-numeric:tabular-nums}
+.goods-price-prefix{margin-right:auto;text-align:left}
+.goods-price-amount{margin-left:auto;text-align:right}
+.report-filters{align-items:flex-end;gap:10px;flex-wrap:wrap}
+.report-filter-control{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:10px;font-weight:700}
+.report-filter-control>span{white-space:nowrap}
+.report-date-range{display:flex;align-items:flex-end;gap:10px}
+.report-title-block{padding:10px 0 16px;text-align:center}
+.report-title-block h3{margin:0;color:var(--ink);font-size:15px}
+.report-title-block p{margin:5px 0 0;color:var(--muted);font-size:11px}
+.report-title-block+.table-wrap .goods-price-value{min-width:130px}
+@media(max-width:700px){.report-date-range{flex-wrap:wrap}.report-toolbar{align-items:flex-start;flex-direction:column}.report-toolbar .table-toolbar-right{align-self:flex-end}}
