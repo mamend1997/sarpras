@@ -107,7 +107,31 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 @keyframes filterPanelIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 .report-detail-toggle{height:30px;font-weight:600;white-space:nowrap}
 #reportBody .inventory-report-table{min-width:1050px}
+.kib-report-section{margin:0 0 18px}
+.kib-report-section h4{margin:0 0 7px;padding:7px 9px;border-left:3px solid var(--primary);background:#f7f8fa;color:var(--ink);font-size:11px}
+.kib-report-table{width:100%;min-width:1100px;table-layout:fixed}
+.kib-report-table th,.kib-report-table td{overflow-wrap:anywhere;vertical-align:top}
+@page kibLandscape{size:A4 landscape;margin:12mm}
 @media print{
+  body.print-kib-report{page:kibLandscape}
+  body.print-kib-report .page-content{padding:0;max-width:none}
+  body.print-kib-report .panel{padding:0;box-shadow:none;border:0}
+  body.print-kib-report .kib-report-section{margin:0 0 12px}
+  body.print-kib-report .kib-report-section h4{padding:4px 6px;font-size:9pt;break-after:avoid-page}
+  body.print-kib-report #reportBody .table-wrap{width:100%;max-width:none;overflow:visible!important}
+  body.print-kib-report #reportBody .kib-report-table{width:100%;min-width:0!important;table-layout:fixed;border-collapse:collapse;white-space:normal}
+  body.print-kib-report #reportBody .kib-report-table th,body.print-kib-report #reportBody .kib-report-table td{padding:4px 5px;border:1px solid #687386;font-size:7.5pt;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(1),body.print-kib-report #reportBody .kib-report-table td:nth-child(1){width:4%;text-align:center}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(2),body.print-kib-report #reportBody .kib-report-table td:nth-child(2){width:16%}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(3),body.print-kib-report #reportBody .kib-report-table td:nth-child(3){width:10%}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(4),body.print-kib-report #reportBody .kib-report-table td:nth-child(4){width:16%}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(5),body.print-kib-report #reportBody .kib-report-table td:nth-child(5){width:9%}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(6),body.print-kib-report #reportBody .kib-report-table td:nth-child(6){width:8%}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(7),body.print-kib-report #reportBody .kib-report-table td:nth-child(7){width:7%}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(8),body.print-kib-report #reportBody .kib-report-table td:nth-child(8){width:12%}
+  body.print-kib-report #reportBody .kib-report-table th:nth-child(9),body.print-kib-report #reportBody .kib-report-table td:nth-child(9){width:18%}
+  body.print-kib-report #reportBody .kib-report-table .goods-price-value{min-width:0;gap:2px;font-size:7pt}
+  body.print-kib-report .report-signatures{break-inside:avoid-page}
   #reportBody .table-wrap{overflow:visible!important}
   #reportBody .data-table{width:100%;min-width:0!important;table-layout:auto;border-collapse:collapse;white-space:normal}
   #reportBody .data-table th,#reportBody .data-table td{padding:5px 6px;border:1px solid #8b95a5;font-size:8pt;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
@@ -204,6 +228,8 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .theme-option i{width:15px;height:15px;margin-left:auto}
 .theme-swatch{width:23px;height:23px;border-radius:50%;background:var(--swatch);box-shadow:inset 0 0 0 1px #0001}
 .storage-usage-card{padding:10px 13px;margin:0 0 15px;border:1px solid #eef0f3;border-radius:10px;background:#fff;max-width:390px}
+.dashboard-storage-footer{display:flex;justify-content:flex-end;margin-top:14px}
+.dashboard-storage-footer .storage-usage-card{margin:0}
 .storage-usage-heading{display:flex;align-items:center;gap:9px}
 .storage-usage-heading>span{display:grid;place-items:center;width:27px;height:27px;border-radius:8px;background:var(--theme-soft);color:var(--theme-primary)}
 .storage-usage-heading i{width:15px;height:15px}

@@ -715,7 +715,7 @@ function embeddedImageBytes(value) {
 
 function tenantStorageQuotaBytes() {
   const configuredMb = Number(process.env.SARPRAH_TENANT_STORAGE_QUOTA_MB);
-  const quotaMb = Number.isFinite(configuredMb) && configuredMb > 0 ? Math.min(configuredMb, 10_000) : 100;
+  const quotaMb = Number.isFinite(configuredMb) && configuredMb > 0 ? Math.min(configuredMb, 10_000) : 1024;
   return Math.floor(quotaMb * 1024 * 1024);
 }
 
