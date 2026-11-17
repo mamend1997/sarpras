@@ -20,7 +20,7 @@
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
   const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "suppliers", "funds", "academicYears", "goods", "checkGoods", "items", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
-  const defaultMenuPermissions = { dashboard: "view", goods: "edit", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
+  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
     Object.fromEntries(permissionPages.map((key) => [key, defaultMenuPermissions[key] || "hidden"]))
@@ -590,7 +590,7 @@
     const lateRows = state.loans.filter((row) => ["Diterima", "Pengajuan"].includes(row.status) && row.dueDate < dateOffset(0)).slice(0, 4);
     const procurements = state.procurements.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const stat = (label, value, icon, tone, foot) => `<div class="summary-card"><div class="summary-top">${label}<span class="summary-icon ${tone}"><i data-lucide="${icon}"></i></span></div><div class="summary-value">${value}</div><div class="summary-foot"><span class="trend-up">${foot}</span> bulan ini</div><div class="summary-spark"><svg viewBox="0 0 80 28" fill="none"><path d="M1 22 C12 20 12 16 22 18S34 6 43 12s12 0 20 3 10-8 16-11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div></div>`;
-    return `${pageHeading(`<button class="btn-secondary" data-action="export-dashboard"><i data-lucide="download"></i>Ekspor ringkasan</button>`)}
+    return `${pageHeading()}
       <div class="stats-row">${stat("Total Peminjaman Bulan Ini", loansMonth, "arrow-left-right", "orange", "+12%")}${stat("Total Pengadaan Bulan Ini", procMonth, "shopping-bag", "blue", "+8%")}${stat("Total Pemusnahan Bulan Ini", disposalMonth, "archive-x", "green", `${disposalMonth} item`)}</div>
       <div class="indicator-grid">
         ${indicator("Total Barang", goodCount, "package", "coral", "Master barang terdaftar")}
@@ -608,6 +608,198 @@
         <section class="panel"><div class="panel-heading"><div><h3>Daftar Barang Belum Kembali</h3><p>Peminjaman yang melewati tanggal pengembalian</p></div><button class="btn-quiet" data-nav="loans">Lihat semua <i data-lucide="arrow-right"></i></button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>PEMINJAM</th><th>BARANG</th><th>TERLAMBAT</th><th>STATUS</th></tr></thead><tbody>${lateRows.length ? lateRows.map((row) => `<tr><td><span class="table-title">${esc(row.borrower)}</span></td><td>${esc(titleOfGood(row.goodId))}</td><td><span class="badge danger">${Math.max(1, Math.floor((today - new Date(`${row.dueDate}T00:00:00`)) / 86400000))} hari</span></td><td>${statusBadge(row.status)}</td></tr>`).join("") : `<tr><td colspan="4" class="empty-state">Tidak ada barang yang terlambat dikembalikan.</td></tr>`}</tbody></table></div></section>
         <section class="panel"><div class="panel-heading"><div><h3>Pengadaan</h3><p>Ringkasan usulan terbaru</p></div><select class="chart-select" id="dashboardProcFilter"><option value="Semua">Semua</option><option value="Mendesak">Mendesak</option><option value="Normal">Normal</option></select></div><div class="table-wrap"><table class="data-table"><thead><tr><th>NAMA PENGADAAN</th><th>PRIORITAS</th><th>NOMINAL</th></tr></thead><tbody id="dashboardProcRows">${procurementDashboardRows(procurements)}</tbody></table></div></section>
       </div>`;
+  }
+
+  function renderGoodsCheck() {
+    return `${pageHeading()}
+      <div class="goods-check-layout">
+        <section class="goods-check-panel">
+          <div class="panel-heading"><div><h3>Pindai atau cari barang</h3><p>Kamera akan dibuka otomatis. Anda juga dapat memasukkan kode atau nama barang.</p></div></div>
+          <video id="goodsCheckVideo" class="goods-check-video" playsinline muted></video>
+          <div id="goodsCheckStatus" class="goods-check-status" aria-live="polite">Menyiapkan kamera…</div>
+          <button id="goodsCheckRestart" class="btn-secondary goods-check-restart" type="button"><i data-lucide="camera"></i>Buka kamera</button>
+          <form id="goodsCheckSearchForm" class="goods-check-search">
+            <input id="goodsCheckInput" type="search" autocomplete="off" placeholder="Kode barcode atau nama barang">
+            <button class="btn-primary" type="submit"><i data-lucide="search"></i>Cari</button>
+          </form>
+          <div id="goodsCheckMatches" class="goods-check-matches" aria-live="polite"></div>
+        </section>
+        <section id="goodsCheckResult" class="goods-check-result" aria-live="polite">
+          <div class="empty-state"><i data-lucide="scan-search"></i>Hasil detail barang akan tampil di sini.</div>
+        </section>
+      </div>`;
+  }
+
+  function goodsCheckTable(title, headers, rows, emptyText) {
+    const body = rows.length
+      ? rows.map((row) => `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`).join("")
+      : `<tr><td class="empty-state" colspan="${headers.length}">${esc(emptyText)}</td></tr>`;
+    return `<section class="goods-check-history"><h3>${esc(title)}</h3><div class="table-wrap"><table class="data-table"><thead><tr>${headers.map((header) => `<th>${esc(header.toUpperCase())}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div></section>`;
+  }
+
+  function showGoodsCheckResult(goodId, itemId = "") {
+    const good = getById("goods", goodId);
+    if (!good) {
+      $("#goodsCheckStatus").textContent = "Barang tidak ditemukan.";
+      $("#goodsCheckResult").innerHTML = `<div class="empty-state"><i data-lucide="search-x"></i>Barang tidak ditemukan. Periksa kembali kode atau nama yang dimasukkan.</div>`;
+      return;
+    }
+    const items = state.items.filter((item) => item.goodId === good.id).sort((a, b) => String(b.received || "").localeCompare(String(a.received || "")));
+    const procurements = state.procurements.filter((record) => record.goodId === good.id && record.status === "Diterima").sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    const stocktakes = state.stocktakes.filter((record) => record.goodId === good.id).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    const availableItems = items.filter((item) => item.condition === "Baik").length;
+    const focusedItem = itemId ? getById("items", itemId) : null;
+    const itemRows = items.map((item) => [
+      item.code,
+      item.condition,
+      relatedName("locations", item.locationId),
+      niceDate(item.received),
+      item.id === focusedItem?.id ? "Dipindai" : ""
+    ]);
+    const purchaseRows = procurements.map((record) => [
+      niceDate(record.date),
+      String(record.quantity || 0),
+      relatedName("funds", record.fundId),
+      rupiah(Number(record.quantity || 0) * Number(record.unitPrice || 0)),
+      record.proposer || "—"
+    ]);
+    const stocktakeRows = stocktakes.map((record) => [
+      niceDate(record.date),
+      String(record.oldStock ?? "—"),
+      String(record.newStock ?? "—"),
+      String(record.total ?? record.newStock ?? "—"),
+      record.note || "—"
+    ]);
+    $("#goodsCheckStatus").textContent = `Barang ditemukan: ${good.name}.`;
+    $("#goodsCheckMatches").innerHTML = "";
+    $("#goodsCheckResult").innerHTML = `<div class="goods-check-detail">
+      <div class="goods-check-result-head"><div><h2>${esc(good.name)}</h2><p>${focusedItem ? `Kode item: ${esc(focusedItem.code)}` : "Informasi barang dan stok saat ini"}</p></div><div class="goods-check-stock"><b>${esc(good.quantity ?? 0)}</b><span>Sisa stok ${esc(relatedName("units", good.unitId))}</span></div></div>
+      <div class="goods-check-facts">
+        <div><small>Jenis</small><b>${esc(relatedName("types", good.typeId))}</b></div>
+        <div><small>Kategori</small><b>${esc(relatedName("categories", good.categoryId))}</b></div>
+        <div><small>Sumber dana</small><b>${esc(relatedName("funds", good.fundId))}</b></div>
+        <div><small>Supplier</small><b>${esc(relatedName("suppliers", good.supplierId))}</b></div>
+        <div><small>Harga satuan</small><b>${esc(rupiah(good.price))}</b></div>
+        <div><small>Barang habis pakai</small><b>${good.consumable ? "Ya" : "Tidak"}</b></div>
+        <div><small>Item inventaris</small><b>${items.length} unit · ${availableItems} baik</b></div>
+      </div>
+      ${goodsCheckTable("Riwayat stok masuk / pengadaan", ["Tanggal masuk", "Jumlah", "Sumber dana", "Nilai pengadaan", "Pengusul"], purchaseRows, "Belum ada pengadaan diterima yang tercatat.")}
+      ${goodsCheckTable("Rincian item inventaris", ["Kode item", "Kondisi", "Lokasi", "Tanggal diterima", "Keterangan"], itemRows, "Belum ada item inventaris per unit untuk barang ini.")}
+      ${goodsCheckTable("Riwayat stock opname", ["Tanggal", "Stok lama", "Stok baru", "Total stok", "Keterangan"], stocktakeRows, "Belum ada riwayat stock opname.")}</div>`;
+    if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckResult")] });
+  }
+
+  function searchGoodsCheck(query) {
+    const normalized = String(query || "").trim().toLocaleLowerCase("id-ID");
+    const matches = [];
+    if (!normalized) {
+      $("#goodsCheckStatus").textContent = "Masukkan kode barcode atau nama barang terlebih dahulu.";
+      return;
+    }
+    const exactItem = state.items.find((item) => String(item.code || "").toLocaleLowerCase("id-ID") === normalized);
+    if (exactItem) return showGoodsCheckResult(exactItem.goodId, exactItem.id);
+    state.items.filter((item) => String(item.code || "").toLocaleLowerCase("id-ID").includes(normalized))
+      .forEach((item) => matches.push({ good: getById("goods", item.goodId), item }));
+    state.goods.filter((good) => String(good.name || "").toLocaleLowerCase("id-ID").includes(normalized))
+      .forEach((good) => { if (!matches.some((match) => match.good?.id === good.id)) matches.push({ good, item: null }); });
+    const validMatches = matches.filter((match) => match.good);
+    if (!validMatches.length) {
+      $("#goodsCheckStatus").textContent = "Barang tidak ditemukan. Coba kode item atau nama barang lain.";
+      $("#goodsCheckMatches").innerHTML = "";
+      $("#goodsCheckResult").innerHTML = `<div class="empty-state"><i data-lucide="search-x"></i>Tidak ada barang yang cocok dengan pencarian.</div>`;
+      if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckResult")] });
+      return;
+    }
+    if (validMatches.length === 1) return showGoodsCheckResult(validMatches[0].good.id, validMatches[0].item?.id || "");
+    $("#goodsCheckStatus").textContent = `Ditemukan ${validMatches.length} hasil. Pilih barang yang sesuai.`;
+    $("#goodsCheckMatches").innerHTML = validMatches.map(({ good, item }) => `<button class="goods-check-match" type="button" data-check-good="${esc(good.id)}" data-check-item="${esc(item?.id || "")}"><i data-lucide="package"></i><span><b>${esc(good.name)}</b><small>${item ? `Kode item ${esc(item.code)}` : `${esc(good.quantity ?? 0)} ${esc(relatedName("units", good.unitId))} tersisa`}</small></span><i data-lucide="chevron-right"></i></button>`).join("");
+    if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckMatches")] });
+  }
+
+  function setupGoodsCheck() {
+    $("#goodsCheckSearchForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      searchGoodsCheck($("#goodsCheckInput").value);
+    });
+    $("#goodsCheckRestart").addEventListener("click", startGoodsCheckCamera);
+    $("#goodsCheckMatches").addEventListener("click", (event) => {
+      const match = event.target.closest("[data-check-good]");
+      if (match) showGoodsCheckResult(match.dataset.checkGood, match.dataset.checkItem);
+    });
+  }
+
+  function stopGoodsCheckCamera() {
+    if (goodsCheckTimer) window.clearTimeout(goodsCheckTimer);
+    goodsCheckTimer = null;
+    const stream = goodsCheckStream;
+    goodsCheckStream = null;
+    stream?.getTracks().forEach((track) => track.stop());
+    const video = $("#goodsCheckVideo");
+    if (video) {
+      video.pause();
+      video.srcObject = null;
+    }
+  }
+
+  async function startGoodsCheckCamera() {
+    if (goodsCheckStream) return;
+    const status = $("#goodsCheckStatus");
+    const video = $("#goodsCheckVideo");
+    if (!status || !video) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      status.textContent = "Kamera tidak tersedia di browser ini. Gunakan pencarian manual.";
+      return;
+    }
+    status.textContent = "Meminta izin untuk membuka kamera…";
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
+      if (page !== "checkGoods" || !video.isConnected) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      goodsCheckStream = stream;
+      video.srcObject = stream;
+      await video.play();
+      const Detector = window.BarcodeDetector;
+      if (typeof Detector !== "function") {
+        status.textContent = "Kamera aktif, tetapi pemindaian otomatis tidak didukung browser ini. Masukkan kode secara manual.";
+        return;
+      }
+      const available = typeof Detector.getSupportedFormats === "function" ? await Detector.getSupportedFormats() : ["qr_code"];
+      const formats = available.filter((format) => ["qr_code", "code_128", "code_39", "code_93", "codabar", "ean_13", "ean_8", "itf", "upc_a", "upc_e"].includes(format));
+      if (!formats.length) {
+        status.textContent = "Format barcode tidak didukung. Masukkan kode barang secara manual.";
+        return;
+      }
+      const detector = new Detector({ formats });
+      status.textContent = "Kamera aktif. Arahkan barcode barang ke kamera.";
+      const scanFrame = async () => {
+        if (goodsCheckStream !== stream) return;
+        try {
+          if (video.readyState >= 2) {
+            const results = await detector.detect(video);
+            if (goodsCheckStream !== stream) return;
+            if (results.length) {
+              const code = results[0].rawValue;
+              $("#goodsCheckInput").value = code;
+              searchGoodsCheck(code);
+              status.textContent = `Barcode terbaca: ${code}`;
+              stopGoodsCheckCamera();
+              return;
+            }
+          }
+        } catch (error) {
+          status.textContent = `Pemindaian gagal (${error.message}). Anda dapat memasukkan kode secara manual.`;
+          stopGoodsCheckCamera();
+          return;
+        }
+        goodsCheckTimer = window.setTimeout(scanFrame, 250);
+      };
+      scanFrame();
+    } catch (error) {
+      if (goodsCheckStream) stopGoodsCheckCamera();
+      status.textContent = `Kamera tidak dapat dibuka (${error.message}). Gunakan pencarian manual atau izinkan akses kamera.`;
+    }
   }
 
   function indicator(label, value, icon, tone, foot) {
