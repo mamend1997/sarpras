@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <title>Super Admin · Sarprah</title>
+  <link rel="stylesheet" href="assets/css/super-admin.css">
+  <script src="assets/js/super-admin.js" defer></script>
+</head>
+<body>
+  <main id="gate" class="gate">
+    <section class="gate-card">
+      <a class="system-logo" href="/super-admin"><span>SP</span><strong>Sarprah <small>CONTROL CENTER</small></strong></a>
+      <div id="gateContent"></div>
+      <p class="gate-foot">Akses terbatas untuk pengelola platform.</p>
+    </section>
+  </main>
+  <div id="platform" class="platform hidden">
+    <aside id="platformSidebar" class="platform-sidebar">
+      <a class="system-logo" href="/super-admin"><span>SP</span><strong>Sarprah <small>CONTROL CENTER</small></strong></a>
+      <div class="sidebar-label">MENU UTAMA</div>
+      <nav id="platformNav"></nav>
+      <div class="sidebar-footer"><span class="online-dot"></span> Platform aktif <button id="platformLogout" type="button">Keluar</button></div>
+    </aside>
+    <main class="platform-main">
+      <header class="platform-header">
+        <div><button id="mobileNavToggle" class="mobile-nav-toggle" aria-label="Buka menu">☰</button><span class="header-eyebrow">RUANG KONTROL</span><h1 id="pageTitle">Ringkasan</h1></div>
+        <div class="header-user"><span class="header-avatar">SA</span><span><b id="adminName">Super Admin</b><small>Administrator Platform</small></span></div>
+      </header>
+      <section id="platformContent" class="platform-content"></section>
+    </main>
+    <div id="platformModal" class="platform-modal hidden" role="dialog" aria-modal="true"></div>
+    <div id="platformToast" class="platform-toast" role="status"></div>
+  </div>
+</body>
+</html>

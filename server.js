@@ -45,10 +45,70 @@ db.exec(`
     enabled INTEGER NOT NULL DEFAULT 0,
     last_run_date TEXT NOT NULL DEFAULT ''
   );
+  CREATE TABLE IF NOT EXISTS saas_tenant_telegram_backup (
+    school_id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL DEFAULT '',
+    token_cipher TEXT NOT NULL DEFAULT '',
+    backup_time TEXT NOT NULL DEFAULT '16:00',
+    timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+    enabled INTEGER NOT NULL DEFAULT 0,
+    last_run_date TEXT NOT NULL DEFAULT ''
+  );
+  CREATE TABLE IF NOT EXISTS saas_tenant_whatsapp_notifications (
+    school_id TEXT PRIMARY KEY,
+    token_cipher TEXT NOT NULL DEFAULT '',
+    enabled INTEGER NOT NULL DEFAULT 0,
+    notify_loans INTEGER NOT NULL DEFAULT 1,
+    notify_procurements INTEGER NOT NULL DEFAULT 1,
+    reminder_days INTEGER NOT NULL DEFAULT 1,
+    send_time TEXT NOT NULL DEFAULT '08:00',
+    timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+    last_run_date TEXT NOT NULL DEFAULT ''
+  );
   CREATE TABLE IF NOT EXISTS auth_sessions (
     token_hash TEXT PRIMARY KEY,
     account_id TEXT NOT NULL,
     expires_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS saas_schools (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS saas_tenant_states (
+    school_id TEXT PRIMARY KEY REFERENCES saas_schools(id) ON DELETE CASCADE,
+    payload TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS saas_platform_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    payload TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS saas_super_admins (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS saas_sessions (
+    token_hash TEXT PRIMARY KEY,
+    admin_id TEXT NOT NULL REFERENCES saas_super_admins(id) ON DELETE CASCADE,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS saas_tenant_sessions (
+    token_hash TEXT PRIMARY KEY,
+    school_id TEXT NOT NULL REFERENCES saas_schools(id) ON DELETE CASCADE,
+    account_id TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS saas_audit_logs (
+    id TEXT PRIMARY KEY,
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
   INSERT OR IGNORE INTO telegram_backup (id) VALUES (1);
 `);
@@ -63,9 +123,58 @@ const saveTelegramConfig = db.prepare(`
   WHERE id = 1
 `);
 const setLastRun = db.prepare("UPDATE telegram_backup SET last_run_date = ? WHERE id = 1");
+const getTenantTelegramConfig = db.prepare("SELECT * FROM saas_tenant_telegram_backup WHERE school_id = ?");
+const getEnabledTenantTelegramConfigs = db.prepare("SELECT * FROM saas_tenant_telegram_backup WHERE enabled = 1");
+const setTenantLastRun = db.prepare("UPDATE saas_tenant_telegram_backup SET last_run_date = ? WHERE school_id = ?");
+const saveTenantTelegramConfig = db.prepare(`
+  INSERT INTO saas_tenant_telegram_backup (school_id, chat_id, token_cipher, backup_time, timezone, enabled, last_run_date)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(school_id) DO UPDATE SET chat_id = excluded.chat_id, token_cipher = excluded.token_cipher,
+    backup_time = excluded.backup_time, timezone = excluded.timezone, enabled = excluded.enabled,
+    last_run_date = excluded.last_run_date
+`);
+const getAllTenantTelegramConfigs = db.prepare("SELECT * FROM saas_tenant_telegram_backup");
+const getTenantWhatsAppConfig = db.prepare("SELECT * FROM saas_tenant_whatsapp_notifications WHERE school_id = ?");
+const getEnabledTenantWhatsAppConfigs = db.prepare("SELECT * FROM saas_tenant_whatsapp_notifications WHERE enabled = 1");
+const getAllTenantWhatsAppConfigs = db.prepare("SELECT * FROM saas_tenant_whatsapp_notifications");
+const setTenantWhatsAppLastRun = db.prepare("UPDATE saas_tenant_whatsapp_notifications SET last_run_date = ? WHERE school_id = ?");
+const saveTenantWhatsAppConfig = db.prepare(`
+  INSERT INTO saas_tenant_whatsapp_notifications
+    (school_id, token_cipher, enabled, notify_loans, notify_procurements, reminder_days, send_time, timezone, last_run_date)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(school_id) DO UPDATE SET token_cipher = excluded.token_cipher, enabled = excluded.enabled,
+    notify_loans = excluded.notify_loans, notify_procurements = excluded.notify_procurements,
+    reminder_days = excluded.reminder_days, send_time = excluded.send_time, timezone = excluded.timezone,
+    last_run_date = excluded.last_run_date
+`);
 const createSession = db.prepare("INSERT INTO auth_sessions (token_hash, account_id, expires_at) VALUES (?, ?, ?)");
 const getSession = db.prepare("SELECT account_id, expires_at FROM auth_sessions WHERE token_hash = ?");
 const deleteSession = db.prepare("DELETE FROM auth_sessions WHERE token_hash = ?");
+const getPlatformStateRow = db.prepare("SELECT payload FROM saas_platform_state WHERE id = 1");
+const savePlatformStateRow = db.prepare(`
+  INSERT INTO saas_platform_state (id, payload, updated_at) VALUES (1, ?, CURRENT_TIMESTAMP)
+  ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = CURRENT_TIMESTAMP
+`);
+const getTenantStateRow = db.prepare("SELECT payload FROM saas_tenant_states WHERE school_id = ?");
+const saveTenantStateRow = db.prepare(`
+  INSERT INTO saas_tenant_states (school_id, payload, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)
+  ON CONFLICT(school_id) DO UPDATE SET payload = excluded.payload, updated_at = CURRENT_TIMESTAMP
+`);
+const getSchoolRow = db.prepare("SELECT payload FROM saas_schools WHERE id = ?");
+const saveSchoolRow = db.prepare(`
+  INSERT INTO saas_schools (id, code, payload) VALUES (?, ?, ?)
+  ON CONFLICT(id) DO UPDATE SET code = excluded.code, payload = excluded.payload
+`);
+const getTenantSession = db.prepare("SELECT school_id, account_id, expires_at FROM saas_tenant_sessions WHERE token_hash = ?");
+const getSuperAdminSession = db.prepare("SELECT admin_id, expires_at FROM saas_sessions WHERE token_hash = ?");
+const getSuperAdminByUsername = db.prepare("SELECT * FROM saas_super_admins WHERE username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE");
+const saveSuperAdmin = db.prepare("INSERT INTO saas_super_admins (id, username, email, name, password_salt, password_hash) VALUES (?, ?, ?, ?, ?, ?)");
+const saveAuditRow = db.prepare("INSERT INTO saas_audit_logs (id, payload) VALUES (?, ?)");
+const getAuditRows = db.prepare("SELECT payload FROM saas_audit_logs ORDER BY created_at DESC LIMIT ?");
+const getAllAuditRows = db.prepare("SELECT payload FROM saas_audit_logs ORDER BY created_at DESC");
+const getAllSchools = db.prepare("SELECT id, payload FROM saas_schools ORDER BY created_at DESC");
+const getAllTenantStates = db.prepare("SELECT school_id, payload FROM saas_tenant_states");
+const registrationAttempts = new Map();
 const mime = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -104,27 +213,198 @@ function currentState() {
   return row ? JSON.parse(row.payload) : null;
 }
 
+function tenantState(schoolId) {
+  const row = getTenantStateRow.get(schoolId);
+  return row ? JSON.parse(row.payload) : null;
+}
+
+function defaultPlatformState() {
+  const featureKeys = ["dashboard", "school", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "loans", "procurements", "disposals", "depreciations", "reports"];
+  return {
+    settings: {
+      branding: { appName: "Sarprah", tagline: "Sistem Manajemen Sarana & Prasarana", logo: "" },
+      defaultMenus: featureKeys,
+      qrisImage: "",
+      pricing: { monthly: 50000, semester: 275000, yearly: 500000 },
+      trialDays: 14,
+      terms: "Gunakan layanan secara bertanggung jawab dan jaga kerahasiaan akun sekolah.",
+      sla: "Dukungan operasional tersedia pada hari kerja. Gangguan kritis ditangani secepatnya setelah laporan diterima.",
+      maintenance: { enabled: false, message: "Sistem sedang dalam pemeliharaan. Silakan coba kembali beberapa saat lagi." },
+      whatsapp: { phoneNumberId: "", graphVersion: "v22.0", accessTokenCipher: "" }
+    },
+    plans: [
+      { id: "basic", code: "basic", name: "Basic", description: "Untuk sekolah kecil dengan kebutuhan inventaris inti.", trialDays: 14, active: true, prices: { monthly: 50000, semester: 275000, yearly: 500000 }, features: featureKeys },
+      { id: "premium", code: "premium", name: "Premium", description: "Akses lengkap ke pengelolaan dan pelaporan sarpras.", trialDays: 14, active: true, prices: { monthly: 150000, semester: 825000, yearly: 1000000 }, features: featureKeys },
+      { id: "lifetime", code: "lifetime", name: "Lifetime", description: "Sekali bayar, akses penuh tanpa masa aktif.", trialDays: 0, active: true, prices: { monthly: 0, semester: 0, yearly: 2500000 }, features: featureKeys }
+    ],
+    schools: [],
+    payments: [],
+    tickets: [],
+    announcements: [],
+    manuals: []
+  };
+}
+
+function platformState() {
+  const row = getPlatformStateRow.get();
+  return row ? JSON.parse(row.payload) : defaultPlatformState();
+}
+
+function savePlatformState(value) {
+  savePlatformStateRow.run(JSON.stringify(value));
+}
+
+function updatePlatformSchool(data, school) {
+  const index = data.schools.findIndex((entry) => entry.id === school.id);
+  if (index < 0) throw new Error("Sekolah tidak ditemukan pada data platform.");
+  data.schools[index] = school;
+  saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
+}
+
+function auditPlatform(action, detail, schoolId = "") {
+  const record = {
+    id: crypto.randomUUID(),
+    actor: "Super Admin",
+    category: "platform",
+    action,
+    detail: String(detail || "").slice(0, 1000),
+    schoolId,
+    createdAt: new Date().toISOString()
+  };
+  saveAuditRow.run(record.id, JSON.stringify(record));
+  db.prepare("DELETE FROM saas_audit_logs WHERE id NOT IN (SELECT id FROM saas_audit_logs ORDER BY created_at DESC LIMIT 2000)").run();
+}
+
+function safePlatformState() {
+  const data = platformState();
+  const wa = data.settings?.whatsapp || {};
+  data.settings.whatsapp = {
+    phoneNumberId: wa.phoneNumberId || "",
+    graphVersion: wa.graphVersion || "v22.0",
+    configured: Boolean(wa.accessTokenCipher)
+  };
+  return data;
+}
+
+function createSchoolState(school, admin) {
+  const collections = [
+    "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears",
+    "goods", "items", "usages", "stocktakes", "repairTickets", "maintenanceSchedules", "loans",
+    "procurements", "disposals", "depreciations", "activityLogs", "trash", "helpTickets", "accounts"
+  ];
+  return {
+    school: {
+      name: school.name,
+      npsn: "",
+      phone: school.phone || "",
+      email: school.email || "",
+      website: "",
+      address: school.address || "",
+      city: "",
+      principalName: school.principalName || "",
+      principalNip: "",
+      sarprasVicePrincipalName: "",
+      sarprasVicePrincipalNip: "",
+      logo: "",
+      footer: school.name
+    },
+    settings: { appName: "Sarprah", appLogo: "" },
+    ...Object.fromEntries(collections.map((key) => [key, []])),
+    accounts: [admin]
+  };
+}
+
+function ensurePlatformBootstrap() {
+  const existing = getPlatformStateRow.get();
+  if (!existing) savePlatformState(defaultPlatformState());
+  const data = platformState();
+  if (!data.schools.length) {
+    const legacy = currentState();
+    if (legacy && typeof legacy.school === "object") {
+      const schoolId = `school-${crypto.randomUUID()}`;
+      const school = {
+        id: schoolId,
+        code: "0001",
+        name: String(legacy.school.name || "Sekolah Utama"),
+        level: "",
+        email: String(legacy.school.email || legacy.accounts?.find((row) => row.role === "Administrator")?.email || ""),
+        phone: String(legacy.school.phone || ""),
+        address: String(legacy.school.address || ""),
+        principalName: String(legacy.school.principalName || ""),
+        domain: "",
+        planId: "lifetime",
+        status: "Lifetime",
+        subscriptionPeriod: "lifetime",
+        activatedAt: new Date().toISOString(),
+        expiresAt: "",
+        trialEndsAt: "",
+        featureAccess: Object.fromEntries(data.settings.defaultMenus.map((key) => [key, true])),
+        createdAt: new Date().toISOString()
+      };
+      saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
+      saveTenantStateRow.run(school.id, JSON.stringify(legacy));
+      data.schools.unshift(school);
+      savePlatformState(data);
+    }
+  }
+  const legacyTelegram = getTelegramConfig.get();
+  if ((legacyTelegram.chat_id || legacyTelegram.token_cipher || legacyTelegram.enabled) &&
+      getAllTenantTelegramConfigs.all().length === 0) {
+    const firstSchool = getAllSchools.all()
+      .map(({ payload }) => JSON.parse(payload))
+      .sort((a, b) => Number(a.code) - Number(b.code))[0];
+    if (firstSchool) {
+      saveTenantTelegramConfig.run(
+        firstSchool.id, legacyTelegram.chat_id, legacyTelegram.token_cipher, legacyTelegram.backup_time,
+        legacyTelegram.timezone, legacyTelegram.enabled, legacyTelegram.last_run_date
+      );
+      saveTelegramConfig.run("", "", legacyTelegram.backup_time, legacyTelegram.timezone, 0);
+    }
+  }
+}
+
+ensurePlatformBootstrap();
+
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, Buffer.from(salt, "hex"), 210000, 32, "sha256").toString("hex");
 }
 
-function sessionFromRequest(req) {
+function requestCookie(req, name) {
   const rawCookie = req.headers.cookie || "";
-  const token = rawCookie.split(";").map((part) => part.trim()).find((part) => part.startsWith("sarprah_session="))?.slice("sarprah_session=".length);
-  if (!token) return null;
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-  const session = getSession.get(tokenHash);
-  if (!session || session.expires_at <= Date.now()) {
-    if (session) deleteSession.run(tokenHash);
-    return null;
-  }
-  const account = currentState()?.accounts?.find((row) => row.id === session.account_id && row.active);
-  return account ? { tokenHash, account } : null;
+  return rawCookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
 }
 
-function setSessionCookie(res, token, req, maxAge) {
+function sessionFromRequest(req) {
+  const token = requestCookie(req, "sarprah_session");
+  if (!token) return null;
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const session = getTenantSession.get(tokenHash);
+  if (!session || session.expires_at <= Date.now()) {
+    if (session) db.prepare("DELETE FROM saas_tenant_sessions WHERE token_hash = ?").run(tokenHash);
+    return null;
+  }
+  const account = tenantState(session.school_id)?.accounts?.find((row) => row.id === session.account_id && row.active);
+  const schoolRow = getSchoolRow.get(session.school_id);
+  const school = schoolRow ? JSON.parse(schoolRow.payload) : null;
+  return account && school ? { tokenHash, account, schoolId: session.school_id, school } : null;
+}
+
+function superAdminFromRequest(req) {
+  const token = requestCookie(req, "sarprah_superadmin_session");
+  if (!token) return null;
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const session = getSuperAdminSession.get(tokenHash);
+  if (!session || session.expires_at <= Date.now()) {
+    if (session) db.prepare("DELETE FROM saas_sessions WHERE token_hash = ?").run(tokenHash);
+    return null;
+  }
+  const admin = db.prepare("SELECT id, username, email, name FROM saas_super_admins WHERE id = ?").get(session.admin_id);
+  return admin ? { tokenHash, admin } : null;
+}
+
+function setSessionCookie(res, token, req, maxAge, cookieName = "sarprah_session") {
   const secure = req.headers["x-forwarded-proto"] === "https" || Boolean(req.socket.encrypted);
-  res.setHeader("Set-Cookie", `sarprah_session=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure ? "; Secure" : ""}`);
+  res.setHeader("Set-Cookie", `${cookieName}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure ? "; Secure" : ""}`);
 }
 
 function verifyOrigin(req) {
@@ -133,8 +413,8 @@ function verifyOrigin(req) {
   try { return new URL(origin).host === req.headers.host; } catch { return false; }
 }
 
-function createBackup() {
-  const state = currentState();
+function createBackup(schoolId = "") {
+  const state = schoolId ? tenantState(schoolId) : currentState();
   if (!state) throw new Error("Data aplikasi belum tersedia untuk di-backup.");
   return {
     app: "Sarprah",
@@ -176,16 +456,45 @@ async function telegramRequest(token, method, body) {
   return result;
 }
 
-async function sendTelegramBackup(config) {
+async function sendTelegramBackup(config, schoolId) {
   const token = decryptToken(config.token_cipher);
   if (!token || !config.chat_id) throw new Error("ID Telegram dan token bot belum diisi.");
-  const backup = createBackup();
+  const schoolRow = getSchoolRow.get(schoolId);
+  if (!schoolRow) throw new Error("Sekolah untuk backup Telegram tidak ditemukan.");
+  const school = JSON.parse(schoolRow.payload);
+  const backup = createBackup(schoolId);
   const file = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const form = new FormData();
   form.append("chat_id", config.chat_id);
-  form.append("document", file, `sarprah-backup-${backup.createdAt.slice(0, 10)}.json`);
-  form.append("caption", `Backup Sarprah · ${backup.createdAt}`);
+  form.append("document", file, `sarprah-${school.code}-backup-${backup.createdAt.slice(0, 10)}.json`);
+  form.append("caption", `Backup Sarprah ${school.name} (${school.code}) · ${backup.createdAt}`);
   await telegramRequest(token, "sendDocument", form);
+}
+
+function normalizeWhatsAppNumber(value) {
+  let number = String(value || "").replace(/[^\d+]/g, "");
+  if (number.startsWith("+")) number = number.slice(1);
+  if (number.startsWith("0")) number = `62${number.slice(1)}`;
+  if (!/^62\d{8,13}$/.test(number)) return "";
+  return number;
+}
+
+async function sendFonnteMessage(tokenCipher, target, message) {
+  const token = decryptToken(tokenCipher);
+  const phone = normalizeWhatsAppNumber(target);
+  if (!token || !phone) throw new Error("Token Fonnte atau nomor WhatsApp penerima belum valid.");
+  const response = await fetch("https://api.fonnte.com/send", {
+    method: "POST",
+    headers: { Authorization: token },
+    body: new URLSearchParams({ target: phone, message })
+  });
+  let result;
+  try { result = await response.json(); }
+  catch { throw new Error(`Fonnte mengirim respons tidak valid (HTTP ${response.status}).`); }
+  if (!response.ok || result.status !== true && result.status !== "true") {
+    throw new Error(result.reason || result.message || `Fonnte gagal mengirim pesan (HTTP ${response.status}).`);
+  }
+  return result;
 }
 
 async function readJsonBody(req, maxBytes = 5_000_000) {
@@ -232,107 +541,755 @@ function validateAccounts(accounts, currentAdminId) {
   return accounts;
 }
 
+function platformSchoolSummaries() {
+  return platformState().schools.map((school) => {
+    const tenant = tenantState(school.id) || {};
+    return {
+      ...school,
+      accountCount: (tenant.accounts || []).length,
+      goodsCount: (tenant.goods || []).length,
+      itemCount: (tenant.items || []).length,
+      openTicketCount: (tenant.helpTickets || []).filter((ticket) => !["Selesai", "Ditutup"].includes(ticket.status)).length
+    };
+  });
+}
+
+function platformTickets() {
+  return getAllSchools.all().flatMap(({ id, payload }) => {
+    const school = JSON.parse(payload);
+    return (tenantState(id)?.helpTickets || []).map((ticket) => ({
+      ...ticket, schoolId: id, schoolName: school.name, schoolCode: school.code
+    }));
+  }).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+}
+
+function nextSchoolCode(schools) {
+  const maxCode = Math.max(0, ...schools.map((school) => Number(school.code) || 0));
+  if (maxCode >= 9999) throw new Error("Kode sekolah empat digit sudah habis.");
+  return String(maxCode + 1).padStart(4, "0");
+}
+
+function validateSchoolRegistration(input, platform) {
+  const school = input.school || {};
+  const admin = input.admin || {};
+  const name = String(school.name || "").trim();
+  const email = String(admin.email || "").trim().toLowerCase();
+  const adminName = String(admin.name || "").trim();
+  const password = String(admin.password || "");
+  const planId = String(school.planId || platform.plans.find((plan) => plan.active)?.id || "");
+  const plan = platform.plans.find((row) => row.id === planId && row.active);
+  if (!name || name.length > 180) throw new Error("Nama sekolah wajib diisi (maksimal 180 karakter).");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email Administrator tidak valid.");
+  if (!adminName || adminName.length > 120) throw new Error("Nama Administrator wajib diisi.");
+  if (password.length < 8 || password.length > 200) throw new Error("Kata sandi minimal 8 karakter.");
+  if (!plan) throw new Error("Paket langganan tidak tersedia.");
+  return { school, name, email, adminName, password, plan };
+}
+
+function createSchoolTenant(input, options = {}) {
+  const platform = platformState();
+  const validated = validateSchoolRegistration(input, platform);
+  const { school: raw, name, email, adminName, password, plan } = validated;
+  const duplicateEmail = getAllSchools.all().some(({ id }) =>
+    tenantState(id)?.accounts?.some((account) => String(account.email || "").toLowerCase() === email));
+  if (duplicateEmail) throw new Error("Email Administrator sudah digunakan sekolah lain.");
+  const id = `school-${crypto.randomUUID()}`;
+  const code = nextSchoolCode(platform.schools);
+  const now = new Date();
+  const trialDays = Math.max(0, Number(plan.trialDays ?? platform.settings.trialDays) || 0);
+  const period = String(raw.subscriptionPeriod || "monthly");
+  if (!["monthly", "semester", "yearly", "lifetime"].includes(period) || (period === "lifetime" && !options.managedBySuperAdmin)) {
+    throw new Error("Periode langganan tidak valid.");
+  }
+  const salt = crypto.randomBytes(16).toString("hex");
+  const account = {
+    id: crypto.randomUUID(), name: adminName, email, role: "Administrator",
+    active: true, passwordSalt: salt, passwordHash: hashPassword(password, salt)
+  };
+  const record = {
+    id, code, name, level: String(raw.level || "").trim(), email,
+    phone: String(raw.phone || "").trim(), contactName: adminName,
+    principalName: String(raw.principalName || "").trim(), address: String(raw.address || "").trim(),
+    domain: "",     planId: plan.id, status: period === "lifetime" ? "Lifetime" : trialDays ? "Uji Coba" : "Menunggu Pembayaran",
+    subscriptionPeriod: period, activatedAt: "", expiresAt: "",
+    trialEndsAt: trialDays ? new Date(now.getTime() + trialDays * 86400_000).toISOString() : "",
+    featureAccess: Object.fromEntries(platform.settings.defaultMenus.map((key) => [key, plan.features?.includes(key) ?? true])),
+    publicPortalEnabled: raw.publicPortalEnabled !== false,
+    createdAt: now.toISOString()
+  };
+  const tenant = createSchoolState(record, account);
+  db.exec("BEGIN");
+  try {
+    saveSchoolRow.run(id, code, JSON.stringify(record));
+    saveTenantStateRow.run(id, JSON.stringify(tenant));
+    platform.schools.unshift(record);
+    savePlatformState(platform);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  auditPlatform(options.action || "Mendaftarkan sekolah", `${code} · ${name}`, id);
+  return record;
+}
+
+function fullPlatformBackup() {
+  return {
+    app: "Sarprah SaaS",
+    formatVersion: 1,
+    createdAt: new Date().toISOString(),
+    platform: platformState(),
+    schools: getAllSchools.all().map(({ id, payload }) => ({ school: JSON.parse(payload), state: tenantState(id) })),
+    auditLogs: getAllAuditRows.all().map(({ payload }) => JSON.parse(payload)),
+    telegramBackup: getTelegramConfig.get(),
+    telegramBackups: getAllTenantTelegramConfigs.all(),
+    whatsappNotifications: getAllTenantWhatsAppConfigs.all(),
+    superAdmins: db.prepare("SELECT id, username, email, name, password_salt, password_hash FROM saas_super_admins").all()
+  };
+}
+
+function summarizePlatformData() {
+  const data = safePlatformState();
+  data.schools = platformSchoolSummaries();
+  data.tickets = platformTickets();
+  data.auditLogs = getAuditRows.all(500).map(({ payload }) => JSON.parse(payload));
+  return data;
+}
+
+function tenantAccessError(school) {
+  const settings = platformState().settings;
+  if (settings.maintenance?.enabled) return { status: 503, message: settings.maintenance.message || "Sistem sedang dalam pemeliharaan." };
+  if (["Ditangguhkan", "Dihentikan", "Nonaktif"].includes(school.status)) {
+    return { status: 403, message: "Akses sekolah sedang ditangguhkan. Hubungi administrator platform." };
+  }
+  if (school.status !== "Lifetime" && school.status !== "Uji Coba" && school.expiresAt && new Date(school.expiresAt) < new Date()) {
+    return { status: 402, message: "Masa aktif sekolah berakhir. Silakan selesaikan pembayaran tagihan." };
+  }
+  if (school.status === "Uji Coba" && school.trialEndsAt && new Date(school.trialEndsAt) < new Date()) {
+    return { status: 402, message: "Masa uji coba sekolah berakhir. Silakan pilih paket dan selesaikan pembayaran." };
+  }
+  return null;
+}
+
+async function handlePlatformApi(req, res) {
+  const pathname = new URL(req.url, "http://localhost").pathname;
+  if (!pathname.startsWith("/api/platform/")) return false;
+  if (req.method === "GET" && pathname === "/api/platform/setup-status") {
+    return send(res, 200, JSON.stringify({ configured: Boolean(db.prepare("SELECT 1 FROM saas_super_admins LIMIT 1").get()) })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/setup") {
+    if (db.prepare("SELECT 1 FROM saas_super_admins LIMIT 1").get()) return send(res, 409, JSON.stringify({ error: "Super Admin sudah dikonfigurasi." })), true;
+    const input = await readJsonBody(req, 32_000);
+    const username = String(input.username || "").trim().toLowerCase();
+    const email = String(input.email || "").trim().toLowerCase();
+    const name = String(input.name || "").trim();
+    const password = String(input.password || "");
+    if (!/^[a-z0-9._-]{3,32}$/.test(username)) return send(res, 400, JSON.stringify({ error: "Username harus 3–32 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung." })), true;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !name || name.length > 120 || password.length < 10 || password.length > 200) {
+      return send(res, 400, JSON.stringify({ error: "Nama, email, atau kata sandi Super Admin tidak valid. Kata sandi minimal 10 karakter." })), true;
+    }
+    const salt = crypto.randomBytes(16).toString("hex");
+    try { saveSuperAdmin.run(crypto.randomUUID(), username, email, name, salt, hashPassword(password, salt)); }
+    catch (error) {
+      if (String(error.message).includes("UNIQUE")) return send(res, 409, JSON.stringify({ error: "Username atau email sudah digunakan." })), true;
+      throw error;
+    }
+    auditPlatform("Membuat akun Super Admin", username);
+    return send(res, 201, JSON.stringify({ ok: true })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/login") {
+    const input = await readJsonBody(req, 32_000);
+    const login = String(input.username || "").trim().toLowerCase();
+    const admin = getSuperAdminByUsername.get(login, login);
+    if (!admin || hashPassword(String(input.password || ""), admin.password_salt) !== admin.password_hash) {
+      return send(res, 401, JSON.stringify({ error: "Username/email atau kata sandi tidak sesuai." })), true;
+    }
+    const token = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    db.prepare("INSERT INTO saas_sessions (token_hash, admin_id, expires_at) VALUES (?, ?, ?)")
+      .run(tokenHash, admin.id, Date.now() + 8 * 3600_000);
+    setSessionCookie(res, token, req, 8 * 3600, "sarprah_superadmin_session");
+    auditPlatform("Login Super Admin", admin.username);
+    return send(res, 200, JSON.stringify({ user: { id: admin.id, username: admin.username, email: admin.email, name: admin.name } })), true;
+  }
+  if (req.method === "GET" && pathname === "/api/platform/session") {
+    const session = superAdminFromRequest(req);
+    return send(res, 200, JSON.stringify({ user: session?.admin || null })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/logout") {
+    const session = superAdminFromRequest(req);
+    if (session) {
+      db.prepare("DELETE FROM saas_sessions WHERE token_hash = ?").run(session.tokenHash);
+      auditPlatform("Logout Super Admin", session.admin.username);
+    }
+    setSessionCookie(res, "", req, 0, "sarprah_superadmin_session");
+    return send(res, 200, JSON.stringify({ ok: true })), true;
+  }
+  const session = superAdminFromRequest(req);
+  if (!session) return send(res, 401, JSON.stringify({ error: "Silakan masuk sebagai Super Admin." })), true;
+
+  if (req.method === "GET" && pathname === "/api/platform/data") {
+    return send(res, 200, JSON.stringify(summarizePlatformData())), true;
+  }
+  if (req.method === "PUT" && pathname === "/api/platform/data") {
+    const input = await readJsonBody(req, 8_000_000);
+    const data = platformState();
+    if (input.settings && typeof input.settings === "object") {
+      data.settings = { ...data.settings, ...input.settings, whatsapp: data.settings.whatsapp };
+    }
+    if (Array.isArray(input.plans)) data.plans = input.plans;
+    if (Array.isArray(input.announcements)) data.announcements = input.announcements;
+    if (Array.isArray(input.manuals)) data.manuals = input.manuals;
+    savePlatformState(data);
+    auditPlatform("Memperbarui pengaturan platform", "Konfigurasi dan konten sistem diperbarui.");
+    return send(res, 200, JSON.stringify(summarizePlatformData())), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/schools") {
+    const school = createSchoolTenant(await readJsonBody(req, 200_000), { action: "Menambahkan sekolah", managedBySuperAdmin: true });
+    return send(res, 201, JSON.stringify({ school: platformSchoolSummaries().find((row) => row.id === school.id) })), true;
+  }
+  const schoolAdminMatch = pathname.match(/^\/api\/platform\/schools\/([a-zA-Z0-9-]+)\/admin$/);
+  if (schoolAdminMatch && req.method === "PUT") {
+    const schoolId = schoolAdminMatch[1];
+    const tenant = tenantState(schoolId);
+    const admin = tenant?.accounts?.find((account) => account.role === "Administrator");
+    if (!admin) return send(res, 404, JSON.stringify({ error: "Akun Administrator sekolah tidak ditemukan." })), true;
+    const input = await readJsonBody(req, 32_000);
+    const name = String(input.name || "").trim();
+    const email = String(input.email || "").trim().toLowerCase();
+    if (!name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return send(res, 400, JSON.stringify({ error: "Nama atau email Administrator tidak valid." })), true;
+    }
+    const duplicate = getAllSchools.all().some(({ id }) => id !== schoolId
+      && tenantState(id)?.accounts?.some((account) => String(account.email || "").toLowerCase() === email));
+    if (duplicate) return send(res, 409, JSON.stringify({ error: "Email sudah digunakan sekolah lain." })), true;
+    admin.name = name;
+    admin.email = email;
+    if (input.password) {
+      const password = String(input.password);
+      if (password.length < 8) return send(res, 400, JSON.stringify({ error: "Kata sandi admin minimal 8 karakter." })), true;
+      admin.passwordSalt = crypto.randomBytes(16).toString("hex");
+      admin.passwordHash = hashPassword(password, admin.passwordSalt);
+    }
+    const schoolRow = getSchoolRow.get(schoolId);
+    const school = JSON.parse(schoolRow.payload);
+    school.email = email;
+    school.contactName = name;
+    const data = platformState();
+    updatePlatformSchool(data, school);
+    savePlatformState(data);
+    saveTenantStateRow.run(schoolId, JSON.stringify(tenant));
+    auditPlatform("Memperbarui akun admin sekolah", `${school.code} · ${email}`, schoolId);
+    return send(res, 200, JSON.stringify({ ok: true })), true;
+  }
+  const schoolMatch = pathname.match(/^\/api\/platform\/schools\/([a-zA-Z0-9-]+)$/);
+  if (schoolMatch && req.method === "GET") {
+    const row = getSchoolRow.get(schoolMatch[1]);
+    if (!row) return send(res, 404, JSON.stringify({ error: "Sekolah tidak ditemukan." })), true;
+    const school = JSON.parse(row.payload);
+    const tenant = tenantState(school.id) || {};
+    return send(res, 200, JSON.stringify({
+      school: platformSchoolSummaries().find((entry) => entry.id === school.id),
+      admin: (tenant.accounts || []).filter((account) => account.role === "Administrator").map(({ id, name, email, active }) => ({ id, name, email, active })),
+      tickets: (tenant.helpTickets || []).map((ticket) => ({ ...ticket, schoolId: school.id, schoolName: school.name })),
+      payments: platformState().payments.filter((payment) => payment.schoolId === school.id),
+      summary: { goods: (tenant.goods || []).length, items: (tenant.items || []).length, accounts: (tenant.accounts || []).length }
+    })), true;
+  }
+  if (schoolMatch && req.method === "PUT") {
+    const schoolId = schoolMatch[1];
+    const row = getSchoolRow.get(schoolId);
+    if (!row) return send(res, 404, JSON.stringify({ error: "Sekolah tidak ditemukan." })), true;
+    const input = await readJsonBody(req, 200_000);
+    const school = JSON.parse(row.payload);
+    const allowed = ["name", "level", "email", "phone", "contactName", "principalName", "address", "domain", "planId", "status", "subscriptionPeriod", "expiresAt", "trialEndsAt"];
+    allowed.forEach((key) => { if (input[key] !== undefined) school[key] = String(input[key]).trim(); });
+    if (input.featureAccess && typeof input.featureAccess === "object") {
+      school.featureAccess = Object.fromEntries(Object.entries(input.featureAccess).map(([key, enabled]) => [key, Boolean(enabled)]));
+    }
+    if (!school.name || school.name.length > 180) return send(res, 400, JSON.stringify({ error: "Nama sekolah wajib diisi dan maksimal 180 karakter." })), true;
+    const tenant = tenantState(schoolId);
+    if (tenant?.school) Object.assign(tenant.school, {
+      name: school.name, email: school.email, phone: school.phone, address: school.address, principalName: school.principalName
+    });
+    const data = platformState();
+    updatePlatformSchool(data, school);
+    savePlatformState(data);
+    if (tenant) saveTenantStateRow.run(schoolId, JSON.stringify(tenant));
+    auditPlatform("Memperbarui sekolah", `${school.code} · ${school.name}`, school.id);
+    return send(res, 200, JSON.stringify({ school: platformSchoolSummaries().find((entry) => entry.id === school.id) })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/billing/run") {
+    const data = platformState();
+    const now = new Date();
+    let created = 0;
+    let reminders = 0;
+    data.schools.forEach((school) => {
+      if (school.subscriptionPeriod === "lifetime" || school.status === "Ditangguhkan") return;
+      const expiry = new Date(school.expiresAt || school.trialEndsAt || "");
+      if (Number.isNaN(expiry.getTime())) return;
+      const daysRemaining = Math.ceil((expiry.getTime() - now.getTime()) / 86400000);
+      const periodKey = `${school.id}:${expiry.toISOString().slice(0, 10)}`;
+      if (!data.payments.some((payment) => payment.periodKey === periodKey) && daysRemaining <= 7 && daysRemaining >= 0) {
+        const plan = data.plans.find((row) => row.id === school.planId);
+        const period = school.subscriptionPeriod || "monthly";
+        const amount = Number(plan?.prices?.[period] ?? data.settings.pricing?.[period]) || 0;
+        data.payments.unshift({
+          id: crypto.randomUUID(), schoolId: school.id, schoolName: school.name, schoolCode: school.code,
+          planId: school.planId, period, periodKey, amount, status: "Menunggu Verifikasi",
+          type: "Tagihan", dueDate: expiry.toISOString(), createdAt: now.toISOString()
+        });
+        created++;
+      }
+      if (daysRemaining >= 0 && daysRemaining <= 7) reminders++;
+      if (daysRemaining < 0 && school.status !== "Ditangguhkan") {
+        school.status = "Ditangguhkan";
+        saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
+      }
+    });
+    savePlatformState(data);
+    auditPlatform("Menjalankan pemeriksaan tagihan", `${created} tagihan baru, ${reminders} pengingat.`);
+    return send(res, 200, JSON.stringify({ created, reminders, checkedAt: now.toISOString() })), true;
+  }
+  const paymentMatch = pathname.match(/^\/api\/platform\/payments\/([a-zA-Z0-9-]+)$/);
+  if (paymentMatch && req.method === "PUT") {
+    const data = platformState();
+    const payment = data.payments.find((entry) => entry.id === paymentMatch[1]);
+    if (!payment) return send(res, 404, JSON.stringify({ error: "Tagihan tidak ditemukan." })), true;
+    const input = await readJsonBody(req, 32_000);
+    if (!["Disetujui", "Ditolak", "Menunggu Verifikasi"].includes(input.status)) {
+      return send(res, 400, JSON.stringify({ error: "Status pembayaran tidak valid." })), true;
+    }
+    payment.status = input.status;
+    payment.note = String(input.note || "").slice(0, 500);
+    payment.verifiedAt = new Date().toISOString();
+    if (input.status === "Disetujui") {
+      const school = data.schools.find((entry) => entry.id === payment.schoolId);
+      if (school) {
+        if (payment.period === "lifetime") {
+          school.expiresAt = "";
+          school.subscriptionPeriod = "lifetime";
+          school.status = "Lifetime";
+        } else {
+          const duration = payment.period === "semester" ? 183 : payment.period === "yearly" ? 365 : 30;
+          const oldEnd = new Date(school.expiresAt || school.trialEndsAt || Date.now());
+          const start = oldEnd > new Date() ? oldEnd : new Date();
+          school.expiresAt = new Date(start.getTime() + duration * 86400000).toISOString();
+          school.activatedAt ||= new Date().toISOString();
+          school.status = "Aktif";
+        }
+        saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
+      }
+    }
+    savePlatformState(data);
+    auditPlatform("Memperbarui status pembayaran", `${payment.schoolCode} · ${payment.status}`, payment.schoolId);
+    return send(res, 200, JSON.stringify({ ok: true })), true;
+  }
+  const ticketMatch = pathname.match(/^\/api\/platform\/tickets\/([a-zA-Z0-9-]+)\/([a-zA-Z0-9-]+)$/);
+  if (ticketMatch && req.method === "PUT") {
+    const [, schoolId, ticketId] = ticketMatch;
+    const tenant = tenantState(schoolId);
+    const ticket = tenant?.helpTickets?.find((entry) => entry.id === ticketId);
+    if (!ticket) return send(res, 404, JSON.stringify({ error: "Tiket kendala tidak ditemukan." })), true;
+    const input = await readJsonBody(req, 32_000);
+    if (!["Diajukan", "Diproses", "Selesai", "Ditolak"].includes(input.status)) return send(res, 400, JSON.stringify({ error: "Status tiket tidak valid." })), true;
+    ticket.status = input.status;
+    if (input.reply !== undefined) ticket.adminReply = String(input.reply).slice(0, 3000);
+    ticket.updatedAt = new Date().toISOString();
+    saveTenantStateRow.run(schoolId, JSON.stringify(tenant));
+    auditPlatform("Menangani tiket sekolah", `${ticket.ticketNo || ticket.title} · ${ticket.status}`, schoolId);
+    return send(res, 200, JSON.stringify({ ok: true })), true;
+  }
+  if (req.method === "GET" && pathname === "/api/platform/audit") {
+    const logs = getAllAuditRows.all().map(({ payload }) => JSON.parse(payload));
+    getAllSchools.all().forEach(({ id, payload }) => {
+      const school = JSON.parse(payload);
+      (tenantState(id)?.activityLogs || []).forEach((entry) => logs.push({
+        id: entry.id || crypto.randomUUID(), actor: entry.actor || entry.user || "Akun sekolah",
+        category: "tenant", action: entry.action || entry.event || "Aktivitas sekolah",
+        detail: entry.detail || entry.target || "", schoolId: id, schoolName: school.name,
+        createdAt: entry.createdAt || entry.timestamp || ""
+      }));
+    });
+    logs.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    return send(res, 200, JSON.stringify({ logs: logs.slice(0, 1000) })), true;
+  }
+  if (req.method === "PUT" && pathname === "/api/platform/profile") {
+    const input = await readJsonBody(req, 32_000);
+    const admin = db.prepare("SELECT * FROM saas_super_admins WHERE id = ?").get(session.admin.id);
+    if (input.currentPassword || input.newPassword) {
+      if (hashPassword(String(input.currentPassword || ""), admin.password_salt) !== admin.password_hash) {
+        return send(res, 403, JSON.stringify({ error: "Kata sandi saat ini tidak sesuai." })), true;
+      }
+      const password = String(input.newPassword || "");
+      if (password.length < 10) return send(res, 400, JSON.stringify({ error: "Kata sandi baru minimal 10 karakter." })), true;
+      const salt = crypto.randomBytes(16).toString("hex");
+      db.prepare("UPDATE saas_super_admins SET password_salt = ?, password_hash = ? WHERE id = ?")
+        .run(salt, hashPassword(password, salt), admin.id);
+    }
+    const name = String(input.name || "").trim();
+    if (!name || name.length > 120) return send(res, 400, JSON.stringify({ error: "Nama akun wajib diisi." })), true;
+    const email = String(input.email || admin.email).trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return send(res, 400, JSON.stringify({ error: "Email akun tidak valid." })), true;
+    if (db.prepare("SELECT 1 FROM saas_super_admins WHERE email = ? COLLATE NOCASE AND id != ?").get(email, admin.id)) {
+      return send(res, 409, JSON.stringify({ error: "Email sudah digunakan akun Super Admin lain." })), true;
+    }
+    db.prepare("UPDATE saas_super_admins SET name = ?, email = ? WHERE id = ?").run(name, email, admin.id);
+    auditPlatform("Memperbarui profil Super Admin", name);
+    return send(res, 200, JSON.stringify({ user: { ...session.admin, name, email } })), true;
+  }
+  if (req.method === "PUT" && pathname === "/api/platform/whatsapp") {
+    const input = await readJsonBody(req, 32_000);
+    const data = platformState();
+    const phoneNumberId = String(input.phoneNumberId || "").trim();
+    const graphVersion = String(input.graphVersion || "v22.0").trim();
+    const token = String(input.accessToken || "").trim();
+    if (phoneNumberId && !/^\d{6,30}$/.test(phoneNumberId)) return send(res, 400, JSON.stringify({ error: "Phone Number ID tidak valid." })), true;
+    if (!/^v\d{1,3}\.\d{1,2}$/.test(graphVersion)) return send(res, 400, JSON.stringify({ error: "Versi Graph API tidak valid." })), true;
+    if (token) data.settings.whatsapp.accessTokenCipher = encryptToken(token);
+    data.settings.whatsapp.phoneNumberId = phoneNumberId;
+    data.settings.whatsapp.graphVersion = graphVersion;
+    savePlatformState(data);
+    auditPlatform("Memperbarui konfigurasi WhatsApp", `Phone Number ID ${phoneNumberId || "dikosongkan"}`);
+    return send(res, 200, JSON.stringify({ ok: true, configured: Boolean(data.settings.whatsapp.accessTokenCipher) })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/whatsapp/send") {
+    const input = await readJsonBody(req, 32_000);
+    const wa = platformState().settings.whatsapp || {};
+    const token = decryptToken(wa.accessTokenCipher);
+    const to = String(input.to || "").replace(/\D/g, "");
+    const text = String(input.text || "").trim();
+    if (!token || !wa.phoneNumberId) return send(res, 409, JSON.stringify({ error: "Konfigurasi WhatsApp Cloud API belum lengkap." })), true;
+    if (!/^\d{8,15}$/.test(to) || !text || text.length > 4000) return send(res, 400, JSON.stringify({ error: "Nomor tujuan atau isi pesan tidak valid." })), true;
+    const response = await fetch(`https://graph.facebook.com/${wa.graphVersion}/${wa.phoneNumberId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body: text } })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return send(res, 502, JSON.stringify({ error: result.error?.message || `WhatsApp API gagal (HTTP ${response.status}).` })), true;
+    auditPlatform("Mengirim pesan WhatsApp", `Pesan terkirim ke ${to}`);
+    return send(res, 200, JSON.stringify({ ok: true, messageId: result.messages?.[0]?.id || "" })), true;
+  }
+  if (req.method === "GET" && pathname === "/api/platform/backup") {
+    const backup = fullPlatformBackup();
+    auditPlatform("Membuat backup platform", backup.createdAt);
+    return send(res, 200, JSON.stringify(backup), "application/json; charset=utf-8", {
+      "Content-Disposition": `attachment; filename="sarprah-saas-backup-${backup.createdAt.slice(0, 10)}.json"`
+    }), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/restore") {
+    const backup = await readJsonBody(req, 50_000_000);
+    if (!backup || backup.app !== "Sarprah SaaS" || backup.formatVersion !== 1 ||
+        !backup.platform || typeof backup.platform.settings !== "object" || !Array.isArray(backup.platform.plans) ||
+        !Array.isArray(backup.schools) || backup.schools.length > 10000 ||
+        !Array.isArray(backup.auditLogs)) return send(res, 400, JSON.stringify({ error: "File backup platform tidak valid atau formatnya tidak didukung." })), true;
+    if (backup.superAdmins !== undefined && (!Array.isArray(backup.superAdmins) || !backup.superAdmins.length || backup.superAdmins.length > 20 ||
+        backup.superAdmins.some((entry) => !entry.id || !/^[a-z0-9._-]{3,32}$/i.test(entry.username || "") ||
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(entry.email || "") ||
+          !/^[\da-f]{32}$/i.test(entry.password_salt || "") || !/^[\da-f]{64}$/i.test(entry.password_hash || "")))) {
+      return send(res, 400, JSON.stringify({ error: "Data Super Admin pada backup tidak valid." })), true;
+    }
+    const ids = new Set();
+    const codes = new Set();
+    for (const entry of backup.schools) {
+      const school = entry?.school;
+      if (!school?.id || !/^\d{4}$/.test(school.code || "") || !entry.state ||
+          !Array.isArray(entry.state.accounts) ||
+          entry.state.accounts.filter((account) => account.role === "Administrator").length !== 1 ||
+          ids.has(school.id) || codes.has(school.code)) {
+        return send(res, 400, JSON.stringify({ error: "Data sekolah pada backup tidak valid atau memiliki kode duplikat." })), true;
+      }
+      ids.add(school.id);
+      codes.add(school.code);
+    }
+    db.exec("BEGIN");
+    try {
+      db.prepare("DELETE FROM saas_tenant_states").run();
+      db.prepare("DELETE FROM saas_schools").run();
+      backup.schools.forEach(({ school, state }) => {
+        saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
+        saveTenantStateRow.run(school.id, JSON.stringify(state));
+      });
+      backup.platform.schools = backup.schools.map(({ school }) => school);
+      savePlatformState(backup.platform);
+      db.prepare("DELETE FROM saas_audit_logs").run();
+      backup.auditLogs.slice(-2000).forEach((entry) => saveAuditRow.run(entry.id || crypto.randomUUID(), JSON.stringify(entry)));
+      db.prepare("DELETE FROM saas_tenant_sessions").run();
+      db.prepare("DELETE FROM saas_tenant_telegram_backup").run();
+      if (backup.telegramBackups !== undefined && !Array.isArray(backup.telegramBackups)) {
+        throw new Error("Daftar konfigurasi Telegram pada backup tidak valid.");
+      }
+      const tenantTelegramBackups = Array.isArray(backup.telegramBackups)
+        ? backup.telegramBackups
+        : backup.telegramBackup && backup.schools.length
+          ? [{ ...backup.telegramBackup, school_id: backup.schools[0].school.id }]
+          : [];
+      const telegramSchoolIds = new Set();
+      for (const telegram of tenantTelegramBackups) {
+        if (!telegram?.school_id || !ids.has(telegram.school_id) || telegramSchoolIds.has(telegram.school_id) ||
+            typeof telegram.chat_id !== "string" || typeof telegram.token_cipher !== "string" ||
+            !/^\d{2}:\d{2}$/.test(telegram.backup_time || "") ||
+            Number(telegram.backup_time.slice(0, 2)) > 23 || Number(telegram.backup_time.slice(3, 5)) > 59 ||
+            !timezones.has(telegram.timezone)) {
+          throw new Error("Konfigurasi Telegram per sekolah pada backup tidak valid.");
+        }
+        telegramSchoolIds.add(telegram.school_id);
+        saveTenantTelegramConfig.run(
+          telegram.school_id,
+          telegram.chat_id,
+          telegram.token_cipher,
+          telegram.backup_time,
+          telegram.timezone,
+          telegram.enabled ? 1 : 0,
+          String(telegram.last_run_date || "")
+        );
+      }
+      db.prepare("DELETE FROM saas_tenant_whatsapp_notifications").run();
+      if (backup.whatsappNotifications !== undefined && !Array.isArray(backup.whatsappNotifications)) {
+        throw new Error("Daftar pengaturan notifikasi WhatsApp pada backup tidak valid.");
+      }
+      const whatsappSchoolIds = new Set();
+      for (const config of backup.whatsappNotifications || []) {
+        if (!config?.school_id || !ids.has(config.school_id) || whatsappSchoolIds.has(config.school_id) ||
+            typeof config.token_cipher !== "string" ||
+            !Number.isInteger(Number(config.reminder_days)) || Number(config.reminder_days) < 0 || Number(config.reminder_days) > 30 ||
+            !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(config.send_time || "") ||
+            !timezones.has(config.timezone)) {
+          throw new Error("Pengaturan notifikasi WhatsApp pada backup tidak valid.");
+        }
+        whatsappSchoolIds.add(config.school_id);
+        saveTenantWhatsAppConfig.run(
+          config.school_id,
+          config.token_cipher,
+          config.enabled ? 1 : 0,
+          config.notify_loans ? 1 : 0,
+          config.notify_procurements ? 1 : 0,
+          Number(config.reminder_days),
+          config.send_time,
+          config.timezone,
+          String(config.last_run_date || "")
+        );
+      }
+      if (backup.telegramBackup) {
+        const telegram = backup.telegramBackup;
+        if (typeof telegram.chat_id !== "string" || typeof telegram.token_cipher !== "string" ||
+            typeof telegram.backup_time !== "string" || typeof telegram.timezone !== "string" ||
+            !timezones.has(telegram.timezone)) throw new Error("Konfigurasi Telegram pada backup tidak valid.");
+        saveTelegramConfig.run(telegram.chat_id, telegram.token_cipher, telegram.backup_time, telegram.timezone, telegram.enabled ? 1 : 0);
+      }
+      if (backup.superAdmins) {
+        db.prepare("DELETE FROM saas_sessions").run();
+        db.prepare("DELETE FROM saas_super_admins").run();
+        const insertAdmin = db.prepare("INSERT INTO saas_super_admins (id, username, email, name, password_salt, password_hash) VALUES (?, ?, ?, ?, ?, ?)");
+        backup.superAdmins.forEach((entry) => insertAdmin.run(entry.id, entry.username, entry.email, entry.name, entry.password_salt, entry.password_hash));
+      }
+      db.exec("COMMIT");
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+    auditPlatform("Memulihkan backup platform", backup.createdAt || "");
+    return send(res, 200, JSON.stringify({ ok: true, schools: backup.schools.length })), true;
+  }
+  return send(res, 404, JSON.stringify({ error: "Endpoint platform tidak ditemukan." })), true;
+}
+
 async function handleApi(req, res) {
   if (req.method !== "GET" && !verifyOrigin(req)) return send(res, 403, JSON.stringify({ error: "Origin permintaan tidak diizinkan." }));
+  const platformHandled = await handlePlatformApi(req, res);
+  if (platformHandled !== false) return;
   if (req.method === "GET" && req.url === "/api/auth/session") {
     const session = sessionFromRequest(req);
     if (!session) return send(res, 200, JSON.stringify({ user: null }));
-    return send(res, 200, JSON.stringify({ user: { id: session.account.id, name: session.account.name, role: session.account.role } }));
+    const blocked = tenantAccessError(session.school);
+    if (blocked) return send(res, blocked.status, JSON.stringify({ error: blocked.message }));
+    return send(res, 200, JSON.stringify({
+      user: { id: session.account.id, name: session.account.name, role: session.account.role },
+      school: { id: session.school.id, code: session.school.code, name: session.school.name, publicPortalEnabled: session.school.publicPortalEnabled !== false },
+      featureAccess: session.school.featureAccess || {}
+    }));
+  }
+  const publicInventoryMatch = req.method === "GET"
+    ? /^\/api\/public\/school\/(\d{4})\/inventory$/.exec(new URL(req.url, "http://localhost").pathname)
+    : null;
+  if (publicInventoryMatch) {
+    const schoolCode = publicInventoryMatch[1];
+    const schoolRow = getAllSchools.all().find(({ payload }) => JSON.parse(payload).code === schoolCode);
+    if (!schoolRow) return send(res, 404, JSON.stringify({ error: "Portal sekolah tidak ditemukan atau tidak aktif." }));
+    const school = JSON.parse(schoolRow.payload);
+    if (school.publicPortalEnabled === false) return send(res, 404, JSON.stringify({ error: "Portal publik sekolah ini sedang dinonaktifkan." }));
+    const accessError = tenantAccessError(school);
+    if (accessError) return send(res, accessError.status, JSON.stringify({ error: accessError.message }));
+    const state = tenantState(school.id);
+    if (!state) return send(res, 404, JSON.stringify({ error: "Data inventaris tidak tersedia." }));
+    const yearId = state.settings?.selectedAcademicYearId
+      || state.academicYears?.find((year) => year.status === "Aktif")?.id
+      || state.academicYears?.[0]?.id
+      || "";
+    const goods = (state.goods || []).filter((good) => !good.academicYearId || !yearId || good.academicYearId === yearId);
+    const query = String(new URL(req.url, "http://localhost").searchParams.get("q") || "").trim().slice(0, 100).toLocaleLowerCase("id-ID");
+    const scannedItem = query ? (state.items || []).find((item) => String(item.code || "").trim().toLocaleLowerCase("id-ID") === query) : null;
+    const selectedGoods = goods.filter((good) => (!scannedItem || good.id === scannedItem.goodId)
+      && (!query || scannedItem || String(good.name || "").toLocaleLowerCase("id-ID").includes(query)));
+    const inventory = selectedGoods.slice(0, 500).map((good) => {
+      const itemRows = (state.items || []).filter((item) => item.goodId === good.id);
+      const total = Math.max(0, Number(good.quantity) || 0);
+      const damaged = Math.min(total, itemRows.filter((item) => item.condition === "Rusak").length);
+      const borrowed = Math.min(total - damaged, (state.loans || [])
+        .filter((loan) => loan.goodId === good.id && ["Dipinjam", "Diterima"].includes(loan.status))
+        .reduce((sum, loan) => sum + Math.max(0, Number(loan.quantity) || 0), 0));
+      const available = Math.max(0, total - damaged - borrowed);
+      return {
+        name: String(good.name || ""),
+        type: state.types?.find((type) => type.id === good.typeId)?.name || "",
+        category: state.categories?.find((category) => category.id === good.categoryId)?.name || "",
+        unit: state.units?.find((unit) => unit.id === good.unitId)?.name || "",
+        total,
+        available,
+        damaged,
+        borrowed,
+        goodCondition: Math.max(0, total - damaged)
+      };
+    });
+    return send(res, 200, JSON.stringify({ school: { name: school.name, code: school.code }, items: inventory }));
   }
   if (req.method === "GET" && req.url === "/api/branding") {
-    const settings = currentState()?.settings || {};
+    const branding = platformState().settings.branding || {};
     return send(res, 200, JSON.stringify({
-      appName: typeof settings.appName === "string" && settings.appName.trim() ? settings.appName : "Sarprah",
-      appLogo: typeof settings.appLogo === "string" ? settings.appLogo : ""
+      appName: typeof branding.appName === "string" && branding.appName.trim() ? branding.appName : "Sarprah",
+      appLogo: typeof branding.logo === "string" ? branding.logo : ""
+    }));
+  }
+  if (req.method === "POST" && req.url === "/api/auth/register-school") {
+    const now = Date.now();
+    const ip = req.socket.remoteAddress || "unknown";
+    const attempts = registrationAttempts.get(ip) || [];
+    const recent = attempts.filter((at) => now - at < 900_000);
+    if (recent.length >= 3) return send(res, 429, JSON.stringify({ error: "Terlalu banyak percobaan pendaftaran. Coba lagi 15 menit." }));
+    recent.push(now);
+    registrationAttempts.set(ip, recent);
+    const school = createSchoolTenant(await readJsonBody(req, 200_000), { action: "Pendaftaran sekolah" });
+    return send(res, 201, JSON.stringify({
+      ok: true,
+      school: { code: school.code, name: school.name, status: school.status, trialEndsAt: school.trialEndsAt }
     }));
   }
   if (req.method === "POST" && req.url === "/api/auth/login") {
     const input = await readJsonBody(req, 32_000);
     const email = String(input.email || "").trim().toLowerCase();
     const password = String(input.password || "");
-    let state = currentState();
-    let account = state?.accounts?.find((row) => row.email.toLowerCase() === email && row.active);
+    const schoolCode = String(input.schoolCode || "").trim();
+    if (!/^\d{4}$/.test(schoolCode)) return send(res, 400, JSON.stringify({ error: "Masukkan kode sekolah 4 digit." }));
+    const schoolRow = getAllSchools.all().find(({ payload }) => JSON.parse(payload).code === schoolCode);
+    if (!schoolRow) return send(res, 401, JSON.stringify({ error: "Kode sekolah tidak ditemukan." }));
+    const school = JSON.parse(schoolRow.payload);
+    const blocked = tenantAccessError(school);
+    if (blocked) return send(res, blocked.status, JSON.stringify({ error: blocked.message }));
+    const state = tenantState(school.id);
+    const account = state?.accounts?.find((row) => row.email.toLowerCase() === email && row.active);
     const isDemoAdmin = email === "admin@sarprah.id" && password === "sarprah123";
     let valid = Boolean(account && account.passwordSalt && account.passwordHash && hashPassword(password, account.passwordSalt) === account.passwordHash);
     if (!valid && account && !account.passwordHash && isDemoAdmin && account.role === "Administrator") {
       account.passwordSalt = crypto.randomBytes(16).toString("hex");
       account.passwordHash = hashPassword(password, account.passwordSalt);
-      saveState.run(JSON.stringify(state));
-      valid = true;
-    }
-    if (!account && !state && isDemoAdmin) {
-      const passwordSalt = crypto.randomBytes(16).toString("hex");
-      account = {
-        id: "ac1",
-        name: "Admin Sekolah",
-        role: "Administrator",
-        email,
-        active: true,
-        passwordSalt,
-        passwordHash: hashPassword(password, passwordSalt)
-      };
-      state = { accounts: [account] };
-      saveState.run(JSON.stringify(state));
+      saveTenantStateRow.run(school.id, JSON.stringify(state));
       valid = true;
     }
     if (!valid || !account) return send(res, 401, JSON.stringify({ error: "Email atau kata sandi tidak sesuai." }));
     const token = crypto.randomBytes(32).toString("base64url");
     const expiresAt = Date.now() + 7 * 86400_000;
-    createSession.run(crypto.createHash("sha256").update(token).digest("hex"), account.id, expiresAt);
+    db.prepare("INSERT INTO saas_tenant_sessions (token_hash, school_id, account_id, expires_at) VALUES (?, ?, ?, ?)")
+      .run(crypto.createHash("sha256").update(token).digest("hex"), school.id, account.id, expiresAt);
     setSessionCookie(res, token, req, 7 * 86400);
-    return send(res, 200, JSON.stringify({ user: { id: account.id, name: account.name, role: account.role } }));
+    auditPlatform("Login sekolah", `${school.code} · ${email}`, school.id);
+    return send(res, 200, JSON.stringify({
+      user: { id: account.id, name: account.name, role: account.role },
+      school: { id: school.id, code: school.code, name: school.name, publicPortalEnabled: school.publicPortalEnabled !== false },
+      featureAccess: school.featureAccess || {}
+    }));
   }
   if (req.method === "POST" && req.url === "/api/auth/logout") {
     const session = sessionFromRequest(req);
-    if (session) deleteSession.run(session.tokenHash);
+    if (session) {
+      db.prepare("DELETE FROM saas_tenant_sessions WHERE token_hash = ?").run(session.tokenHash);
+      auditPlatform("Logout sekolah", `${session.school.code} · ${session.account.email}`, session.schoolId);
+    }
     setSessionCookie(res, "", req, 0);
     return send(res, 200, JSON.stringify({ ok: true }));
   }
   const session = sessionFromRequest(req);
   if (!session) return send(res, 401, JSON.stringify({ error: "Silakan masuk untuk melanjutkan." }));
+  const blocked = tenantAccessError(session.school);
+  if (blocked) return send(res, blocked.status, JSON.stringify({ error: blocked.message }));
   if (!verifyOrigin(req)) return send(res, 403, JSON.stringify({ error: "Origin permintaan tidak diizinkan." }));
-  if (req.url.startsWith("/api/telegram/") && session.account.role !== "Administrator") {
-    return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengelola backup Telegram." }));
+  if (req.method === "PUT" && req.url === "/api/tenant/public-portal-settings") {
+    if (session.account.role !== "Administrator") return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengatur Portal Publik." }));
+    const input = await readJsonBody(req, 32_000);
+    if (typeof input.enabled !== "boolean") return send(res, 400, JSON.stringify({ error: "Status Portal Publik tidak valid." }));
+    const school = { ...session.school, publicPortalEnabled: input.enabled };
+    const data = platformState();
+    updatePlatformSchool(data, school);
+    savePlatformState(data);
+    auditPlatform("Mengubah Portal Publik", input.enabled ? "Portal inventaris diaktifkan." : "Portal inventaris dinonaktifkan.", school.id);
+    return send(res, 200, JSON.stringify({ enabled: input.enabled }));
+  }
+  if ((req.url.startsWith("/api/telegram/") || req.url.startsWith("/api/whatsapp/")) && session.account.role !== "Administrator") {
+    return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengelola integrasi pesan." }));
   }
   if (req.method === "PUT" && req.url === "/api/accounts") {
     if (session.account.role !== "Administrator") return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengelola akun." }));
     const input = await readJsonBody(req, 500_000);
-    const state = currentState();
+    const state = tenantState(session.schoolId);
     if (!state || typeof state !== "object") return send(res, 409, JSON.stringify({ error: "Data aplikasi belum tersedia." }));
     state.accounts = validateAccounts(input.accounts, session.account.id);
-    saveState.run(JSON.stringify(state));
+    saveTenantStateRow.run(session.schoolId, JSON.stringify(state));
     return send(res, 200, JSON.stringify({ ok: true }));
   }
   if (["GET /api/backup", "POST /api/restore"].includes(`${req.method} ${req.url}`) && session.account.role !== "Administrator") {
     return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat melakukan backup dan restore." }));
   }
   if (req.method === "GET" && req.url === "/api/state") {
-    return send(res, 200, JSON.stringify({ state: currentState() }));
+    return send(res, 200, JSON.stringify({ state: tenantState(session.schoolId) }));
   }
   if (req.method === "PUT" && req.url === "/api/state") {
     const parsed = await readJsonBody(req);
     if (!parsed || typeof parsed.state !== "object" || parsed.state === null || Array.isArray(parsed.state)) {
       return send(res, 400, JSON.stringify({ error: "Format data tidak valid." }));
     }
+    const storedState = tenantState(session.schoolId);
+    if (!storedState) return send(res, 409, JSON.stringify({ error: "Data sekolah belum tersedia." }));
     if (!Array.isArray(parsed.state.accounts) || parsed.state.accounts.filter((account) => account.role === "Administrator").length !== 1) {
       return send(res, 400, JSON.stringify({ error: "Data harus memiliki tepat satu akun Administrator." }));
     }
-    saveState.run(JSON.stringify(parsed.state));
+    if (session.account.role !== "Administrator") parsed.state.accounts = storedState.accounts;
+    saveTenantStateRow.run(session.schoolId, JSON.stringify(parsed.state));
     return send(res, 200, JSON.stringify({ ok: true }));
   }
+  if (req.method === "GET" && req.url === "/api/tenant/portal-content") {
+    const data = platformState();
+    return send(res, 200, JSON.stringify({
+      terms: data.settings.terms || "",
+      sla: data.settings.sla || "",
+      announcements: data.announcements.filter((entry) => entry.active !== false),
+      manuals: data.manuals.filter((entry) => entry.active !== false && (!entry.target || entry.target === "Akun Sekolah"))
+    }));
+  }
   if (req.method === "GET" && req.url === "/api/backup") {
-    const backup = createBackup();
+    const backup = createBackup(session.schoolId);
     return send(res, 200, JSON.stringify(backup), "application/json; charset=utf-8", {
       "Content-Disposition": `attachment; filename="sarprah-backup-${backup.createdAt.slice(0, 10)}.json"`
     });
   }
   if (req.method === "POST" && req.url === "/api/restore") {
     const state = validateBackup(await readJsonBody(req));
-    saveState.run(JSON.stringify(state));
+    saveTenantStateRow.run(session.schoolId, JSON.stringify(state));
     return send(res, 200, JSON.stringify({ ok: true }));
   }
   if (req.method === "GET" && req.url === "/api/telegram/settings") {
-    const config = getTelegramConfig.get();
+    const config = getTenantTelegramConfig.get(session.schoolId) || {
+      chat_id: "", backup_time: "16:00", timezone: "Asia/Jakarta", enabled: 0, token_cipher: ""
+    };
     return send(res, 200, JSON.stringify({
       chatId: config.chat_id,
       backupTime: config.backup_time,
@@ -343,7 +1300,9 @@ async function handleApi(req, res) {
   }
   if (req.method === "PUT" && req.url === "/api/telegram/settings") {
     const input = await readJsonBody(req, 32_000);
-    const config = getTelegramConfig.get();
+    const config = getTenantTelegramConfig.get(session.schoolId) || {
+      chat_id: "", backup_time: "16:00", timezone: "Asia/Jakarta", enabled: 0, last_run_date: "", token_cipher: ""
+    };
     const chatId = String(input.chatId || "").trim();
     const backupTime = String(input.backupTime || "16:00");
     const timezone = String(input.timezone || "Asia/Jakarta");
@@ -355,8 +1314,8 @@ async function handleApi(req, res) {
     const tokenCipher = token ? encryptToken(token) : config.token_cipher;
     const enabled = Boolean(input.enabled);
     if (enabled && (!chatId || !tokenCipher)) throw new Error("Isi ID Telegram dan token bot sebelum mengaktifkan auto backup.");
-    saveTelegramConfig.run(chatId, tokenCipher, backupTime, timezone, enabled ? 1 : 0);
-    const updated = getTelegramConfig.get();
+    saveTenantTelegramConfig.run(session.schoolId, chatId, tokenCipher, backupTime, timezone, enabled ? 1 : 0, config.last_run_date || "");
+    const updated = getTenantTelegramConfig.get(session.schoolId);
     return send(res, 200, JSON.stringify({
       ok: true,
       chatId: updated.chat_id,
@@ -367,7 +1326,8 @@ async function handleApi(req, res) {
     }));
   }
   if (req.method === "POST" && req.url === "/api/telegram/test") {
-    const config = getTelegramConfig.get();
+    const config = getTenantTelegramConfig.get(session.schoolId);
+    if (!config) throw new Error("Simpan pengaturan Telegram sekolah terlebih dahulu.");
     const token = decryptToken(config.token_cipher);
     if (!config.chat_id || !token) throw new Error("Simpan ID Telegram dan token bot terlebih dahulu.");
     const result = await telegramRequest(token, "sendMessage", JSON.stringify({
@@ -375,6 +1335,61 @@ async function handleApi(req, res) {
       text: "Koneksi Telegram Sarprah berhasil. Backup otomatis siap dijalankan."
     }));
     return send(res, 200, JSON.stringify({ ok: true, messageId: result.result.message_id }));
+  }
+  if (req.method === "GET" && req.url === "/api/whatsapp/settings") {
+    const config = getTenantWhatsAppConfig.get(session.schoolId) || {
+      token_cipher: "", enabled: 0, notify_loans: 1, notify_procurements: 1,
+      reminder_days: 1, send_time: "08:00", timezone: "Asia/Jakarta"
+    };
+    const tenant = tenantState(session.schoolId);
+    return send(res, 200, JSON.stringify({
+      enabled: Boolean(config.enabled),
+      notifyLoans: Boolean(config.notify_loans),
+      notifyProcurements: Boolean(config.notify_procurements),
+      reminderDays: Number(config.reminder_days),
+      sendTime: config.send_time,
+      timezone: config.timezone,
+      tokenConfigured: Boolean(config.token_cipher),
+      principalWhatsapp: tenant?.school?.principalWhatsapp || ""
+    }));
+  }
+  if (req.method === "PUT" && req.url === "/api/whatsapp/settings") {
+    const input = await readJsonBody(req, 32_000);
+    const config = getTenantWhatsAppConfig.get(session.schoolId) || {
+      token_cipher: "", last_run_date: ""
+    };
+    const token = String(input.fonnteToken || "").trim();
+    const enabled = Boolean(input.enabled);
+    const notifyLoans = Boolean(input.notifyLoans);
+    const notifyProcurements = Boolean(input.notifyProcurements);
+    const reminderDays = Number(input.reminderDays);
+    const sendTime = String(input.sendTime || "08:00");
+    const timezone = String(input.timezone || "Asia/Jakarta");
+    if (token && !/^[A-Za-z0-9_-]{20,200}$/.test(token)) throw new Error("Format token Fonnte tidak valid.");
+    if (!Number.isInteger(reminderDays) || reminderDays < 0 || reminderDays > 30) throw new Error("Pengingat peminjaman harus antara 0 sampai 30 hari.");
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(sendTime)) throw new Error("Waktu pengiriman harus berformat HH:MM.");
+    if (!timezones.has(timezone)) throw new Error("Zona waktu tidak didukung.");
+    const tokenCipher = token ? encryptToken(token) : config.token_cipher;
+    if (enabled && (notifyLoans || notifyProcurements) && !tokenCipher) throw new Error("Masukkan token Fonnte sebelum mengaktifkan notifikasi.");
+    saveTenantWhatsAppConfig.run(
+      session.schoolId, tokenCipher, enabled ? 1 : 0, notifyLoans ? 1 : 0,
+      notifyProcurements ? 1 : 0, reminderDays, sendTime, timezone, config.last_run_date || ""
+    );
+    const updated = getTenantWhatsAppConfig.get(session.schoolId);
+    return send(res, 200, JSON.stringify({
+      ok: true, enabled: Boolean(updated.enabled), notifyLoans: Boolean(updated.notify_loans),
+      notifyProcurements: Boolean(updated.notify_procurements), reminderDays: Number(updated.reminder_days),
+      sendTime: updated.send_time, timezone: updated.timezone, tokenConfigured: Boolean(updated.token_cipher)
+    }));
+  }
+  if (req.method === "POST" && req.url === "/api/whatsapp/test") {
+    const config = getTenantWhatsAppConfig.get(session.schoolId);
+    const tenant = tenantState(session.schoolId);
+    const recipient = tenant?.school?.principalWhatsapp || "";
+    if (!config?.token_cipher) throw new Error("Simpan token Fonnte terlebih dahulu.");
+    if (!normalizeWhatsAppNumber(recipient)) throw new Error("Isi nomor WhatsApp Kepala Sekolah pada Profil Sekolah terlebih dahulu.");
+    await sendFonnteMessage(config.token_cipher, recipient, `Uji koneksi WhatsApp Sarprah ${tenant.school.name || ""}. Notifikasi siap digunakan.`);
+    return send(res, 200, JSON.stringify({ ok: true }));
   }
   return false;
 }
@@ -387,7 +1402,10 @@ const server = http.createServer(async (req, res) => {
       return send(res, 404, JSON.stringify({ error: "API tidak ditemukan." }));
     }
     const pathname = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
-    const requested = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+    const requested = pathname === "/" ? "index.html"
+      : ["/super-admin", "/super-admin/"].includes(pathname) ? "super-admin.html"
+        : /^\/portal\/\d{4}\/?$/.test(pathname) || pathname === "/public-portal" ? "public-portal.html"
+        : pathname.replace(/^\/+/, "");
     const file = path.resolve(publicRoot, requested);
     if (!file.startsWith(publicRoot + path.sep) && file !== path.join(publicRoot, "index.html")) {
       return send(res, 403, "Forbidden", "text/plain; charset=utf-8");
@@ -404,23 +1422,99 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+let telegramBackupSchedulerRunning = false;
 async function runTelegramBackupIfDue() {
-  const config = getTelegramConfig.get();
-  if (!config.enabled) return;
-  const local = getLocalDateParts(config.timezone);
-  const date = `${local.year}-${local.month}-${local.day}`;
-  if (`${local.hour}:${local.minute}` !== config.backup_time || config.last_run_date === date) return;
-  setLastRun.run(date);
+  if (telegramBackupSchedulerRunning) return;
+  telegramBackupSchedulerRunning = true;
   try {
-    await sendTelegramBackup(config);
-    console.log(`Backup Telegram berhasil (${date}, ${config.timezone}).`);
-  } catch (error) {
-    setLastRun.run("");
-    console.error(`Backup Telegram gagal: ${error.message}`);
+    for (const config of getEnabledTenantTelegramConfigs.all()) {
+      const local = getLocalDateParts(config.timezone);
+      const date = `${local.year}-${local.month}-${local.day}`;
+      if (`${local.hour}:${local.minute}` !== config.backup_time || config.last_run_date === date) continue;
+      setTenantLastRun.run(date, config.school_id);
+      try {
+        await sendTelegramBackup(config, config.school_id);
+        console.log(`Backup Telegram sekolah ${config.school_id} berhasil (${date}, ${config.timezone}).`);
+      } catch (error) {
+        setTenantLastRun.run("", config.school_id);
+        console.error(`Backup Telegram sekolah ${config.school_id} gagal: ${error.message}`);
+      }
+    }
+  } finally {
+    telegramBackupSchedulerRunning = false;
+  }
+}
+
+let whatsappSchedulerRunning = false;
+async function runWhatsAppNotificationsIfDue() {
+  if (whatsappSchedulerRunning) return;
+  whatsappSchedulerRunning = true;
+  try {
+    for (const config of getEnabledTenantWhatsAppConfigs.all()) {
+      const state = tenantState(config.school_id);
+      if (!state) continue;
+      const schoolName = state.school?.name || "Sekolah";
+      const todayParts = getLocalDateParts(config.timezone);
+      const today = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+      const isReminderTime = `${todayParts.hour}:${todayParts.minute}` === config.send_time;
+      let changed = false;
+      const principalPhone = state.school?.principalWhatsapp || "";
+      if (config.notify_procurements && principalPhone) {
+        for (const procurement of state.procurements || []) {
+          if (procurement.status !== "Pengajuan" || procurement.whatsappNotifiedAt || procurement.whatsappAttemptDate === today) continue;
+          procurement.whatsappAttemptDate = today;
+          changed = true;
+          try {
+            const good = (state.goods || []).find((row) => row.id === procurement.goodId);
+            await sendFonnteMessage(config.token_cipher, principalPhone,
+              `Pengajuan pengadaan baru di ${schoolName}: ${procurement.title || good?.name || "Barang"}. Prioritas: ${procurement.priority || "Normal"}. Pengusul: ${procurement.proposer || "—"}. Silakan tinjau di Sarprah.`);
+            procurement.whatsappNotifiedAt = new Date().toISOString();
+            delete procurement.whatsappLastError;
+          } catch (error) {
+            procurement.whatsappLastError = error.message;
+            console.error(`Notifikasi pengadaan WhatsApp gagal untuk sekolah ${config.school_id}: ${error.message}`);
+          }
+        }
+      }
+      if (config.notify_loans && isReminderTime && config.last_run_date !== today) {
+        for (const loan of state.loans || []) {
+          if (!["Diterima", "Dipinjam"].includes(loan.status) || !loan.whatsapp || !loan.dueDate) continue;
+          const dueTimestamp = Date.parse(`${loan.dueDate}T00:00:00Z`);
+          const todayTimestamp = Date.parse(`${today}T00:00:00Z`);
+          if (!Number.isFinite(dueTimestamp) || !Number.isFinite(todayTimestamp)) continue;
+          const remainingDays = Math.round((dueTimestamp - todayTimestamp) / 86_400_000);
+          if (remainingDays > Number(config.reminder_days)) continue;
+          const reminderKey = remainingDays < 0 ? `overdue-${loan.dueDate}` : `due-${loan.dueDate}`;
+          if (loan.whatsappReminderSentKey === reminderKey || loan.whatsappReminderAttemptDate === today) continue;
+          loan.whatsappReminderAttemptDate = today;
+          changed = true;
+          try {
+            const good = (state.goods || []).find((row) => row.id === loan.goodId);
+            const message = remainingDays < 0
+              ? `Pengingat Sarprah ${schoolName}: peminjaman ${good?.name || "barang"} sudah terlambat ${Math.abs(remainingDays)} hari. Mohon segera mengembalikan barang.`
+              : `Pengingat Sarprah ${schoolName}: masa pinjam ${good?.name || "barang"} akan berakhir ${remainingDays === 0 ? "hari ini" : `dalam ${remainingDays} hari`} (jatuh tempo ${loan.dueDate}).`;
+            await sendFonnteMessage(config.token_cipher, loan.whatsapp, message);
+            loan.whatsappReminderSentKey = reminderKey;
+            loan.whatsappReminderSentAt = new Date().toISOString();
+            delete loan.whatsappReminderLastError;
+          } catch (error) {
+            loan.whatsappReminderLastError = error.message;
+            console.error(`Pengingat peminjaman WhatsApp gagal untuk sekolah ${config.school_id}: ${error.message}`);
+          }
+        }
+        setTenantWhatsAppLastRun.run(today, config.school_id);
+      }
+      if (changed) saveTenantStateRow.run(config.school_id, JSON.stringify(state));
+    }
+  } finally {
+    whatsappSchedulerRunning = false;
   }
 }
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`Sarprah siap di http://localhost:${port}`);
 });
-setInterval(() => { runTelegramBackupIfDue().catch((error) => console.error(`Scheduler backup gagal: ${error.message}`)); }, 15_000);
+setInterval(() => {
+  runTelegramBackupIfDue().catch((error) => console.error(`Scheduler backup gagal: ${error.message}`));
+  runWhatsAppNotificationsIfDue().catch((error) => console.error(`Scheduler WhatsApp gagal: ${error.message}`));
+}, 15_000);

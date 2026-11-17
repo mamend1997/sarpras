@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f97316">
+  <title>Portal Inventaris Sekolah — Sarprah</title>
+  <link rel="stylesheet" href="assets/css/public-portal.css">
+</head>
+<body>
+  <main class="public-shell">
+    <header class="public-header">
+      <a class="public-brand" href="/" aria-label="Sarprah">
+        <span class="public-brand-mark" aria-hidden="true">S</span>
+        <span><b>Sarprah</b><small>Portal inventaris publik</small></span>
+      </a>
+      <span class="public-badge"><span></span>Informasi inventaris</span>
+    </header>
+    <section class="public-hero">
+      <div>
+        <p class="public-eyebrow">TRANSPARANSI SARANA SEKOLAH</p>
+        <h1 id="schoolName">Inventaris sekolah</h1>
+        <p>Cari barang atau pindai QR item untuk melihat ketersediaan dan ringkasan kondisinya.</p>
+      </div>
+      <div class="public-hero-icon" aria-hidden="true">⌕</div>
+    </section>
+    <section class="public-search-card" aria-label="Cari inventaris">
+      <form id="searchForm" class="public-search-form">
+        <label for="inventorySearch">Nama barang atau kode QR</label>
+        <div class="public-search-control">
+          <input id="inventorySearch" type="search" placeholder="Contoh: proyektor atau kode item" autocomplete="off">
+          <button class="public-button" type="submit">Cari barang</button>
+        </div>
+      </form>
+      <div class="public-scan-row">
+        <button id="startScan" class="public-button public-button-soft" type="button">Pindai barcode / QR</button>
+        <button id="stopScan" class="public-button public-button-soft" type="button" hidden>Hentikan pemindaian</button>
+        <span id="scanMessage" role="status">Kamera tersedia pada browser dan perangkat yang mendukung pemindaian.</span>
+      </div>
+      <div id="scannerPanel" class="public-scanner" hidden>
+        <video id="scannerVideo" playsinline muted></video>
+        <p>Arahkan kamera ke kode QR atau barcode barang.</p>
+      </div>
+    </section>
+    <div class="public-content">
+      <section class="public-results">
+        <div class="public-section-heading"><div><p class="public-eyebrow">DAFTAR INVENTARIS</p><h2>Barang tersedia untuk dicari</h2></div><span id="resultCount" class="public-count"></span></div>
+        <div id="inventoryResults" class="public-result-list" aria-live="polite"></div>
+      </section>
+      <aside id="inventoryDetail" class="public-detail" aria-live="polite">
+        <div class="public-detail-empty"><span>▧</span><h2>Pilih barang</h2><p>Pilih barang dari hasil pencarian untuk melihat jumlah tersedia dan ringkasan kondisinya.</p></div>
+      </aside>
+    </div>
+    <footer class="public-footer">Portal publik menampilkan ringkasan inventaris saja. Data diperbarui oleh administrator sekolah.</footer>
+  </main>
+  <script src="assets/js/public-portal.js"></script>
+</body>
+</html>

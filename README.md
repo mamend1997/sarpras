@@ -2,6 +2,14 @@
 
 Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML, Tailwind CSS, dan JavaScript tanpa proses build; data disimpan di SQLite saat dijalankan melalui server dan tetap memiliki cadangan LocalStorage untuk mode offline.
 
+## SaaS multi-sekolah
+
+- Halaman sekolah: `http://localhost:3000/`. Sekolah baru dapat mendaftar dari tombol **Daftarkan sekolah**; kode tenant 4 digit ditampilkan setelah pendaftaran berhasil.
+- Halaman Super Admin: `http://localhost:3000/super-admin`. Pada penggunaan pertama, buat akun Super Admin khusus. Selanjutnya halaman ini meminta login.
+- Setiap tenant menyimpan inventaris, akun, dan tiket secara terpisah. Super Admin dapat mengatur sekolah, paket dan masa langganan, pembayaran, fitur, branding, QRIS, syarat/SLA, pengumuman, maintenance, panduan, tiket, WhatsApp, audit, serta backup/restore.
+- Database lama dimigrasikan sebagai tenant awal dengan kode `0001`. Data baru disimpan di SQLite pada `DB_PATH`; jangan gunakan database lokal bersama untuk pengujian yang mengubah data.
+- Fitur maintenance dan masa aktif diperiksa pada autentikasi dan API, bukan hanya disembunyikan dari antarmuka. Backup SaaS berisi data semua tenant dan kredensial hash Super Admin; simpan file backup seperti rahasia dan lindungi kunci enkripsi bersama file database.
+
 ## Menjalankan aplikasi
 
 1. Pasang Node.js 22.5 atau lebih baru.
@@ -10,12 +18,13 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 
 Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web service Railway. Berkas database `sarprah.sqlite` dibuat otomatis di folder proyek dan tidak perlu di-commit. Untuk Railway, tambahkan Volume persisten dan set `DB_PATH` ke lokasi mount volume, misalnya `/data/sarprah.sqlite`.
 
-## Akun demo
+## Akun sekolah lama
 
 - Email: `admin@sarprah.id`
 - Kata sandi: `sarprah123`
+- Kode sekolah setelah migrasi database lama: `0001`
 
-Data contoh dimuat otomatis saat database masih kosong. Jika server tidak tersedia, aplikasi tetap dapat dicoba di browser dan perubahan disimpan pada LocalStorage browser tersebut.
+Data contoh lama tetap tersedia setelah database dimigrasikan. Sekolah baru dapat mendaftar sendiri atau dibuat oleh Super Admin.
 
 ## Backup & Telegram
 
