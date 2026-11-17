@@ -189,6 +189,17 @@
     return Boolean(account?.id && localStorage.getItem(pendingAccountKey(account.id)) === "1");
   }
 
+  function readPendingLocalAccounts() {
+    let accounts = state.accounts;
+    try {
+      const cached = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+      if (Array.isArray(cached?.accounts)) accounts = cached.accounts;
+    } catch (error) {
+      showToast(`Akun lokal yang belum tersinkron tidak dapat dibaca: ${error.message}`, true);
+    }
+    return accounts.filter(isPendingLocalAccount);
+  }
+
   function markPendingLocalAccount(account) {
     try { localStorage.setItem(pendingAccountKey(account.id), "1"); }
     catch (error) { showToast(`Status sinkronisasi akun gagal disimpan: ${error.message}`, true); }
@@ -652,6 +663,42 @@
         showToast(`Data awal gagal disimpan ke SQLite: ${error.message}`, true);
       }
     } else if (ownershipsChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged) saveState();
+  }
+
+  async function syncPendingLocalAccounts(pendingAccounts) {
+    if (!apiAvailable || !pendingAccounts.length) return;
+    let accountsAdded = false;
+    let accountConflict = false;
+    const accountsToClear = [];
+    pendingAccounts.forEach((account) => {
+      const email = String(account.email || "").toLowerCase();
+      const existing = state.accounts.find((row) => row.id === account.id || String(row.email || "").toLowerCase() === email);
+      if (!existing) {
+        state.accounts.unshift(account);
+        accountsAdded = true;
+        accountsToClear.push(account);
+      } else if (existing.id === account.id
+        && String(existing.email || "").toLowerCase() === email
+        && existing.passwordSalt === account.passwordSalt
+        && existing.passwordHash === account.passwordHash) {
+        accountsToClear.push(account);
+      } else {
+        accountConflict = true;
+      }
+    });
+    if (accountsAdded) {
+      try {
+        const synced = await persistState();
+        if (synced && apiAvailable) accountsToClear.forEach(clearPendingLocalAccount);
+        else showToast("Akun lokal belum berhasil disinkronkan ke server. Akun tetap tersimpan di perangkat ini dan akan dicoba kembali saat Administrator masuk.", true);
+      } catch (error) {
+        apiAvailable = false;
+        showToast(`Akun lokal belum tersinkron ke server: ${error.message}`, true);
+      }
+    } else {
+      accountsToClear.forEach(clearPendingLocalAccount);
+    }
+    if (accountConflict) showToast("Email akun lokal bertentangan dengan akun di server. Periksa dan sesuaikan akun melalui menu Pengaturan.", true);
   }
 
   function ownershipNameFromLegacy(value, legacyOther = "") {
@@ -2836,7 +2883,7 @@
       const email = $("#loginEmail").value.trim().toLowerCase(), password = $("#loginPassword").value;
       $("#loginError").textContent = "";
       const localStateRecovery = readPendingServerState();
-      const pendingLocalAccounts = state.accounts.filter(isPendingLocalAccount);
+      const pendingLocalAccounts = readPendingLocalAccounts();
       let online = false;
       let pendingLocalLogin = false;
       let authenticatedRole = "";
@@ -2857,40 +2904,7 @@
           apiAvailable = true;
           authenticatedRole = auth.user?.role || "";
           await loadState();
-          if (apiAvailable && authenticatedRole === "Administrator" && pendingLocalAccounts.length) {
-            let accountsAdded = false;
-            let accountConflict = false;
-            const accountsToClear = [];
-            pendingLocalAccounts.forEach((account) => {
-              const email = String(account.email || "").toLowerCase();
-              const existing = state.accounts.find((row) => row.id === account.id || String(row.email || "").toLowerCase() === email);
-              if (!existing) {
-                state.accounts.unshift(account);
-                accountsAdded = true;
-                accountsToClear.push(account);
-              } else if (existing.id === account.id
-                && String(existing.email || "").toLowerCase() === email
-                && existing.passwordSalt === account.passwordSalt
-                && existing.passwordHash === account.passwordHash) {
-                accountsToClear.push(account);
-              } else {
-                accountConflict = true;
-              }
-            });
-            if (accountsAdded) {
-              try {
-                const synced = await persistState();
-                if (synced && apiAvailable) accountsToClear.forEach(clearPendingLocalAccount);
-                else showToast("Akun lokal belum berhasil disinkronkan ke server. Akun tetap tersimpan di perangkat ini dan akan dicoba kembali saat Administrator masuk.", true);
-              } catch (error) {
-                apiAvailable = false;
-                showToast(`Akun lokal belum tersinkron ke server: ${error.message}`, true);
-              }
-            } else {
-              accountsToClear.forEach(clearPendingLocalAccount);
-            }
-            if (accountConflict) showToast("Email akun lokal bertentangan dengan akun di server. Periksa dan sesuaikan akun melalui menu Pengaturan.", true);
-          }
+          if (apiAvailable && authenticatedRole === "Administrator") await syncPendingLocalAccounts(pendingLocalAccounts);
         }
       } catch {
         apiAvailable = false;
@@ -2992,8 +3006,10 @@
       sessionUser = (await response.json()).user;
       if (sessionUser) {
         apiAvailable = true;
+        const pendingLocalAccounts = readPendingLocalAccounts();
         await loadState();
         activeUser = getById("accounts", sessionUser.id);
+        if (activeUser?.role === "Administrator") await syncPendingLocalAccounts(pendingLocalAccounts);
       } else {
         apiAvailable = false;
         const cached = localStorage.getItem(STORE_KEY);
