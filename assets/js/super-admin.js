@@ -198,7 +198,7 @@
     let body = "";
     if (tab === "info") {
       body = `<form id="schoolInfoForm"><div class="form-grid">
-        ${field("Nama sekolah", "name", school.name, "text", "required")}${field("Kode sekolah", "code", school.code, "text", "readonly")}
+        ${field("Nama sekolah", "name", school.name, "text", "required")}${field("Kode sekolah (4 karakter)", "code", school.code, "text", "required minlength=4 maxlength=4 pattern=[A-Za-z0-9]{4}")}
         ${field("Jenjang", "level", school.level)}${field("Email sekolah", "email", school.email, "email")}
         ${field("Telepon / WhatsApp", "phone", school.phone)}${field("Domain", "domain", school.domain)}
         ${field("Nama kepala sekolah", "principalName", school.principalName)}
@@ -292,8 +292,25 @@
   }
   function pricingView() {
     const settings = data.settings;
+    const gateways = settings.paymentGateways || {};
+    const callbackUrl = (provider) => `${window.location.origin}/api/payments/webhook/${provider}`;
+    const gatewayForm = (provider, title, envName, fields, note) => {
+      const config = gateways[provider] || {};
+      return panel(title, `<form data-gateway-form="${provider}">
+        <label class="check-option"><input type="checkbox" name="enabled" ${config.enabled ? "checked" : ""}>Aktifkan ${title}</label>
+        ${selectField("Mode", "environment", config.environment || "sandbox", [["sandbox", "Sandbox / test"], ["production", "Produksi"]])}
+        ${fields}
+        <p class="help-text">${config.configured ? "Kredensial tersimpan terenkripsi. Kosongkan kolom rahasia agar tetap memakai kredensial saat ini." : "Kredensial belum lengkap."}</p>
+        <p class="help-text">${note}<br>Callback: <code>${esc(callbackUrl(provider))}</code></p>
+        <div class="modal-actions"><button class="primary">Simpan konfigurasi ${title}</button></div>
+      </form>`);
+    };
     return `${intro("QRIS & harga", "Kelola informasi pembayaran dan tarif langganan per periode.")}${panel("Harga berlangganan", `<form id="pricingForm"><div class="form-grid">${field("Bulanan (Rp)", "monthly", settings.pricing?.monthly || 0, "number", "min=0")}${field("Semester (Rp)", "semester", settings.pricing?.semester || 0, "number", "min=0")}${field("Tahunan (Rp)", "yearly", settings.pricing?.yearly || 0, "number", "min=0")}${field("Masa trial default (hari)", "trialDays", settings.trialDays ?? 14, "number", "min=0 max=365")}</div><div class="modal-actions"><button class="primary">Simpan harga</button></div></form>`)}
-      ${panel("QRIS pembayaran", `<form id="qrisForm"><label class="field">Unggah gambar QRIS<input name="qrisFile" type="file" accept="image/png,image/jpeg,image/webp"></label>${settings.qrisImage ? `<img src="${esc(settings.qrisImage)}" alt="QRIS aktif" style="max-width:180px;max-height:180px;border:1px solid #e9edf2;border-radius:12px;padding:8px">` : `<p class="help-text">Belum ada gambar QRIS.</p>`}<div class="modal-actions"><button class="primary">Simpan QRIS</button></div></form>`)}`;
+      ${panel("QRIS manual", `<form id="qrisForm"><label class="field">Unggah gambar QRIS<input name="qrisFile" type="file" accept="image/png,image/jpeg,image/webp"></label>${settings.qrisImage ? `<img src="${esc(settings.qrisImage)}" alt="QRIS aktif" style="max-width:180px;max-height:180px;border:1px solid #e9edf2;border-radius:12px;padding:8px">` : `<p class="help-text">Belum ada gambar QRIS manual.</p>`}<div class="modal-actions"><button class="primary">Simpan QRIS manual</button></div></form>`) }
+      <p class="help-text">Gateway otomatis dapat diaktifkan terpisah dari QRIS manual. Atur kredensial sandbox lebih dahulu, lalu daftarkan callback URL pada dashboard penyedia.</p>
+      ${gatewayForm("kasera", "Kasera Pay", "environment", `${field("API key", "apiKey", "", "password", "autocomplete=new-password")}${field("Webhook signing secret", "webhookSecret", "", "password", "autocomplete=new-password")}`, "Kasera memverifikasi webhook dengan Kasera-Signature-V1.")}
+      ${gatewayForm("xendit", "Xendit", "environment", `${field("Secret API key", "secretKey", "", "password", "autocomplete=new-password")}${field("Callback verification token", "callbackToken", "", "password", "autocomplete=new-password")}`, "Atur callback token yang sama pada konfigurasi webhook Invoice Xendit.")}
+      ${gatewayForm("duitku", "Duitku", "environment", `${field("Merchant Code", "merchantCode", "", "text", "autocomplete=off")}${field("API key", "apiKey", "", "password", "autocomplete=new-password")}`, "Callback Duitku diverifikasi menggunakan signature HMAC/MD5 sesuai API.")}`;
   }
   function termsView() {
     return `${intro("Syarat & SLA", "Konten ini ditampilkan kepada pengguna akun sekolah.")}${panel("Ketentuan layanan", `<form id="termsForm">${textarea("Syarat penggunaan", "terms", data.settings.terms || "", "rows=9")}${textarea("SLA / tingkat layanan", "sla", data.settings.sla || "", "rows=7")}<div class="modal-actions"><button class="primary">Simpan syarat & SLA</button></div></form>`)}`;
@@ -339,8 +356,8 @@
   }
   function whatsappView() {
     const wa = data.settings.whatsapp || {};
-    return `${intro("WhatsApp Gateway", "Konfigurasikan WhatsApp Cloud API untuk pemberitahuan tagihan dan informasi sekolah.")}<div class="grid-2">
-      ${panel("Konfigurasi Cloud API", `<form id="whatsappForm">${field("Phone Number ID", "phoneNumberId", wa.phoneNumberId || "", "text", "inputmode=numeric")}${field("Graph API version", "graphVersion", wa.graphVersion || "v22.0")}${field("Access token (rahasia)", "accessToken", "", "password", "autocomplete=new-password") }<p class="help-text">${wa.configured ? "Token sudah tersimpan terenkripsi. Kosongkan untuk mempertahankan token." : "Token belum disimpan."}</p><div class="modal-actions"><button class="primary">Simpan konfigurasi</button></div></form>`)}
+    return `${intro("WhatsApp Gateway", "Gunakan Fonnte untuk mengirim pesan uji dan menghubungkan notifikasi WhatsApp sekolah.")}<div class="grid-2">
+      ${panel("Konfigurasi Fonnte", `<form id="whatsappForm">${field("Token API Fonnte", "fonnteToken", "", "password", "autocomplete=new-password") }<p class="help-text">${wa.configured ? "Token Fonnte tersimpan terenkripsi. Kosongkan untuk mempertahankan token." : "Token Fonnte belum disimpan."}</p><label class="check-option"><input type="checkbox" name="registrationOtpEnabled" ${wa.registrationOtpEnabled ? "checked" : ""}>Wajibkan kode OTP WhatsApp untuk pendaftaran sekolah</label><p class="help-text">Pendaftar harus memverifikasi nomor WhatsApp sebelum tenant dibuat. Fonnte wajib dikonfigurasi terlebih dahulu.</p><div class="modal-actions"><button class="primary">Simpan konfigurasi</button></div></form>`)}
       ${panel("Kirim pesan uji", `<form id="whatsappSendForm">${field("Nomor tujuan (internasional)", "to", "", "tel", "placeholder=6281234567890 required")}${textarea("Pesan", "text", "Informasi layanan Sarprah.", "required maxlength=4000")}<div class="modal-actions"><button class="secondary">Kirim pesan</button></div></form>`)}</div>`;
   }
   function backupView() {
@@ -459,6 +476,31 @@
         await savePlatform({ settings: { ...data.settings, qrisImage: qrisImage || data.settings.qrisImage } });
       } catch (error) { toast(error.message, true); }
     });
+    document.querySelectorAll("[data-gateway-form]").forEach((form) => form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const provider = form.dataset.gatewayForm;
+      const payload = {
+        enabled: form.elements.enabled.checked,
+        environment: form.elements.environment.value
+      };
+      if (provider === "kasera") {
+        payload.apiKey = form.elements.apiKey.value.trim();
+        payload.webhookSecret = form.elements.webhookSecret.value.trim();
+      } else if (provider === "xendit") {
+        payload.secretKey = form.elements.secretKey.value.trim();
+        payload.callbackToken = form.elements.callbackToken.value.trim();
+      } else {
+        payload.merchantCode = form.elements.merchantCode.value.trim();
+        payload.apiKey = form.elements.apiKey.value.trim();
+      }
+      try {
+        const result = await api(`/api/platform/payment-gateways/${provider}`, "PUT", payload);
+        data.settings.paymentGateways = { ...(data.settings.paymentGateways || {}), [provider]: result.gateway };
+        toast(`${provider} berhasil diperbarui.`);
+        renderView();
+      } catch (error) { toast(error.message, true); }
+    }));
     $("#termsForm")?.addEventListener("submit", (event) => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -481,9 +523,12 @@
       event.preventDefault();
       const form = event.currentTarget;
       try {
-        const result = await api("/api/platform/whatsapp", "PUT", { phoneNumberId: form.elements.phoneNumberId.value.trim(), graphVersion: form.elements.graphVersion.value.trim(), accessToken: form.elements.accessToken.value });
-        data.settings.whatsapp = { phoneNumberId: form.elements.phoneNumberId.value.trim(), graphVersion: form.elements.graphVersion.value.trim(), configured: result.configured };
-        toast("Konfigurasi WhatsApp disimpan.");
+        const result = await api("/api/platform/whatsapp", "PUT", {
+          fonnteToken: form.elements.fonnteToken.value.trim(),
+          registrationOtpEnabled: form.elements.registrationOtpEnabled.checked
+        });
+        data.settings.whatsapp = { configured: result.configured, registrationOtpEnabled: result.registrationOtpEnabled };
+        toast("Konfigurasi Fonnte dan OTP pendaftaran disimpan.");
         renderView();
       } catch (error) { toast(error.message, true); }
     });

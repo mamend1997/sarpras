@@ -41,6 +41,16 @@ Data contoh lama tetap tersedia setelah database dimigrasikan. Sekolah baru dapa
 - Login sebagai Administrator, buka **Backup & Telegram**, lalu gunakan **Backup sekarang** untuk mengunduh file JSON.
 - Restore menerima file backup JSON Sarprah dan mengganti seluruh data aplikasi. Buat backup sebelum melakukan restore.
 - Di **Data Sekolah → Identitas Aplikasi**, Administrator dapat mengubah nama dan logo aplikasi. Nama memperbarui label aplikasi serta judul tab browser; logo juga otomatis digunakan sebagai favicon.
+- **Manajemen File** hanya tersedia untuk Administrator. Halaman ini menampilkan gambar yang tersimpan dalam data tenant dan menghapus gambar tanpa menghapus transaksi atau inventaris terkait. Dashboard menampilkan pemakaian dan sisa kuota foto; kuota default 100 MB dapat diubah dengan `SARPRAH_TENANT_STORAGE_QUOTA_MB`.
+- Pemulihan perubahan lokal yang tertunda dilakukan otomatis saat Administrator masuk kembali. Salinan pemulihan dipisahkan menurut kode sekolah agar tidak tercampur antar-tenant; login offline hanya berlaku untuk sekolah yang sama dengan data lokal.
+- Pilihan warna tema, Syarat & SLA, serta Petunjuk Pengguna tersedia untuk akun sekolah. Super Admin mengelola konten Syarat & SLA dan panduan melalui halaman administrasi platform.
+- Cetak BAST tersedia untuk perpindahan barang, pengadaan, dan pemusnahan. Isi nomor berita acara, pihak yang menyerahkan/menerima, lalu gunakan cetak dokumen; laporan dan dokumen menggunakan tata letak print.
+
+## Pembayaran QRIS dan OTP pendaftaran
+
+- Super Admin dapat mengaktifkan atau menonaktifkan gateway pembayaran otomatis Kasera Pay, Xendit, dan Duitku secara terpisah dari QRIS manual. Simpan kredensial pada **QRIS & harga**, uji pada mode sandbox, lalu daftarkan URL callback yang ditampilkan pada dashboard penyedia.
+- Checkout pembayaran memerlukan domain HTTPS publik; atur `PUBLIC_APP_URL` di server produksi. Webhook memverifikasi signature/token dan nominal sebelum mengubah status tagihan. Pastikan metode QRIS diaktifkan pada akun merchant penyedia.
+- Di **WhatsApp Gateway**, masukkan token API Fonnte dan aktifkan/nonaktifkan OTP pendaftaran. OTP hanya tersedia jika token Fonnte telah tersimpan; kode berlaku 10 menit dan pendaftaran sekolah tidak meminta jenjang.
 
 ## Pemindaian barcode dan supplier
 
@@ -49,7 +59,8 @@ Data contoh lama tetap tersedia setelah database dimigrasikan. Sekolah baru dapa
 - **Tambah barang yang sudah ada** mencatat tanggal pembelian, sumber dana, supplier, jumlah, dan harga lalu menambahkan stok tanpa membuat master barang baru. **Tambah barang baru** tetap tersedia untuk mendaftarkan barang berbeda.
 - Menu **Pindah Ruang Barang** memilih barang dari Data Barang, lalu memperbarui ruang barang beserta lokasi item inventaris terkait. Tanggal pemindahan, ruang asal/tujuan, dan penanggung jawab dicatat untuk laporan **Riwayat Pergerakan Aset**. Laporan ini menampilkan peminjaman dan pengembalian sebagai peristiwa terpisah sesuai tanggalnya.
 - Menu **Portal Publik** membuat link otomatis dari kode sekolah, menampilkan QR Code yang dapat diunduh, dan menyediakan aksi salin link.
-- Pada form harga, pemisah ribuan menggunakan titik dan nilai tetap disimpan sebagai angka. Pada stock opname, pilih barang manual atau pindai kode item; stok lama terisi otomatis dari stok saat ini, stok baru wajib diisi, dan total stok tetap ditampilkan sebagai jumlah tanpa awalan Rp.
+- Pada form harga, pemisah ribuan menggunakan titik dan nilai tetap disimpan sebagai angka. Pada stock opname, pilih barang manual atau pindai kode item; stok lama terisi otomatis dari stok saat ini, stok baru wajib diisi, dan total stok tetap ditampilkan sebagai jumlah tanpa awalan Rp. Selisih stok lama dan hasil fisik dicatat sebagai jumlah kehilangan dengan status penanganan; kondisi item dapat ditandai Baik, Rusak, Rusak Berat, atau Hilang.
+- Menu **Laporan** menyediakan Kondisi Barang per Ruangan, Kerusakan & Kehilangan Aset, Jadwal Pemeliharaan / Servis, serta Berita Acara Stock Opname selain rekap inventaris dan laporan transaksi. Gunakan filter bulan, tahun pelajaran atau rentang tanggal, sumber dana, dan ruangan/lokasi; laporan dapat dicetak dengan kop serta ruang tanda tangan atau diekspor ke Excel.
 - Data supplier mencakup nama, alamat, nomor telepon, serta email opsional.
 - Grup navigasi sidebar bekerja sebagai accordion: hanya satu grup submenu yang terbuka pada satu waktu.
 - Buat bot melalui `@BotFather`, mulai percakapan dengan bot, lalu masukkan chat ID serta token bot di pengaturan. Token disimpan terenkripsi di server dan tidak dikirim balik ke browser.

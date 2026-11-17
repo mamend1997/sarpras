@@ -3,6 +3,9 @@
 
   const STORE_KEY = "sarprah-state-v1";
   const PENDING_STATE_KEY = "sarprah-pending-server-state-v1";
+  const ACTIVE_SCHOOL_CODE_KEY = "sarprah-active-school-code-v1";
+  const CACHED_STATE_SCHOOL_CODE_KEY = "sarprah-state-school-code-v1";
+  const pendingServerStateKey = (schoolCode) => `${PENDING_STATE_KEY}:${String(schoolCode || "").trim().toUpperCase()}`;
   const pendingAccountKey = (accountId) => `${STORE_KEY}:pending-account:${accountId}`;
   const today = new Date();
   const dateOffset = (days) => new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
@@ -71,8 +74,8 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "assetMovements", "loans", "procurements", "disposals", "depreciations", "reports", "activityLog", "trash", "helpTickets", "userGuide", "publicPortal"];
-  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view", activityLog: "view", helpTickets: "edit", userGuide: "view" };
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "assetMovements", "loans", "procurements", "disposals", "depreciations", "reports", "activityLog", "trash", "helpTickets", "userGuide", "termsSla", "subscriptionBilling", "theme", "fileManager", "publicPortal"];
+  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view", activityLog: "view", helpTickets: "edit", userGuide: "view", termsSla: "view", subscriptionBilling: "view", theme: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
     Object.fromEntries(permissionPages.map((key) => [key, defaultMenuPermissions[key] || "hidden"]))
@@ -132,12 +135,25 @@
     settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", customHeaderLines: [], headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() }
   };
 
+  const themePalette = {
+    orange: { label: "Oranye", primary: "#f97316", dark: "#ea580c", soft: "#fff1e7" },
+    blue: { label: "Biru", primary: "#2563eb", dark: "#1d4ed8", soft: "#eff6ff" },
+    green: { label: "Hijau", primary: "#16a36a", dark: "#128052", soft: "#eaf8f1" },
+    purple: { label: "Ungu", primary: "#7c3aed", dark: "#6d28d9", soft: "#f3edff" },
+    teal: { label: "Toska", primary: "#0f9f9a", dark: "#0f766e", soft: "#e6fffb" }
+  };
+
   const state = structuredClone(seed);
   let page = "dashboard";
   let activeUser = null;
   let tenantFeatureAccess = {};
   let tenantSchool = null;
   let tenantPortalContent = { terms: "", sla: "", announcements: [], manuals: [] };
+  let tenantBillingData = null;
+  let registrationOtpRequired = false;
+  let registrationOtpSentPhone = "";
+  let storageUsageData = null;
+  let pendingStateRecoveryKey = "";
   let apiAvailable = false;
   let activeBarcodeScanner = null;
   let goodsCheckStream = null;
@@ -187,6 +203,10 @@
     trash: ["Kotak Sampah", "Pulihkan data yang dihapus atau hapus permanen.", "trash-2"],
     helpTickets: ["Bantuan & Tiket Kendala", "Temukan bantuan atau kirim laporan kendala.", "life-buoy"],
     userGuide: ["Petunjuk Pengguna", "Panduan menggunakan fitur-fitur Sarprah.", "book-open"],
+    termsSla: ["Syarat & SLA", "Baca ketentuan penggunaan dan tingkat layanan yang ditetapkan Super Admin.", "file-check-2"],
+    subscriptionBilling: ["Tagihan & Pembayaran", "Lihat tagihan langganan dan lanjutkan pembayaran melalui gateway yang aktif.", "credit-card"],
+    theme: ["Tema", "Pilih warna dasar tampilan akun sekolah.", "palette"],
+    fileManager: ["Manajemen File", "Lihat foto dan gambar yang tersimpan di data sekolah.", "images"],
     accounts: ["Pengaturan", "Kelola akun pengguna, hak akses, dan identitas aplikasi.", "settings-2"],
     backup: ["Backup & Telegram", "Unduh dan pulihkan data, serta atur backup otomatis ke Telegram.", "database-backup"],
     publicPortal: ["Portal Publik", "Bagikan informasi ketersediaan barang sekolah melalui portal publik.", "globe-2"],
@@ -200,8 +220,8 @@
       { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"], ["assetMovements", "Pindah Ruang Barang"], ["repairTickets", "Tiket Perbaikan"], ["maintenanceCalendar", "Kalender Pemeliharaan"]] },
       { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["ownerships", "Kepemilikan"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
     ] },
-    { section: "BANTUAN & RIWAYAT", links: [{ id: "activityLog", label: "Log Aktivitas", icon: "history" }, { id: "trash", label: "Kotak Sampah", icon: "trash-2" }, { id: "helpTickets", label: "Bantuan & Tiket Kendala", icon: "life-buoy" }, { id: "userGuide", label: "Petunjuk Pengguna", icon: "book-open" }] },
-    { links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "publicPortal", label: "Portal Publik", icon: "globe-2" }, { id: "waNotifications", label: "Notifikasi WhatsApp", icon: "message-circle" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
+    { section: "BANTUAN & RIWAYAT", links: [{ id: "activityLog", label: "Log Aktivitas", icon: "history" }, { id: "trash", label: "Kotak Sampah", icon: "trash-2" }, { id: "helpTickets", label: "Bantuan & Tiket Kendala", icon: "life-buoy" }, { id: "userGuide", label: "Petunjuk Pengguna", icon: "book-open" }, { id: "termsSla", label: "Syarat & SLA", icon: "file-check-2" }] },
+    { links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "subscriptionBilling", label: "Tagihan & Pembayaran", icon: "credit-card" }, { id: "theme", label: "Tema", icon: "palette" }, { id: "fileManager", label: "Manajemen File", icon: "images" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "publicPortal", label: "Portal Publik", icon: "globe-2" }, { id: "waNotifications", label: "Notifikasi WhatsApp", icon: "message-circle" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
   ];
 
   const collectionConfig = {
@@ -214,9 +234,9 @@
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     academicYears: { title: "Tahun Pelajaran", description: "Kelola periode tahun ajaran dan salin data master serta barang dari tahun sebelumnya.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["startDate", "Tanggal Mulai"], ["endDate", "Tanggal Selesai"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["startDate", "Tanggal Mulai", "date", true], ["endDate", "Tanggal Selesai", "date", true], ["copyPreviousData", "Salin data master dan barang beserta stok terakhir dari tahun sebelumnya", "checkbox"], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
     goods: { title: "Data Barang", description: "Informasi barang, tanggal barang masuk, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["receivedDate", "Tanggal Barang Masuk"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["receivedDate", "Tanggal Barang Masuk (opsional)", "date"], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
-    items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
+    items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak", "Rusak Berat", "Hilang"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
-    stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
+    stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"], ["missingQuantity", "Jumlah Hilang"], ["lossStatus", "Status Penanganan"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true], ["lossStatus", "Status Penanganan Kehilangan", "select", false, ["Perlu penelusuran", "Dilaporkan", "Ditemukan", "Selesai"]]] },
     repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan (opsional)", "file"], ["goodId", "Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
     maintenanceSchedules: { title: "Jadwal Pemeliharaan", description: "Atur jadwal, biaya, status pengerjaan, dan servis berikutnya.", singular: "Jadwal", cols: [["date", "Tanggal Servis"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["type", "Jenis Perawatan"], ["status", "Status Pengerjaan"], ["estimatedCost", "Estimasi Biaya"], ["nextServiceDate", "Servis Berikutnya"], ["technician", "Teknisi"], ["description", "Deskripsi"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["type", "Jenis Perawatan", "select", true, maintenanceTypes], ["date", "Tanggal Servis", "date", true], ["estimatedCost", "Estimasi Biaya Perawatan (Rp)", "number"], ["status", "Status Pengerjaan", "select", true, maintenanceStatuses], ["nextServiceDate", "Tanggal Servis Berikutnya (opsional)", "date"], ["technician", "Nama Teknisi (opsional)", "text"], ["description", "Deskripsi", "textarea"]] },
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["whatsapp", "Nomor WhatsApp Peminjam (opsional)", "tel"], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
@@ -360,10 +380,12 @@
     return Boolean(account?.id && localStorage.getItem(pendingAccountKey(account.id)) === "1");
   }
 
-  function readPendingLocalAccounts() {
+  function readPendingLocalAccounts(schoolCode) {
     let accounts = state.accounts;
     try {
       const cached = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+      const cachedCode = localStorage.getItem(CACHED_STATE_SCHOOL_CODE_KEY) || cached?.school?.code || "";
+      if (String(cachedCode).toUpperCase() !== String(schoolCode || "").toUpperCase()) return [];
       if (Array.isArray(cached?.accounts)) accounts = cached.accounts;
     } catch (error) {
       showToast(`Akun lokal yang belum tersinkron tidak dapat dibaca: ${error.message}`, true);
@@ -382,12 +404,39 @@
 
   function cachePendingServerState() {
     try {
-      localStorage.setItem(PENDING_STATE_KEY, JSON.stringify(state));
+      const schoolCode = activeSchoolCode();
+      const key = schoolCode ? pendingServerStateKey(schoolCode) : PENDING_STATE_KEY;
+      localStorage.setItem(key, JSON.stringify({ schoolCode, state }));
       return true;
     } catch (error) {
       showToast(`Perubahan belum tersinkron dan salinan pemulihan gagal disimpan: ${error.message}`, true);
       return false;
     }
+  }
+
+  function hasPendingServerStateForCurrentSchool() {
+    const schoolCode = activeSchoolCode();
+    return Boolean(schoolCode && localStorage.getItem(pendingServerStateKey(schoolCode)));
+  }
+
+  function activeSchoolCode() {
+    return String(tenantSchool?.code || localStorage.getItem(ACTIVE_SCHOOL_CODE_KEY) || state.school?.code || "").trim().toUpperCase();
+  }
+
+  function storeLocalState() {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    const schoolCode = activeSchoolCode();
+    if (schoolCode) localStorage.setItem(CACHED_STATE_SCHOOL_CODE_KEY, schoolCode);
+  }
+
+  function loadLocalStateForCurrentSchool() {
+    const stored = localStorage.getItem(STORE_KEY);
+    if (!stored) return false;
+    const schoolCode = activeSchoolCode();
+    const cachedCode = String(localStorage.getItem(CACHED_STATE_SCHOOL_CODE_KEY) || "").toUpperCase();
+    if (!schoolCode || !cachedCode || cachedCode !== schoolCode) return false;
+    Object.assign(state, JSON.parse(stored));
+    return true;
   }
 
   function handleStateSyncFailure(status, detail = "") {
@@ -396,15 +445,39 @@
     const reason = status === 401
       ? "Sesi server berakhir (401)."
       : status ? `Server menolak sinkronisasi (HTTP ${status}).` : "Server tidak dapat dijangkau.";
-    showToast(`${reason} Perubahan disimpan lokal; login sebagai Administrator untuk memulihkan atau menggunakan data server.${detail ? ` ${detail}` : ""}`, true);
+    showToast(`${reason} Salinan lokal tetap tersimpan dan akan disinkronkan otomatis saat koneksi pulih atau Administrator masuk kembali.${detail ? ` ${detail}` : ""}`, true);
   }
 
-  function readPendingServerState() {
-    const stored = localStorage.getItem(PENDING_STATE_KEY);
+  function readPendingServerState(schoolCode) {
+    const normalizedCode = String(schoolCode || "").trim().toUpperCase();
+    if (!normalizedCode) return null;
+    const scopedKey = pendingServerStateKey(normalizedCode);
+    let stored = localStorage.getItem(scopedKey);
+    if (!stored) {
+      const legacy = localStorage.getItem(PENDING_STATE_KEY);
+      if (legacy) {
+        try {
+          const legacySnapshot = JSON.parse(legacy);
+          const legacyCode = String(legacySnapshot?.schoolCode || legacySnapshot?.state?.school?.code || legacySnapshot?.school?.code || "").toUpperCase();
+          if (legacyCode === normalizedCode) {
+            stored = legacy;
+            localStorage.setItem(scopedKey, legacy);
+            localStorage.removeItem(PENDING_STATE_KEY);
+          }
+        } catch (error) {
+          showToast(`Salinan pemulihan lokal tidak dapat dibaca: ${error.message}`, true);
+          return null;
+        }
+      }
+    }
     if (!stored) return null;
     try {
-      const snapshot = JSON.parse(stored);
+      const envelope = JSON.parse(stored);
+      const snapshot = envelope?.state && typeof envelope.state === "object" ? envelope.state : envelope;
+      const storedCode = String(envelope?.schoolCode || snapshot?.school?.code || "").toUpperCase();
       if (!snapshot || typeof snapshot !== "object" || !Array.isArray(snapshot.accounts)) throw new Error("Struktur salinan pemulihan tidak valid.");
+      if (storedCode !== normalizedCode) return null;
+      pendingStateRecoveryKey = scopedKey;
       return snapshot;
     } catch (error) {
       showToast(`Salinan pemulihan lokal tidak dapat dibaca: ${error.message}`, true);
@@ -470,24 +543,25 @@
     if (!select || !frame) return;
     const renderManual = () => {
       const manual = manuals[Number(select.value)];
-      let url;
-      try {
-        url = new URL(manual.url);
-        if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("URL petunjuk tidak aman.");
-        if (manual.type === "link") {
-          frame.innerHTML = `<p>${esc(manual.title)}</p><a class="btn-quiet" href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Buka petunjuk</a>`;
-          return;
-        }
-        if (url.hostname === "youtu.be") url = new URL(`https://www.youtube-nocookie.com/embed/${encodeURIComponent(url.pathname.slice(1))}`);
-        else if (url.hostname.endsWith("youtube.com") && url.pathname === "/watch" && url.searchParams.has("v")) url = new URL(`https://www.youtube-nocookie.com/embed/${encodeURIComponent(url.searchParams.get("v"))}`);
-      } catch {
-        frame.textContent = "Tautan petunjuk tidak valid.";
-        return;
-      }
-      frame.innerHTML = `<iframe title="${esc(manual.title)}" src="${esc(url.href)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>`;
+      frame.innerHTML = tenantManualContent(manual);
     };
     select.addEventListener("change", renderManual);
     renderManual();
+  }
+  function tenantManualContent(manual) {
+    let url;
+    try {
+      url = new URL(manual.url);
+      if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("URL petunjuk tidak aman.");
+      if (manual.type !== "link") {
+        if (url.hostname === "youtu.be") url = new URL(`https://www.youtube-nocookie.com/embed/${encodeURIComponent(url.pathname.slice(1))}`);
+        else if (url.hostname.endsWith("youtube.com") && url.pathname === "/watch" && url.searchParams.has("v")) url = new URL(`https://www.youtube-nocookie.com/embed/${encodeURIComponent(url.searchParams.get("v"))}`);
+      }
+    } catch {
+      return `<p class="form-help">Tautan petunjuk tidak valid.</p>`;
+    }
+    if (manual.type === "link") return `<a class="btn-quiet" href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Buka petunjuk</a>`;
+    return `<iframe title="${esc(manual.title)}" src="${esc(url.href)}" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-presentation"></iframe>`;
   }
 
   function closeTopbarProfileMenu() {
@@ -507,6 +581,12 @@
     let session;
     try { session = JSON.parse(stored); }
     catch {
+      sessionStorage.removeItem("sarprah-user");
+      return false;
+    }
+    const activeCode = String(localStorage.getItem(ACTIVE_SCHOOL_CODE_KEY) || "").toUpperCase();
+    const cachedCode = String(localStorage.getItem(CACHED_STATE_SCHOOL_CODE_KEY) || "").toUpperCase();
+    if (activeCode && activeCode !== cachedCode) {
       sessionStorage.removeItem("sarprah-user");
       return false;
     }
@@ -848,6 +928,10 @@
 
   function applyAppBranding() {
     ensureBrandingDefaults();
+    const theme = themePalette[state.settings.themeColor] || themePalette.orange;
+    document.documentElement.style.setProperty("--theme-primary", theme.primary);
+    document.documentElement.style.setProperty("--theme-dark", theme.dark);
+    document.documentElement.style.setProperty("--theme-soft", theme.soft);
     const appName = state.settings.appName.trim() || "Sarprah";
     const appLogo = state.settings.appLogo;
     document.title = `${appName} — Manajemen Sarana & Prasarana`;
@@ -860,7 +944,7 @@
     const favicon = $("#appFavicon");
     if (appLogo) {
       favicon.href = appLogo;
-      favicon.type = appLogo.match(/^data:(image\/(?:png|jpeg|webp));/)?.[1] || "image/png";
+      favicon.type = appLogo.match(/^data:(image\/(?:png|jpeg|webp|svg\+xml));/)?.[1] || "image/png";
     } else {
       favicon.href = favicon.dataset.defaultHref || favicon.href;
       favicon.type = "image/svg+xml";
@@ -905,18 +989,20 @@
       if (image?.tagName === "IMG") activeUser.avatar = image.src;
       if (password) Object.assign(activeUser, await passwordCredentials(password));
       try {
-        await persistState();
+        const synced = await persistState();
         syncProfile();
         renderPage();
         closeModal();
-        showToast("Profil akun berhasil diperbarui.");
+        showToast(synced
+          ? "Profil akun berhasil diperbarui."
+          : "Profil tersimpan di perangkat ini dan akan disinkronkan otomatis saat koneksi pulih atau Administrator masuk kembali.", !synced);
       } catch (error) { showToast(`Profil gagal disimpan: ${error.message}`, true); }
     });
   }
 
   async function persistState() {
     ensureGoodBarcodes();
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    storeLocalState();
     if (apiAvailable) {
       try {
         const response = await fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
@@ -929,16 +1015,17 @@
         handleStateSyncFailure(0, error.message);
         return false;
       }
-    } else if (localStorage.getItem(PENDING_STATE_KEY)) {
+    } else {
       cachePendingServerState();
+      return false;
     }
     return true;
   }
 
   async function persistAccounts() {
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    storeLocalState();
     if (!apiAvailable) {
-      if (localStorage.getItem(PENDING_STATE_KEY)) cachePendingServerState();
+      if (hasPendingServerStateForCurrentSchool()) cachePendingServerState();
       return true;
     }
     try {
@@ -961,10 +1048,10 @@
 
   function saveState() {
     ensureGoodBarcodes();
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+    try { storeLocalState(); }
     catch (error) { showToast(`Penyimpanan lokal gagal: ${error.message}`, true); }
     if (!apiAvailable) {
-      if (localStorage.getItem(PENDING_STATE_KEY)) cachePendingServerState();
+      cachePendingServerState();
       return;
     }
     fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) })
@@ -991,16 +1078,13 @@
         Object.assign(state, result.state);
       }
       else {
-        const cached = localStorage.getItem(STORE_KEY);
-        if (cached) Object.assign(state, JSON.parse(cached));
+        loadLocalStateForCurrentSchool();
         saveState();
       }
     } catch {
       apiAvailable = false;
-      try {
-        const cached = localStorage.getItem(STORE_KEY);
-        if (cached) Object.assign(state, JSON.parse(cached));
-      } catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
+      try { loadLocalStateForCurrentSchool(); }
+      catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
     }
     const ownershipsChanged = ensureOwnershipDefaults();
     const typeClassificationChanged = ensureTypeClassificationRemoved();
@@ -1017,6 +1101,10 @@
         showToast(`Data awal gagal disimpan ke SQLite: ${error.message}`, true);
       }
     } else if (ownershipsChanged || typeClassificationChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged || loanReceiptDefaultsChanged || workspaceCollectionsChanged) saveState();
+    else if (apiAvailable) {
+      try { storeLocalState(); }
+      catch (error) { showToast(`Salinan lokal tenant gagal diperbarui: ${error.message}`, true); }
+    }
   }
 
   async function syncPendingLocalAccounts(pendingAccounts) {
@@ -1233,6 +1321,8 @@
 
   function canViewPage(key) {
     if (key === "backup" && activeUser?.role !== "Administrator") return false;
+    if (key === "fileManager") return activeUser?.role === "Administrator";
+    if (key === "subscriptionBilling" || key === "theme") return Boolean(activeUser);
     if (tenantFeatureAccess[key] === false) return false;
     return activeUser?.role === "Administrator" || pagePermission(activeUser?.role, key) !== "hidden";
   }
@@ -1244,6 +1334,29 @@
       tenantPortalContent = await response.json();
     } catch (error) {
       console.error("Konten portal sekolah tidak dapat dimuat:", error);
+    }
+  }
+  function registrationPhoneKey(value) {
+    let number = String(value || "").replace(/\D/g, "");
+    if (number.startsWith("0")) number = `62${number.slice(1)}`;
+    else if (number.startsWith("8")) number = `62${number}`;
+    return number;
+  }
+  async function loadRegistrationOptions() {
+    try {
+      const response = await fetch("/api/auth/registration-options");
+      if (!response.ok) throw new Error("Pengaturan pendaftaran tidak dapat dimuat.");
+      const options = await response.json();
+      registrationOtpRequired = options.whatsappOtpRequired === true;
+      $("#registrationOtpPanel").classList.toggle("hidden", !registrationOtpRequired);
+      const codeInput = $("#schoolRegistrationForm").elements.otpCode;
+      codeInput.required = registrationOtpRequired;
+      if (!registrationOtpRequired) {
+        registrationOtpSentPhone = "";
+        $("#registrationOtpCodeField").classList.add("hidden");
+      }
+    } catch (error) {
+      $("#registrationResult").textContent = error.message || "Pengaturan pendaftaran tidak dapat dimuat.";
     }
   }
   function canEditPage(key = page) {
@@ -1279,6 +1392,10 @@
     else if (page === "trash") root.innerHTML = renderTrash();
     else if (page === "helpTickets") root.innerHTML = renderHelpTickets();
     else if (page === "userGuide") root.innerHTML = renderUserGuide();
+    else if (page === "termsSla") root.innerHTML = renderTermsSla();
+    else if (page === "subscriptionBilling") root.innerHTML = renderTenantBilling();
+    else if (page === "theme") root.innerHTML = renderTheme();
+    else if (page === "fileManager") root.innerHTML = renderFileManager();
     else if (page === "accounts") root.innerHTML = renderAccounts();
     else if (page === "publicPortal") root.innerHTML = renderPublicPortal();
     else if (page === "waNotifications") root.innerHTML = renderWhatsAppNotifications();
@@ -1290,6 +1407,8 @@
     if (page === "publicPortal") drawPublicPortalQr();
     bindPageEvents();
     if (page === "backup") loadTelegramSettings();
+    if (page === "subscriptionBilling") loadTenantBilling();
+    if (page === "dashboard" || page === "fileManager") loadStorageUsage();
     if (page === "publicPortal") bindPublicPortalSettings();
     if (page === "waNotifications") loadWhatsAppNotificationSettings();
     if (page === "checkGoods") {
@@ -1326,7 +1445,7 @@
     const procMonth = state.procurements.filter((row) => thisMonth(row.date)).length;
     const disposalMonth = state.disposals.filter((row) => thisMonth(row.date)).length;
     const itemsTotal = state.items.length;
-    const damaged = state.items.filter((row) => row.condition === "Rusak").length;
+    const damaged = state.items.filter((row) => row.condition === "Rusak" || row.condition === "Rusak Berat").length;
     const outstanding = state.loans.filter((row) => ["Diterima", "Pengajuan"].includes(row.status)).length;
     const goods = recordsForAcademicYear("goods");
     const rooms = recordsForAcademicYear("locations");
@@ -1351,7 +1470,7 @@
     const lateRows = state.loans.filter((row) => row.status === "Diterima" && loanLateDays(row) > 0).slice(0, 4);
     const procurements = state.procurements.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const stat = (label, value, icon, tone, foot) => `<div class="summary-card"><div class="summary-top">${label}<span class="summary-icon ${tone}"><i data-lucide="${icon}"></i></span></div><div class="summary-value">${value}</div><div class="summary-foot"><span class="trend-up">${foot}</span> bulan ini</div></div>`;
-    return `${pageHeading()}
+    return `${pageHeading()}${storageUsageMarkup()}
       <div class="stats-row">${stat("Total Peminjaman Bulan Ini", loansMonth, "arrow-left-right", "orange", "+12%")}${stat("Total Pengadaan Bulan Ini", procMonth, "shopping-bag", "blue", "+8%")}${stat("Total Pemusnahan Bulan Ini", disposalMonth, "archive-x", "green", `${disposalMonth} item`)}</div>
       <div class="indicator-grid">
         ${indicator("Total Barang", goodCount, "package", "coral", "Master barang terdaftar")}
@@ -1436,15 +1555,150 @@
   }
 
   function renderUserGuide() {
-    const guideSections = [
-      ["Memulai", "Pilih tahun pelajaran dari bagian atas aplikasi. Data barang dan data master akan mengikuti tahun pelajaran yang aktif. Administrator dapat mengatur akun, hak akses, dan pintasan pada menu Pengaturan."],
-      ["Mengelola barang", "Buka Data Barang untuk menambah atau mengimpor daftar barang. Gunakan Data Item untuk mencatat unit inventaris, Cetak Barcode untuk mencetak kode barang, dan Cek Barang untuk mencari stok atau riwayat barang."],
-      ["Peminjaman dan transaksi", "Catat peminjaman, pengadaan, pemusnahan, dan penyusutan melalui menu Transaksi. Periksa stok dan status sebelum menyimpan. Penggunaan BHP akan mengurangi stok secara langsung."],
-      ["Perbaikan dan pemeliharaan", "Buat tiket perbaikan untuk melaporkan kerusakan. Gunakan Kalender Pemeliharaan untuk menambahkan jadwal rutin, perbaikan, pengecekan, atau pembersihan."],
-      ["Laporan dan keamanan data", "Pilih menu Laporan untuk melihat rekap dan mencetak dokumen. Buat backup berkala melalui Backup & Telegram. Data yang dihapus dapat dipulihkan dari Kotak Sampah selama belum dihapus permanen."],
-      ["Bantuan", "Jika mengalami kendala, buka Bantuan & Tiket Kendala lalu kirim judul, kategori, dan penjelasan agar Administrator dapat menindaklanjuti."]
-    ];
-    return `${pageHeading()}<div class="user-guide-layout"><section class="settings-card user-guide-intro"><span class="help-card-icon"><i data-lucide="book-open-check"></i></span><div><h3>Panduan singkat Sarprah</h3><p>Ikuti bagian berikut untuk menggunakan fitur utama aplikasi secara runtut.</p></div></section>${guideSections.map(([title, description], index) => `<article class="settings-card user-guide-step"><span class="user-guide-number">${String(index + 1).padStart(2, "0")}</span><div><h3>${esc(title)}</h3><p>${esc(description)}</p></div></article>`).join("")}<button class="btn-secondary" data-nav="helpTickets"><i data-lucide="life-buoy"></i>Bantuan & Tiket Kendala</button></div>`;
+    const manuals = tenantPortalContent.manuals || [];
+    const content = manuals.length
+      ? manuals.map((manual) => `<article class="settings-card tenant-manual-card"><h2>${esc(manual.title)}</h2><div class="tenant-manual-frame">${tenantManualContent(manual)}</div></article>`).join("")
+      : `<section class="settings-card"><div class="empty-state"><i data-lucide="book-open"></i>Belum ada petunjuk pengguna dari Super Admin.</div></section>`;
+    return `${pageHeading()}<section class="settings-card user-guide-intro"><span class="help-card-icon"><i data-lucide="book-open-check"></i></span><div><h3>Petunjuk pengguna</h3><p>Panduan resmi yang dikelola oleh Super Admin.</p></div></section><div class="user-guide-layout">${content}</div>`;
+  }
+  function renderTheme() {
+    const selected = state.settings.themeColor || "orange";
+    const options = Object.entries(themePalette).map(([id, theme]) => `<button type="button" class="theme-option ${selected === id ? "selected" : ""}" data-action="set-theme" data-theme="${id}" aria-pressed="${selected === id}"><span class="theme-swatch" style="--swatch:${theme.primary}"></span><span>${theme.label}</span>${selected === id ? `<i data-lucide="check"></i>` : ""}</button>`).join("");
+    return `${pageHeading()}<section class="settings-card"><h3>Warna dasar</h3><p>Pilih warna yang digunakan pada navigasi dan tombol utama. Perubahan tersimpan pada akun sekolah ini.</p><div class="theme-options">${options}</div></section>`;
+  }
+  function embeddedImageFiles() {
+    const files = [];
+    const visit = (value, path = []) => {
+      if (typeof value === "string") {
+        const match = /^data:(image\/[A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(value);
+        if (match) {
+          const encoded = match[2];
+          const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
+          files.push({ path, data: value, mime: match[1], bytes: Math.max(0, Math.floor(encoded.length * 3 / 4) - padding) });
+        }
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((entry, index) => visit(entry, [...path, index]));
+      } else if (value && typeof value === "object") {
+        Object.entries(value).forEach(([key, entry]) => visit(entry, [...path, key]));
+      }
+    };
+    visit(state);
+    return files;
+  }
+  function formatStorageBytes(value) {
+    const bytes = Math.max(0, Number(value) || 0);
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  function storageUsageSummary() {
+    const localUsed = embeddedImageFiles().reduce((total, file) => total + file.bytes, 0);
+    const quotaBytes = Number(storageUsageData?.quotaBytes) || 100 * 1024 * 1024;
+    const storedUsage = Number(storageUsageData?.usedBytes);
+    const usedBytes = Number.isFinite(storedUsage) ? storedUsage : localUsed;
+    return { usedBytes, quotaBytes, remainingBytes: Math.max(0, quotaBytes - usedBytes) };
+  }
+  function storageUsageMarkup() {
+    const usage = storageUsageSummary();
+    const percentage = Math.min(100, Math.round(usage.usedBytes / Math.max(1, usage.quotaBytes) * 100));
+    return `<section id="dashboardStorageUsage" class="storage-usage-card"><div class="storage-usage-heading"><span><i data-lucide="hard-drive"></i></span><div><b>Penyimpanan Foto</b><small>${formatStorageBytes(usage.usedBytes)} terpakai dari ${formatStorageBytes(usage.quotaBytes)}</small></div><strong>${percentage}%</strong></div><div class="storage-usage-track"><div style="width:${percentage}%"></div></div><small>Sisa ${formatStorageBytes(usage.remainingBytes)}</small></section>`;
+  }
+  async function loadStorageUsage() {
+    if (!apiAvailable) return;
+    try {
+      const response = await fetch("/api/tenant/storage");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      storageUsageData = await response.json();
+      if (page === "dashboard") {
+        const card = $("#dashboardStorageUsage");
+        if (card) {
+          card.outerHTML = storageUsageMarkup();
+          const updatedCard = $("#dashboardStorageUsage");
+          if (window.lucide && updatedCard) lucide.createIcons({ nodes: [updatedCard] });
+        }
+      } else if (page === "fileManager") {
+        const root = $("#pageContent");
+        root.innerHTML = renderFileManager();
+        if (window.lucide) lucide.createIcons({ nodes: [root] });
+        bindPageEvents();
+      }
+    } catch (error) {
+      console.warn("Informasi penggunaan penyimpanan tidak dapat dimuat dari server:", error);
+    }
+  }
+  function filePathLabel(path) {
+    const labels = {
+      school: "Profil sekolah", settings: "Pengaturan aplikasi", appLogo: "Logo aplikasi", logo: "Logo sekolah",
+      letterheadLogo: "Logo kop surat", avatar: "Avatar akun", photo: "Foto kerusakan", evidence: "Foto bukti",
+      repairTickets: "Tiket perbaikan", procurements: "Pengadaan", disposals: "Pemusnahan", accounts: "Akun pengguna"
+    };
+    let node = state;
+    let owner = "";
+    path.forEach((part) => {
+      node = node?.[part];
+      if (node && typeof node === "object" && !Array.isArray(node)) {
+        owner = node.name || node.title || node.goodName || node.borrower || node.proposer || owner;
+      }
+    });
+    const key = String(path[path.length - 1] || "");
+    const parentKey = String(path[path.length - 2] || "");
+    return `${labels[key] || labels[parentKey] || "Gambar"}${owner ? ` · ${owner}` : ""}`;
+  }
+  function renderFileManager() {
+    const files = embeddedImageFiles();
+    const usage = storageUsageSummary();
+    const body = files.map((file, index) => `<article class="stored-file-card"><img src="${esc(file.data)}" alt=""><div><b>${esc(filePathLabel(file.path))}</b><small>${esc(file.mime)} · ${formatStorageBytes(file.bytes)}</small></div><button type="button" class="mini-action" title="Hapus file" aria-label="Hapus ${esc(filePathLabel(file.path))}" data-action="delete-stored-file" data-index="${index}"><i data-lucide="trash-2"></i></button></article>`).join("");
+    return `${pageHeading()}<section class="settings-card"><h3>Penggunaan penyimpanan</h3><p>${formatStorageBytes(usage.usedBytes)} terpakai · ${formatStorageBytes(usage.remainingBytes)} tersisa dari ${formatStorageBytes(usage.quotaBytes)}.</p>${storageUsageMarkup()}</section><section class="settings-card"><h3>File gambar tersimpan</h3><p>Hapus foto yang tidak lagi diperlukan. Penghapusan hanya menghapus file gambar, bukan data transaksi atau inventaris terkait.</p><div class="stored-file-list">${body || `<div class="empty-state"><i data-lucide="images"></i>Tidak ada foto atau gambar tersimpan.</div>`}</div><div class="table-footer">${files.length} file gambar · ${formatStorageBytes(files.reduce((total, file) => total + file.bytes, 0))}</div></section>`;
+  }
+  function renderTermsSla() {
+    const terms = esc(tenantPortalContent.terms || "Ketentuan layanan belum tersedia.").replace(/\r?\n/g, "<br>");
+    const sla = esc(tenantPortalContent.sla || "Informasi SLA belum tersedia.").replace(/\r?\n/g, "<br>");
+    return `${pageHeading()}<section class="settings-card"><h2>Syarat penggunaan</h2><p>${terms}</p></section><section class="settings-card mt-4"><h2>Tingkat layanan (SLA)</h2><p>${sla}</p></section><p class="form-help">Konten ini dikelola oleh Super Admin dan hanya dapat dibaca dari akun sekolah.</p>`;
+  }
+  function renderTenantBilling() {
+    const data = tenantBillingData;
+    const refresh = `<button type="button" class="btn-quiet" data-action="refresh-tenant-billing"><i data-lucide="refresh-cw"></i>Perbarui</button>`;
+    if (!data || data.loading) return `${pageHeading(refresh)}<section class="settings-card"><div class="empty-state">Memuat informasi tagihan...</div></section>`;
+    if (data.error) return `${pageHeading(refresh)}<section class="settings-card"><div class="empty-state">${esc(data.error)}</div></section>`;
+    const gateways = data.gateways || [];
+    const payments = (data.payments || []).slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    const rows = payments.map((payment) => {
+      const payable = !["Disetujui", "Lunas"].includes(payment.status);
+      const gatewayControl = payable && gateways.length
+        ? `<div class="action-buttons"><select id="billingGateway-${esc(payment.id)}" aria-label="Pilih gateway pembayaran">${gateways.map((gateway) => `<option value="${esc(gateway.id)}" ${gateway.id === payment.gateway ? "selected" : ""}>${esc(gateway.name)}</option>`).join("")}</select><button type="button" class="btn-primary" data-action="create-payment-checkout" data-id="${esc(payment.id)}"><i data-lucide="external-link"></i>${payment.checkoutUrl ? "Buka / lanjutkan" : "Bayar"}</button></div>`
+        : payable ? `<span class="muted">Gateway belum tersedia</span>` : "—";
+      return `<tr><td>${esc(niceDate(String(payment.createdAt || payment.dueDate || "").slice(0, 10)))}</td><td>${esc(payment.period || "—")}</td><td>${rupiah(payment.amount || 0)}</td><td>${statusBadge(payment.status)}</td><td>${esc(payment.gatewayName || "—")}</td><td>${gatewayControl}</td></tr>`;
+    }).join("");
+    const helpText = gateways.length
+      ? "Pilih satu gateway untuk membayar tagihan. Status lunas hanya diperbarui setelah callback pembayaran terverifikasi."
+      : "Belum ada gateway otomatis yang diaktifkan oleh Super Admin. Hubungi administrator platform.";
+    return `${pageHeading(refresh)}<section class="settings-card"><p>${esc(helpText)}</p><div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>TANGGAL</th><th>PERIODE</th><th>NOMINAL</th><th>STATUS</th><th>GATEWAY</th><th>AKSI</th></tr></thead><tbody>${rows || `<tr><td colspan="6"><div class="empty-state">Belum ada tagihan.</div></td></tr>`}</tbody></table></div><div class="table-footer"><span>${payments.length} tagihan</span></div></div></section>`;
+  }
+  async function loadTenantBilling() {
+    tenantBillingData = { loading: true };
+    try {
+      tenantBillingData = await api("/api/tenant/billing");
+    } catch (error) {
+      tenantBillingData = { error: error.message || "Tagihan tidak dapat dimuat." };
+    }
+    if (page === "subscriptionBilling") {
+      const root = $("#pageContent");
+      root.innerHTML = renderTenantBilling();
+      if (window.lucide) lucide.createIcons({ nodes: [root] });
+      bindPageEvents();
+    }
+  }
+  async function createTenantCheckout(paymentId) {
+    const select = document.getElementById(`billingGateway-${paymentId}`);
+    const provider = select?.value;
+    if (!provider) return showToast("Pilih gateway pembayaran terlebih dahulu.", true);
+    try {
+      const result = await api(`/api/tenant/billing/${encodeURIComponent(paymentId)}/checkout`, "POST", { provider });
+      if (!result.checkoutUrl) throw new Error("Penyedia tidak mengembalikan tautan pembayaran.");
+      window.location.assign(result.checkoutUrl);
+    } catch (error) { showToast(error.message, true); }
   }
 
   function openHelpTicketForm() {
@@ -1800,10 +2054,13 @@
     const headers = displayCols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
     const body = filtered.length ? filtered.map((row) => {
       const selection = bulkDeletable ? `<td class="bulk-select-column"><input type="checkbox" class="record-select" value="${esc(row.id)}" aria-label="Pilih ${esc(row.name || row.title || row.borrower || row.applicant || row.date || config.singular)}"></td>` : "";
+      const bastAction = key === "procurements" || key === "disposals"
+        ? `<button class="mini-action" title="Cetak BAST" aria-label="Cetak BAST" data-action="print-bast" data-type="${key}" data-id="${esc(row.id)}"><i data-lucide="printer"></i></button>`
+        : "";
       return `<tr>${selection}${displayCols.map(([field]) => {
         const currency = ["price", "totalPrice", "unitPrice", "estimatedCost", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
-      }).join("")}<td><div class="action-buttons">${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${key === "locations" && canEditPage(key) ? `<button class="mini-action" title="Kondisi ruangan" aria-label="Kondisi ruangan ${esc(row.name)}" data-action="room-condition" data-id="${row.id}"><i data-lucide="triangle-alert"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
+      }).join("")}<td><div class="action-buttons">${bastAction}${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${key === "locations" && canEditPage(key) ? `<button class="mini-action" title="Kondisi ruangan" aria-label="Kondisi ruangan ${esc(row.name)}" data-action="room-condition" data-id="${row.id}"><i data-lucide="triangle-alert"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
@@ -1821,12 +2078,13 @@
       <td><span class="table-title">${esc(movement.goodName || titleOfGood(movement.goodId))}</span></td>
       <td>${esc(movement.fromLocationName || "Belum ditentukan")}</td><td>${esc(movement.toLocationName || "—")}</td>
       <td>${esc(movement.responsible || "—")}</td><td>${esc(movement.note || "—")}</td>
-    </tr>`).join("") : `<tr><td class="empty-state" colspan="7">Belum ada riwayat pemindahan yang cocok.</td></tr>`;
+      <td><button type="button" class="mini-action" title="Cetak BAST" aria-label="Cetak BAST perpindahan barang" data-action="print-bast" data-type="assetMovements" data-id="${esc(movement.id)}"><i data-lucide="printer"></i></button></td>
+    </tr>`).join("") : `<tr><td class="empty-state" colspan="8">Belum ada riwayat pemindahan yang cocok.</td></tr>`;
     const actions = canEditPage("assetMovements")
       ? `<button class="btn-primary" data-action="add-asset-movement"><i data-lucide="move-right"></i>Pindahkan Barang</button>` : "";
     return `${pageHeading(actions)}<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari nama barang, kode item, ruang..." value="${esc(searchTerm)}"></label><span class="badge neutral">${filtered.length} pemindahan</span></div></div>
       <div class="settings-card movement-intro"><i data-lucide="route"></i><p>Pilih barang dari Data Barang untuk memindahkannya ke ruang lain. Lokasi barang dan item inventaris terkait diperbarui; catatan asal, tujuan, tanggal, serta penanggung jawab disimpan untuk laporan siklus aset.</p></div>
-      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tanggal Pemindahan</th><th>Kode Item</th><th>Nama Barang</th><th>Dari Ruang</th><th>Ke Ruang</th><th>Penanggung Jawab</th><th>Keterangan</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${records.length} pemindahan</span></div></div>`;
+      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tanggal Pemindahan</th><th>Kode Item</th><th>Nama Barang</th><th>Dari Ruang</th><th>Ke Ruang</th><th>Penanggung Jawab</th><th>Keterangan</th><th>Dokumen</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${records.length} pemindahan</span></div></div>`;
   }
 
   function openAssetMovementForm() {
@@ -2101,7 +2359,10 @@
       const tone = value === "Rusak Ringan" ? "warning" : "danger";
       return `<span class="badge ${tone}">${esc(value)}</span>`;
     }
-    if (field === "condition") return value === "Rusak" ? `<span class="badge danger">Rusak</span>` : value === "Dihapus" ? `<span class="badge neutral">Dihapus</span>` : `<span class="badge success">Baik</span>`;
+    if (field === "condition") {
+      const tone = value === "Hilang" || value === "Rusak Berat" ? "danger" : value === "Rusak" ? "warning" : value === "Dihapus" ? "neutral" : "success";
+      return `<span class="badge ${tone}">${esc(value || "Baik")}</span>`;
+    }
     if (field === "type") return `<span class="badge ${value === "prasarana" ? "info" : "warning"}">${esc(value)}</span>`;
     if (["date", "received", "receivedDate", "startDate", "endDate", "dueDate", "nextServiceDate"].includes(field)) return esc(niceDate(value));
     if (field === "late") {
@@ -2180,7 +2441,7 @@
     const currentGoods = recordsForAcademicYear("goods");
     const goodsQty = currentGoods.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
     const value = currentGoods.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.price || 0), 0);
-    const reportOptions = [["inventarisBhp", "Rekapitulasi BHP"], ["inventarisModal", "Rekapitulasi Barang Modal"], ["assetLifecycle", "Riwayat Pergerakan Aset"], ["loans", "Laporan Peminjaman"], ["usages", "Penggunaan BHP"], ["procurements", "Pengadaan Barang"], ["disposals", "Pemusnahan Barang"], ["depreciations", "Penyusutan Aset"]];
+    const reportOptions = [["inventarisBhp", "Rekapitulasi BHP"], ["inventarisModal", "Rekapitulasi Barang Modal"], ["roomConditions", "Kondisi Barang per Ruangan"], ["damageLoss", "Kerusakan & Kehilangan Aset"], ["maintenanceReport", "Jadwal Pemeliharaan / Servis"], ["stocktakeMinutes", "Berita Acara Stock Opname"], ["assetLifecycle", "Riwayat Pergerakan Aset"], ["loans", "Laporan Peminjaman"], ["usages", "Penggunaan BHP"], ["procurements", "Pengadaan Barang"], ["disposals", "Pemusnahan Barang"], ["depreciations", "Penyusutan Aset"]];
     return `${pageHeading(`<button class="btn-secondary" data-action="export-report"><i data-lucide="download"></i>Ekspor Excel</button><button class="btn-primary" data-action="print"><i data-lucide="printer"></i>Cetak laporan</button>`)}
       <section class="panel"><div class="report-heading">${state.school.logo ? `<img class="report-logo" src="${esc(state.school.logo)}" alt="Logo sekolah">` : `<div class="school-avatar">${esc((state.school.name || "S").slice(0, 1))}</div>`}<div><h2>${esc(state.school.name)}</h2><p>${esc(state.school.address)} · ${esc(state.school.phone)}</p><p>${esc(state.school.email)} · ${esc(state.school.website)}</p></div></div>
       <div class="table-toolbar report-toolbar" style="border:0;padding:0 0 14px"><div class="table-toolbar-left report-filters">
@@ -2188,13 +2449,15 @@
         <label class="report-filter-control" id="reportPeriodField"><span>Periode</span><select class="table-filter" id="reportPeriod"><option value="month">Bulanan</option><option value="academicYear">Tahun Pelajaran</option><option value="custom">Rentang tanggal</option></select></label>
         <label class="report-filter-control" id="reportMonthField"><span>Bulan</span><input id="reportMonth" class="table-filter" type="month" value="${currentMonth}"></label>
         <label class="report-filter-control hidden" id="reportAcademicYearField"><span>Tahun Pelajaran</span><select class="table-filter" id="reportAcademicYear">${state.academicYears.map((year) => `<option value="${esc(year.id)}" ${year.id === state.settings.selectedAcademicYearId ? "selected" : ""}>${esc(year.name)}</option>`).join("")}</select></label>
+        <label class="report-filter-control" id="reportFundField"><span>Sumber Dana</span><select class="table-filter" id="reportFund"><option value="">Semua sumber dana</option>${state.funds.map((fund) => `<option value="${esc(fund.id)}">${esc(fund.name)}</option>`).join("")}</select></label>
+        <label class="report-filter-control" id="reportLocationField"><span>Ruangan / Lokasi</span><select class="table-filter" id="reportLocation"><option value="">Semua ruangan</option>${state.locations.map((location) => `<option value="${esc(location.id)}">${esc(location.name)}</option>`).join("")}</select></label>
         <label class="report-filter-control hidden" id="assetLifecycleGoodField"><span>Barang</span><select class="table-filter" id="assetLifecycleGood">${currentGoods.map((good) => `<option value="${esc(good.id)}">${esc(good.name)}</option>`).join("")}</select></label>
         <div class="report-filter-control hidden" id="reportInventoryDetailsField"><span>Rincian barang</span><label class="form-check report-detail-toggle"><input id="reportInventoryDetails" type="checkbox" ${state.settings.reportInventoryDetails === false ? "" : "checked"}><span>Tampilkan detail barang</span></label></div>
         <div class="report-date-range hidden" id="reportDateRange">
           <label class="report-filter-control"><span>Tanggal mulai</span><input id="reportStart" class="table-filter" type="date" value="${currentMonth}-01"></label>
           <label class="report-filter-control"><span>Tanggal akhir</span><input id="reportEnd" class="table-filter" type="date" value="${dateOffset(0)}"></label>
         </div>
-      </div><div class="table-toolbar-right"><span id="reportPeriodNotice" class="form-help hidden">Rekapitulasi BHP dan barang modal menampilkan stok saat ini dan tidak memakai filter periode.</span><span class="badge info">Diperbarui ${niceDate(dateOffset(0))}</span></div></div>
+      </div><div class="table-toolbar-right"><span id="reportPeriodNotice" class="form-help hidden">Filter periode mengikuti tanggal barang masuk; jumlah dan kondisi adalah posisi saat ini.</span><span class="badge info">Diperbarui ${niceDate(dateOffset(0))}</span></div></div>
       <div id="reportHeading" class="report-title-block">${reportHeading("inventarisBhp")}</div>
       <div id="reportBody">${reportTable("inventarisBhp")}</div>
       ${reportSignatures(state.school)}
@@ -2228,6 +2491,10 @@
     const titles = {
       inventarisBhp: "Rekapitulasi BHP",
       inventarisModal: "Rekapitulasi Barang Modal",
+      roomConditions: "Laporan Kondisi Barang per Ruangan / Lokasi",
+      damageLoss: "Laporan Kerusakan & Kehilangan Aset",
+      maintenanceReport: "Laporan Jadwal Pemeliharaan / Servis",
+      stocktakeMinutes: "Berita Acara Stock Opname",
       assetLifecycle: "Riwayat Pergerakan Aset",
       loans: "Laporan Peminjaman Barang",
       usages: "Laporan Penggunaan BHP",
@@ -2237,30 +2504,39 @@
     };
     let period = `Posisi stok per ${niceDate(dateOffset(0))}`;
     if (type === "assetLifecycle") {
-      period = `Barang: ${getById("goods", $("#assetLifecycleGood")?.value)?.name || "Pilih barang"}`;
-    } else if (!isInventoryReport(type)) {
-      const filter = $("#reportPeriod")?.value || "month";
-      if (filter === "month") {
-        const [year, month] = ($("#reportMonth")?.value || currentMonth).split("-").map(Number);
-        period = year && month ? `Bulan ${new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1))}` : "Bulan tidak valid";
-      } else if (filter === "academicYear") {
-        const academicYear = state.academicYears.find((row) => row.id === $("#reportAcademicYear")?.value);
-        period = academicYear ? `Tahun Pelajaran ${academicYear.name}` : "Tahun pelajaran belum dipilih";
-      } else if (range) {
-        period = range.start && range.end
-          ? `Periode ${niceDate(range.start)} s.d. ${niceDate(range.end)}`
-          : range.start ? `Sejak ${niceDate(range.start)}` : range.end ? `Sampai ${niceDate(range.end)}` : "Semua tanggal";
-      }
+      period = `Barang: ${getById("goods", $("#assetLifecycleGood")?.value)?.name || "Pilih barang"} · ${reportHeadingPeriod(range)}`;
+    } else {
+      period = reportHeadingPeriod(range);
     }
+    const filters = reportFilters();
+    const filterLabels = [
+      filters.fundId ? `Sumber Dana: ${relatedName("funds", filters.fundId)}` : "",
+      filters.locationId ? `Ruangan: ${relatedName("locations", filters.locationId)}` : ""
+    ].filter(Boolean);
+    if (filterLabels.length) period = `${period} · ${filterLabels.join(" · ")}`;
     return { title: titles[type] || "Laporan", period };
+  }
+  function reportHeadingPeriod(range) {
+    const filter = $("#reportPeriod")?.value || "month";
+    if (filter === "month") {
+      const [year, month] = ($("#reportMonth")?.value || currentMonth).split("-").map(Number);
+      return year && month ? `Bulan ${new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1))}` : "Bulan tidak valid";
+    }
+    if (filter === "academicYear") {
+      const academicYear = state.academicYears.find((row) => row.id === $("#reportAcademicYear")?.value);
+      return academicYear ? `Tahun Pelajaran ${academicYear.name}` : "Tahun pelajaran belum dipilih";
+    }
+    return range?.start && range?.end
+      ? `Periode ${niceDate(range.start)} s.d. ${niceDate(range.end)}`
+      : range?.start ? `Sejak ${niceDate(range.start)}` : range?.end ? `Sampai ${niceDate(range.end)}` : "Semua tanggal";
   }
   function reportHeading(type, range = null) {
     const { title, period } = reportHeadingContent(type, range);
     return `<div><h3>${esc(title)}</h3><p>${esc(period)}</p></div>`;
   }
-  function inventoryReportData(type) {
+  function inventoryReportData(type, startDate = "", endDate = "") {
     const showDetails = state.settings.reportInventoryDetails !== false;
-    const goods = recordsForAcademicYear("goods").filter((good) => type === "inventarisBhp" ? isBhp(good) : !isBhp(good));
+    const goods = filteredReportGoods(type, startDate, endDate);
     const headers = showDetails
       ? ["Nama Barang", "Kepemilikan", "Sumber Dana", "Jenis", "Kategori", "Lokasi", "Jumlah", "Satuan", "Harga Satuan", "Harga Total"]
       : ["Nama Barang", "Jenis", "Kategori", "Jumlah", "Satuan", "Harga Total"];
@@ -2275,22 +2551,229 @@
     });
     return { headers, fields, rows };
   }
+  function reportFilters() {
+    return { fundId: $("#reportFund")?.value || "", locationId: $("#reportLocation")?.value || "" };
+  }
+  function matchesReportDate(value, startDate, endDate) {
+    return (!startDate || value && value >= startDate) && (!endDate || value && value <= endDate);
+  }
+  function matchesReportAsset(good, startDate, endDate, filters = reportFilters(), dateField = "receivedDate") {
+    return Boolean(good)
+      && (!filters.fundId || good.fundId === filters.fundId)
+      && (!filters.locationId || good.locationId === filters.locationId)
+      && matchesReportDate(good[dateField] || "", startDate, endDate);
+  }
+  function filteredReportGoods(type, startDate = "", endDate = "") {
+    return recordsForAcademicYear("goods").filter((good) =>
+      (type !== "inventarisBhp" || isBhp(good))
+      && (type !== "inventarisModal" || !isBhp(good))
+      && matchesReportAsset(good, startDate, endDate)
+    );
+  }
+  function roomConditionReportData(startDate, endDate) {
+    const headers = ["Ruangan / Lokasi", "Nama Barang", "Baik", "Rusak", "Hilang", "Total"];
+    const fields = ["location", "good", "goodQty", "damagedQty", "missingQty", "total"];
+    const filters = reportFilters();
+    const goods = recordsForAcademicYear("goods").filter((good) =>
+      (!filters.fundId || good.fundId === filters.fundId)
+      && matchesReportDate(good.receivedDate || "", startDate, endDate)
+    );
+    const goodIds = new Set(goods.map((good) => good.id));
+    const grouped = new Map();
+    const ensureRow = (good, locationId) => {
+      const key = `${locationId || ""}:${good.id}`;
+      if (!grouped.has(key)) grouped.set(key, {
+        location: relatedName("locations", locationId),
+        good: good.name,
+        goodQty: 0,
+        damagedQty: 0,
+        missingQty: 0
+      });
+      return grouped.get(key);
+    };
+    const trackedByGood = new Map();
+    (state.items || []).filter((item) => goodIds.has(item.goodId)).forEach((item) => {
+      const good = goods.find((row) => row.id === item.goodId);
+      if (!good) return;
+      trackedByGood.set(good.id, (trackedByGood.get(good.id) || 0) + (item.condition === "Hilang" ? 0 : 1));
+      const locationId = item.locationId || good.locationId;
+      if (filters.locationId && locationId !== filters.locationId) return;
+      const row = ensureRow(good, locationId);
+      if (item.condition === "Hilang") row.missingQty += 1;
+      else if (item.condition === "Rusak" || item.condition === "Rusak Berat") row.damagedQty += 1;
+      else row.goodQty += 1;
+    });
+    goods.forEach((good) => {
+      const remaining = Math.max(0, (Number(good.quantity) || 0) - (trackedByGood.get(good.id) || 0));
+      if (!remaining || filters.locationId && good.locationId !== filters.locationId) return;
+      ensureRow(good, good.locationId).goodQty += remaining;
+    });
+    return { headers, fields, rows: [...grouped.values()].map((row) => [
+      row.location, row.good, row.goodQty, row.damagedQty, row.missingQty, row.goodQty + row.damagedQty + row.missingQty
+    ]) };
+  }
+  function damageLossReportData(startDate, endDate) {
+    const headers = ["Tanggal", "Barang / Item", "Kondisi / Kejadian", "Jumlah", "Ruangan", "Status Penanganan", "Keterangan"];
+    const fields = ["date", "asset", "event", "quantity", "location", "status", "note"];
+    const goods = recordsForAcademicYear("goods");
+    const goodById = new Map(goods.map((good) => [good.id, good]));
+    const filters = reportFilters();
+    const rows = [];
+    (state.items || []).filter((item) => {
+      const good = goodById.get(item.goodId);
+      return good && ["Rusak", "Rusak Berat", "Hilang"].includes(item.condition)
+        && (!filters.fundId || good.fundId === filters.fundId)
+        && (!filters.locationId || (item.locationId || good.locationId) === filters.locationId)
+        && matchesReportDate(item.conditionDate || item.received || "", startDate, endDate);
+    }).forEach((item) => {
+      const good = goodById.get(item.goodId);
+      const ticket = (state.repairTickets || []).find((row) => row.goodId === good.id && (!row.locationId || row.locationId === item.locationId));
+      rows.push([
+        item.conditionDate || item.received || "",
+        `${good.name}${item.code ? ` (${item.code})` : ""}`,
+        item.condition,
+        1,
+        relatedName("locations", item.locationId || good.locationId),
+        item.condition === "Hilang" ? "Perlu penelusuran" : ticket ? ticket.status : "Belum ada tiket perbaikan",
+        ticket ? ticket.title : "Kondisi item inventaris"
+      ]);
+    });
+    (state.repairTickets || []).filter((ticket) => {
+      const good = goodById.get(ticket.goodId);
+      const hasTrackedCondition = (state.items || []).some((item) => item.goodId === ticket.goodId && ["Rusak", "Rusak Berat"].includes(item.condition));
+      const ticketDate = String(ticket.createdAt || ticket.date || "").slice(0, 10);
+      return good && !hasTrackedCondition
+        && (!filters.fundId || good.fundId === filters.fundId)
+        && (!filters.locationId || (ticket.locationId || good.locationId) === filters.locationId)
+        && matchesReportDate(ticketDate, startDate, endDate);
+    }).forEach((ticket) => {
+      const good = goodById.get(ticket.goodId);
+      rows.push([
+        String(ticket.createdAt || ticket.date || "").slice(0, 10),
+        good.name,
+        `Kerusakan dilaporkan · ${ticket.priority || "Prioritas normal"}`,
+        Number(ticket.quantity) || 1,
+        relatedName("locations", ticket.locationId || good.locationId),
+        ticket.status || "Diajukan",
+        ticket.title || ticket.description || "Tiket perbaikan"
+      ]);
+    });
+    (state.stocktakes || []).filter((record) => {
+      const good = goodById.get(record.goodId);
+      const missing = Math.max(0, Number(record.missingQuantity ?? (Number(record.oldStock || 0) - Number(record.newStock || 0))));
+      return good && missing > 0
+        && matchesReportDate(record.date || "", startDate, endDate)
+        && (!filters.fundId || good.fundId === filters.fundId)
+        && (!filters.locationId || (record.locationId || good.locationId) === filters.locationId);
+    }).forEach((record) => {
+      const good = goodById.get(record.goodId);
+      rows.push([
+        record.date || "",
+        good.name,
+        "Hilang saat stock opname",
+        Math.max(0, Number(record.missingQuantity ?? (Number(record.oldStock || 0) - Number(record.newStock || 0)))),
+        relatedName("locations", record.locationId || good.locationId),
+        record.lossStatus || "Perlu penelusuran",
+        record.note || "Jumlah fisik lebih sedikit dari stok sistem"
+      ]);
+    });
+    return { headers, fields, rows: rows.map((row) => row.map((cell, index) => index === 0 && cell ? niceDate(cell) : cell)) };
+  }
+  function maintenanceReportData(startDate, endDate) {
+    const headers = ["Tanggal", "Barang", "Jenis Perawatan", "Peristiwa / Catatan", "Jumlah", "Ruangan", "Status", "Estimasi Biaya Servis", "Servis Berikutnya", "Teknisi"];
+    const fields = ["date", "good", "type", "action", "quantity", "location", "status", "estimatedCost", "nextServiceDate", "technician"];
+    const filters = reportFilters();
+    const goodsById = new Map(recordsForAcademicYear("goods").map((good) => [good.id, good]));
+    const matches = (row) => {
+      const good = goodsById.get(row.goodId);
+      return good
+        && matchesReportDate(String(row.updatedAt || row.date || "").slice(0, 10), startDate, endDate)
+        && (!filters.fundId || good.fundId === filters.fundId)
+        && (!filters.locationId || (row.locationId || good.locationId) === filters.locationId);
+    };
+    const schedules = (state.maintenanceSchedules || []).filter(matches).map((row) => [
+      row.date ? niceDate(row.date) : "—",
+      titleOfGood(row.goodId),
+      row.type || "—",
+      row.description || "Jadwal perawatan",
+      Number(row.quantity) || 0,
+      relatedName("locations", row.locationId || goodsById.get(row.goodId)?.locationId),
+      row.status || "Menunggu Jadwal",
+      Number(row.estimatedCost) || 0,
+      row.nextServiceDate ? niceDate(row.nextServiceDate) : "—",
+      row.technician || "—"
+    ]);
+    const history = (state.maintenanceHistory || []).filter(matches).map((row) => [
+      niceDate(String(row.updatedAt || row.date || "").slice(0, 10)),
+      titleOfGood(row.goodId),
+      row.type || "—",
+      row.action || "Perawatan diperbarui",
+      Number(row.quantity) || 0,
+      relatedName("locations", row.locationId || goodsById.get(row.goodId)?.locationId),
+      row.status || "Menunggu Jadwal",
+      Number(row.estimatedCost) || 0,
+      row.nextServiceDate ? niceDate(row.nextServiceDate) : "—",
+      row.technician || "—"
+    ]);
+    return { headers, fields, rows: [...schedules, ...history] };
+  }
+  function stocktakeMinutesReportData(startDate, endDate) {
+    const headers = ["Tanggal", "Nama Barang", "Ruangan", "Stok Sistem", "Hasil Fisik", "Selisih / Hilang", "Sumber Dana", "Pengecek", "Status Penanganan", "Berita Acara / Catatan"];
+    const fields = ["date", "good", "location", "oldStock", "newStock", "missingQuantity", "fund", "checker", "lossStatus", "note"];
+    const filters = reportFilters();
+    const goodsById = new Map(recordsForAcademicYear("goods").map((good) => [good.id, good]));
+    const rows = (state.stocktakes || []).filter((record) => {
+      const good = goodsById.get(record.goodId);
+      return good && matchesReportDate(record.date || "", startDate, endDate)
+        && (!filters.fundId || good.fundId === filters.fundId)
+        && (!filters.locationId || (record.locationId || good.locationId) === filters.locationId);
+    }).map((record) => {
+      const good = goodsById.get(record.goodId);
+      return [
+        record.date ? niceDate(record.date) : "—",
+        good.name,
+        relatedName("locations", record.locationId || good.locationId),
+        Number(record.oldStock) || 0,
+        Number(record.newStock) || 0,
+        Math.max(0, Number(record.missingQuantity ?? (Number(record.oldStock || 0) - Number(record.newStock || 0)))),
+        relatedName("funds", good.fundId),
+        record.checker || "—",
+        record.lossStatus || (Number(record.oldStock) > Number(record.newStock) ? "Perlu penelusuran" : "Tidak ada kehilangan"),
+        record.note || "—"
+      ];
+    });
+    return { headers, fields, rows };
+  }
   function reportTable(type, startDate, endDate) {
     let cols, fields, rows;
     if (type === "assetLifecycle") {
-      ({ headers: cols, fields, rows } = assetLifecycleReportData($("#assetLifecycleGood")?.value || ""));
+      ({ headers: cols, fields, rows } = assetLifecycleReportData($("#assetLifecycleGood")?.value || "", startDate, endDate));
     } else if (isInventoryReport(type)) {
-      ({ headers: cols, fields, rows } = inventoryReportData(type));
+      ({ headers: cols, fields, rows } = inventoryReportData(type, startDate, endDate));
+    } else if (type === "roomConditions") {
+      ({ headers: cols, fields, rows } = roomConditionReportData(startDate, endDate));
+    } else if (type === "damageLoss") {
+      ({ headers: cols, fields, rows } = damageLossReportData(startDate, endDate));
+    } else if (type === "maintenanceReport") {
+      ({ headers: cols, fields, rows } = maintenanceReportData(startDate, endDate));
+    } else if (type === "stocktakeMinutes") {
+      ({ headers: cols, fields, rows } = stocktakeMinutesReportData(startDate, endDate));
     } else {
       const config = collectionConfig[type];
       cols = config.cols.map((col) => col[1]);
       fields = config.cols.map(([field]) => field);
       const dateField = ({ loans: "startDate", items: "received", stocktakes: "date", usages: "date", procurements: "date", disposals: "date", depreciations: "date" })[type];
-      rows = (state[type] || []).filter((row) => !dateField || ((!startDate || row[dateField] >= startDate) && (!endDate || row[dateField] <= endDate))).map((row) => config.cols.map(([field]) => plainCell(type, field, row)));
+      const filters = reportFilters();
+      rows = (state[type] || []).filter((row) => {
+        if (dateField && !matchesReportDate(row[dateField] || "", startDate, endDate)) return false;
+        const good = row.goodId ? getById("goods", row.goodId) : null;
+        return (!filters.fundId || (row.fundId || good?.fundId) === filters.fundId)
+          && (!filters.locationId || (row.locationId || good?.locationId) === filters.locationId);
+      }).map((row) => config.cols.map(([field]) => plainCell(type, field, row)));
     }
-    const currencyFields = new Set(["price", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue", "total", "totalPrice", "value"]);
+    const currencyFields = new Set(["price", "unitPrice", "estimatedCost", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue", "total", "totalPrice", "value"]);
     const inventoryTotal = isInventoryReport(type)
-      ? recordsForAcademicYear("goods").filter((good) => type === "inventarisBhp" ? isBhp(good) : !isBhp(good)).reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0)
+      ? filteredReportGoods(type, startDate, endDate).reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0)
       : 0;
     const inventoryName = type === "inventarisBhp" ? "BHP" : "Barang Modal";
     const totalRow = isInventoryReport(type) ? `<tfoot><tr><th colspan="${cols.length - 1}">Grand Total Nilai ${inventoryName}</th><th class="goods-price-cell">${currencyCell(inventoryTotal)}</th></tr></tfoot>` : "";
@@ -2298,11 +2781,15 @@
     return `<div class="table-wrap"><table class="${tableClass}"><thead><tr>${cols.map((col) => `<th>${esc(col.toUpperCase())}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((cell, index) => currencyFields.has(fields[index]) ? `<td class="goods-price-cell">${currencyCell(cell)}</td>` : `<td>${esc(cell)}</td>`).join("")}</tr>`).join("") : `<tr><td class="empty-state" colspan="${cols.length}">Tidak ada data.</td></tr>`}</tbody>${totalRow}</table></div>`;
   }
 
-  function assetLifecycleReportData(goodId) {
+  function assetLifecycleReportData(goodId, startDate = "", endDate = "") {
     const headers = ["Tanggal", "Peristiwa", "Detail", "Orang / Lokasi", "Penanggung Jawab / Status"];
     const fields = ["date", "event", "detail", "related", "actor"];
     const good = getById("goods", goodId);
     if (!good) return { headers, fields, rows: [] };
+    const filters = reportFilters();
+    if (filters.fundId && good.fundId !== filters.fundId || filters.locationId && good.locationId !== filters.locationId) {
+      return { headers, fields, rows: [] };
+    }
     const events = [];
     const purchases = (state.procurements || []).filter((row) => row.goodId === good.id && row.status === "Diterima");
     purchases.forEach((row) => events.push({
@@ -2371,7 +2858,7 @@
       if (!b.date) return -1;
       return String(a.date).localeCompare(String(b.date));
     });
-    return { headers, fields, rows: events.map((row) => [
+    return { headers, fields, rows: events.filter((row) => matchesReportDate(row.date || "", startDate, endDate)).map((row) => [
       row.date ? niceDate(row.date) : "Tanggal tidak tercatat", row.event, row.detail, row.related, row.actor
     ]) };
   }
@@ -2703,10 +3190,12 @@
       ensureBrandingDefaults();
       ensurePermissionDefaults();
       ensureWorkspaceCollections();
-      await persistState();
+      const synced = await persistState();
       activeUser = getById("accounts", activeUser.id) || activeUser;
       applyAppBranding();
-      showToast("Data berhasil dipulihkan dari backup.");
+      showToast(synced
+        ? "Data berhasil dipulihkan dari backup."
+        : "Data dipulihkan secara lokal dan akan disinkronkan otomatis saat koneksi pulih atau Administrator masuk kembali.", !synced);
       renderNavigation(); navigate("dashboard");
     } catch (error) { showToast(`Restore gagal: ${error.message}`, true); }
   }
@@ -3194,11 +3683,13 @@
   }
 
   function syncGoodConditionCounts(good) {
-    if (!("goodConditionCount" in good) && !("damagedConditionCount" in good)) return;
+    if (!("goodConditionCount" in good) && !("damagedConditionCount" in good) && !("missingConditionCount" in good)) return;
     const total = Math.max(0, Number(good.quantity) || 0);
     const damaged = Math.min(total, Math.max(0, Number(good.damagedConditionCount) || 0));
-    good.damagedConditionCount = damaged;
-    good.goodConditionCount = total - damaged;
+    const missing = Math.min(total - damaged, Math.max(0, Number(good.missingConditionCount) || 0));
+    if ("damagedConditionCount" in good) good.damagedConditionCount = damaged;
+    if ("missingConditionCount" in good) good.missingConditionCount = missing;
+    if ("goodConditionCount" in good) good.goodConditionCount = total - damaged - missing;
   }
 
   function restoreDisposalStock(disposal) {
@@ -3454,7 +3945,7 @@
         showToast("Pilih item dengan kondisi baik untuk peminjaman.", true);
         return false;
       }
-      if (key === "disposals" && item && item.condition !== "Rusak") {
+      if (key === "disposals" && item && !["Rusak", "Rusak Berat"].includes(item.condition)) {
         setStatus("Item tidak berkondisi rusak dan tidak dapat diajukan untuk pemusnahan.", true);
         showToast("Pindai item dengan kondisi rusak untuk pemusnahan.", true);
         return false;
@@ -3936,6 +4427,14 @@
       data.newStock = newStock;
       data.total = newStock;
       data.oldStock = initialStock;
+      data.missingQuantity = Math.max(0, initialStock - newStock);
+      data.lossStatus = data.missingQuantity ? (data.lossStatus || old?.lossStatus || "Perlu penelusuran") : "Tidak ada kehilangan";
+      data.locationId = old?.locationId || stocktakeGood.locationId || "";
+    }
+    if (key === "items" && ["Rusak", "Rusak Berat", "Hilang"].includes(data.condition)) {
+      data.conditionDate = old?.condition === data.condition ? old.conditionDate || old.received || "" : dateOffset(0);
+    } else if (key === "items" && data.condition === "Baik") {
+      data.conditionDate = "";
     }
     if (key === "depreciations") {
       const good = getById("goods", data.goodId);
@@ -4051,7 +4550,7 @@
       } catch (error) {
         if (old && previous) Object.assign(old, previous);
         else state.accounts = state.accounts.filter((account) => account.id !== data.id);
-        try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+        try { storeLocalState(); }
         catch (storageError) { showToast(`Perubahan akun gagal disimpan dan data lokal tidak dapat dipulihkan: ${storageError.message}`, true); }
         if (old?.id === activeUser?.id) {
           activeUser = old;
@@ -4141,6 +4640,77 @@
     window.print();
   }
 
+  function openBastModal(type, recordId) {
+    if (!["assetMovements", "procurements", "disposals"].includes(type)) return showToast("Jenis dokumen BAST tidak valid.", true);
+    const record = (state[type] || []).find((entry) => entry.id === recordId);
+    if (!record) return showToast("Data transaksi untuk BAST tidak ditemukan.", true);
+    if (!record.bastNumber) {
+      const year = String(record.date || dateOffset(0)).slice(0, 4);
+      let sequence = Math.max(1, Number(state.settings.bastSequence) || 1);
+      const usedNumbers = new Set(["assetMovements", "procurements", "disposals"]
+        .flatMap((collection) => state[collection] || [])
+        .map((entry) => entry.bastNumber).filter(Boolean));
+      let number = `BAST/AST/${year}/${String(sequence).padStart(4, "0")}`;
+      while (usedNumbers.has(number)) {
+        sequence += 1;
+        number = `BAST/AST/${year}/${String(sequence).padStart(4, "0")}`;
+      }
+      record.bastNumber = number;
+      state.settings.bastSequence = sequence + 1;
+      saveState();
+    }
+    const defaultSender = record.bastParties?.senderName || state.school.sarprasVicePrincipalName || activeUser?.name || "";
+    const defaultReceiver = record.bastParties?.receiverName || record.responsible || record.proposer || state.school.principalName || "";
+    const transactionDate = record.bastParties?.date || record.date || dateOffset(0);
+    const heading = type === "assetMovements" ? "Serah Terima Perpindahan Barang"
+      : type === "procurements" ? "Serah Terima Barang Pengadaan"
+        : "Serah Terima Aset untuk Pemusnahan";
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="bastModalTitle"><div class="modal-header"><div><h2 id="bastModalTitle">Cetak Berita Acara Serah Terima</h2><p>${esc(heading)}</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form id="bastForm" class="modal-form"><div class="form-grid">
+      <div class="form-field full"><label for="bastNumber">Nomor Berita Acara</label><input id="bastNumber" name="number" maxlength="100" required value="${esc(record.bastNumber)}"></div>
+      <div class="form-field"><label for="bastDate">Tanggal Berita Acara</label><input id="bastDate" name="date" type="date" required value="${esc(transactionDate)}"></div>
+      <div class="form-field"><label for="bastSender">Pihak yang Menyerahkan</label><input id="bastSender" name="senderName" maxlength="120" required value="${esc(defaultSender)}"></div>
+      <div class="form-field full"><label for="bastReceiver">Pihak yang Menerima</label><input id="bastReceiver" name="receiverName" maxlength="120" required value="${esc(defaultReceiver)}"></div>
+    </div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="submit" class="btn-primary"><i data-lucide="printer"></i>Simpan & Cetak BAST</button></div></form></section></div>`);
+    $("#bastForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      record.bastNumber = form.elements.number.value.trim();
+      record.bastParties = {
+        date: form.elements.date.value,
+        senderName: form.elements.senderName.value.trim(),
+        receiverName: form.elements.receiverName.value.trim()
+      };
+      saveState();
+      const parties = { ...record.bastParties, number: record.bastNumber };
+      closeModal();
+      printBastDocument(type, record, parties, heading);
+    });
+  }
+
+  function printBastDocument(type, record, parties, heading) {
+    const good = getById("goods", record.goodId);
+    const itemCodes = (state.items || []).filter((item) => item.goodId === record.goodId).map((item) => item.code).filter(Boolean);
+    if (type === "assetMovements" && record.itemCode && !itemCodes.includes(record.itemCode)) itemCodes.unshift(record.itemCode);
+    const quantity = Number(record.quantity) || (type === "assetMovements" ? Number(good?.quantity) || 1 : 0);
+    const unit = relatedName("units", good?.unitId);
+    const location = type === "assetMovements"
+      ? `${record.fromLocationName || "Belum ditentukan"} → ${record.toLocationName || "—"}`
+      : relatedName("locations", record.locationId || good?.locationId);
+    const detail = record.reason || record.note || record.approvalNote || "—";
+    const school = state.school || seed.school;
+    const design = state.settings.printDesign || seed.settings.printDesign;
+    const header = printSchoolHeaderMarkup(school, design);
+    const itemDescription = good?.name || record.goodName || record.title || "Barang / aset";
+    const codes = itemCodes.length ? itemCodes.join(", ") : "—";
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return showToast("Jendela cetak diblokir. Izinkan pop-up lalu ulangi cetak BAST.", true);
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(parties.number)}</title><style>
+      *{box-sizing:border-box}body{margin:0;color:#172033;font:12px Arial,sans-serif}.bast-page{max-width:190mm;margin:14mm auto}.bast-header{display:flex;align-items:center;gap:14px;border-bottom:3px double #222;padding-bottom:12px}.bast-header img{width:55px;height:55px;object-fit:contain}.bast-header .print-school-initial{display:grid;place-items:center;border:1px solid #444;font-weight:bold}.bast-header h1{margin:0 0 5px;font-size:18px}.bast-header p{margin:3px 0;font-size:10px}.bast-title{text-align:center;margin:24px 0 18px}.bast-title h2{margin:0;text-decoration:underline;font-size:16px}.bast-title p{margin:8px 0 0}.bast-copy{line-height:1.75;text-align:justify}.bast-table{width:100%;border-collapse:collapse;margin:15px 0}.bast-table th,.bast-table td{border:1px solid #333;padding:8px;text-align:left;vertical-align:top}.bast-table th{background:#f1f3f5}.bast-signatures{display:grid;grid-template-columns:1fr 1fr;gap:30px;text-align:center;margin-top:35px;page-break-inside:avoid}.bast-signatures p{margin:0 0 8px}.bast-signature-space{height:74px}.bast-signatures strong{display:block;text-decoration:underline}.bast-signatures small{display:block;margin-top:4px}.bast-note{margin-top:22px;font-size:10px;color:#444}@page{size:A4 portrait;margin:16mm}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.bast-page{max-width:none;margin:0}.bast-table th{background:#f1f3f5!important}.bast-signatures{break-inside:avoid}}
+      </style></head><body><main class="bast-page"><header class="bast-header">${header}</header><div class="bast-title"><h2>BERITA ACARA SERAH TERIMA</h2><p>${esc(parties.number)}</p><p>${esc(heading)}</p></div><p class="bast-copy">Pada hari ini, ${esc(niceDate(parties.date))}, pihak yang bertanda tangan di bawah ini menyatakan telah melaksanakan serah terima barang/aset sekolah dengan rincian sebagai berikut:</p><table class="bast-table"><thead><tr><th>No.</th><th>Nama Barang / Aset</th><th>Kode Inventaris</th><th>Jumlah</th><th>Lokasi</th></tr></thead><tbody><tr><td>1</td><td>${esc(itemDescription)}<br><small>${esc(detail)}</small></td><td>${esc(codes)}</td><td>${esc(quantity)} ${esc(unit)}</td><td>${esc(location)}</td></tr></tbody></table><p class="bast-copy">Barang/aset tersebut telah diperiksa dan diterima sesuai kondisi serta keterangan di atas. Berita acara ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.</p><div class="bast-signatures"><div><p>Pihak yang Menyerahkan,</p><div class="bast-signature-space"></div><strong>${esc(parties.senderName)}</strong><small>${esc(school.sarprasVicePrincipalNip ? `NIP. ${school.sarprasVicePrincipalNip}` : "")}</small></div><div><p>${esc(school.city || "................")}, ${esc(niceDate(parties.date))}</p><p>Pihak yang Menerima,</p><div class="bast-signature-space"></div><strong>${esc(parties.receiverName)}</strong></div></div><p class="bast-note">Dokumen ini merupakan berita acara serah terima aset sekolah dan dapat ditandatangani oleh para pihak.</p></main><script>window.addEventListener("load",()=>setTimeout(()=>{window.focus();window.print()},250));</script></body></html>`);
+    printWindow.document.close();
+  }
+
   function updateBulkSelection() {
     const checks = $$(".record-select", $("#pageContent"));
     const selected = checks.filter((check) => check.checked);
@@ -4182,6 +4752,49 @@
     if (!button) return;
     const action = button.dataset.action;
     if (action === "close") return closeModal();
+    if (action === "refresh-tenant-billing") {
+      tenantBillingData = { loading: true };
+      renderPage();
+      return;
+    }
+    if (action === "set-theme") {
+      if (!themePalette[button.dataset.theme]) return;
+      state.settings.themeColor = button.dataset.theme;
+      saveState();
+      applyAppBranding();
+      renderPage();
+      showToast(`Tema ${themePalette[button.dataset.theme].label} diterapkan.`);
+      return;
+    }
+    if (action === "print-bast") {
+      openBastModal(button.dataset.type, button.dataset.id);
+      return;
+    }
+    if (action === "delete-stored-file") {
+      if (activeUser?.role !== "Administrator") return showToast("Hanya Administrator yang dapat menghapus file tersimpan.", true);
+      const file = embeddedImageFiles()[Number(button.dataset.index)];
+      if (!file) return showToast("File tidak ditemukan atau sudah dihapus.", true);
+      showDeleteConfirmation("Hapus foto tersimpan?", `${filePathLabel(file.path)} · ${formatStorageBytes(file.bytes)}. Data inventaris terkait tetap dipertahankan.`, async () => {
+        let parent = state;
+        file.path.slice(0, -1).forEach((part) => { parent = parent?.[part]; });
+        const key = file.path[file.path.length - 1];
+        if (!parent || typeof parent[key] !== "string" || !parent[key].startsWith("data:image/")) {
+          return showToast("File tidak ditemukan atau sudah berubah.", true);
+        }
+        parent[key] = "";
+        storageUsageData = null;
+        const synced = await persistState();
+        showToast(synced && apiAvailable
+          ? "File gambar dihapus dan perubahan tersimpan di server."
+          : "File gambar dihapus secara lokal; perubahan akan disinkronkan otomatis saat koneksi pulih atau Administrator masuk kembali.", !(synced && apiAvailable));
+        renderPage();
+      }, "Hapus file");
+      return;
+    }
+    if (action === "create-payment-checkout") {
+      createTenantCheckout(button.dataset.id);
+      return;
+    }
     if (action === "toggle-account") {
       if (activeUser?.role !== "Administrator") return showToast("Hanya administrator yang dapat mengubah status akun.", true);
       const account = getById("accounts", button.dataset.id);
@@ -4266,10 +4879,6 @@
       saveState();
       showToast(`Status tiket ${ticket.ticketNo} diperbarui menjadi ${allowedNext}.`);
       renderPage();
-    } else if (action === "restore-pending-state") {
-      restorePendingServerState();
-    } else if (action === "discard-pending-state") {
-      discardPendingServerState();
     } else if (action === "move-mobile-nav") {
       if (!canEditPage("accounts")) return showToast("Akun Anda tidak memiliki izin mengubah navigasi.", true);
       const currentIndex = mobileNavDraft?.indexOf(button.dataset.key) ?? -1;
@@ -4583,28 +5192,17 @@
     const updateReport = () => {
       const type = $("#reportType")?.value;
       if (!type) return;
-      const inventory = isInventoryReport(type);
       const lifecycle = type === "assetLifecycle";
       const period = $("#reportPeriod")?.value || "month";
-      const range = inventory || lifecycle ? null : reportDateRange();
+      const range = reportDateRange();
       $("#reportHeading").innerHTML = reportHeading(type, range);
-      $("#reportPeriodField")?.classList.toggle("hidden", inventory || lifecycle);
-      $("#reportMonthField")?.classList.toggle("hidden", inventory || lifecycle || period !== "month");
-      $("#reportAcademicYearField")?.classList.toggle("hidden", inventory || lifecycle || period !== "academicYear");
+      $("#reportPeriodField")?.classList.toggle("hidden", false);
+      $("#reportMonthField")?.classList.toggle("hidden", period !== "month");
+      $("#reportAcademicYearField")?.classList.toggle("hidden", period !== "academicYear");
       $("#assetLifecycleGoodField")?.classList.toggle("hidden", !lifecycle);
-      $("#reportInventoryDetailsField")?.classList.toggle("hidden", !inventory);
-      $("#reportDateRange")?.classList.toggle("hidden", inventory || lifecycle || period !== "custom");
-      $("#reportPeriodNotice")?.classList.toggle("hidden", !inventory);
-      if (inventory) {
-        $("#reportBody").innerHTML = reportTable(type);
-        return;
-      }
-      if (lifecycle) {
-        $("#reportBody").innerHTML = $("#assetLifecycleGood")?.value
-          ? reportTable(type)
-          : `<p class="empty-state">Tambahkan data barang terlebih dahulu untuk melihat riwayat siklus aset.</p>`;
-        return;
-      }
+      $("#reportInventoryDetailsField")?.classList.toggle("hidden", !isInventoryReport(type));
+      $("#reportDateRange")?.classList.toggle("hidden", period !== "custom");
+      $("#reportPeriodNotice")?.classList.toggle("hidden", !isInventoryReport(type));
       if (!range) {
         $("#reportBody").innerHTML = `<p class="empty-state">Pilih tahun pelajaran dengan format, misalnya 2026/2027.</p>`;
         return;
@@ -4613,12 +5211,20 @@
         $("#reportBody").innerHTML = `<p class="empty-state">Tanggal mulai tidak boleh setelah tanggal akhir.</p>`;
         return;
       }
+      if (lifecycle) {
+        $("#reportBody").innerHTML = $("#assetLifecycleGood")?.value
+          ? reportTable(type, range.start, range.end)
+          : `<p class="empty-state">Tambahkan data barang terlebih dahulu untuk melihat riwayat siklus aset.</p>`;
+        return;
+      }
       $("#reportBody").innerHTML = reportTable(type, range.start, range.end);
     };
     $("#reportType")?.addEventListener("change", updateReport);
     $("#reportPeriod")?.addEventListener("change", updateReport);
     $("#reportMonth")?.addEventListener("change", updateReport);
     $("#reportAcademicYear")?.addEventListener("change", updateReport);
+    $("#reportFund")?.addEventListener("change", updateReport);
+    $("#reportLocation")?.addEventListener("change", updateReport);
     $("#assetLifecycleGood")?.addEventListener("change", updateReport);
     $("#reportInventoryDetails")?.addEventListener("change", (event) => {
       state.settings.reportInventoryDetails = event.target.checked;
@@ -4951,8 +5557,8 @@
     const type = $("#reportType")?.value || "inventarisBhp";
     const inventory = isInventoryReport(type);
     const lifecycle = type === "assetLifecycle";
-    const range = inventory || lifecycle ? null : reportDateRange();
-    if (!inventory && !lifecycle && !range) {
+    const range = reportDateRange();
+    if (!range) {
       showToast("Pilih tahun pelajaran dengan format, misalnya 2026/2027.", true);
       return;
     }
@@ -4963,9 +5569,9 @@
     const { title, period } = reportHeadingContent(type, range);
     const headingRows = [[state.school.name], [title], [period], []];
     if (inventory) {
-      const records = recordsForAcademicYear("goods").filter((row) => type === "inventarisBhp" ? isBhp(row) : !isBhp(row));
+      const records = filteredReportGoods(type, range.start, range.end);
       const grandTotal = records.reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0);
-      const { headers, rows } = inventoryReportData(type);
+      const { headers, rows } = inventoryReportData(type, range.start, range.end);
       const exportHeaders = headers.map((header) => header === "Harga Satuan" || header === "Harga Total" ? `${header} (Rp)` : header);
       const reportName = type === "inventarisBhp" ? "bhp" : "barang-modal";
       const totalLabel = type === "inventarisBhp" ? "Grand Total Nilai BHP" : "Grand Total Nilai Barang Modal";
@@ -4973,15 +5579,29 @@
       return;
     }
     if (lifecycle) {
-      const { headers, rows } = assetLifecycleReportData($("#assetLifecycleGood")?.value || "");
+      const { headers, rows } = assetLifecycleReportData($("#assetLifecycleGood")?.value || "", range.start, range.end);
       if (!rows.length) return showToast("Tidak ada riwayat aset untuk barang yang dipilih.", true);
       downloadExcel("laporan-riwayat-pergerakan-aset.xlsx", [...headingRows, headers, ...rows]);
+      return;
+    }
+    if (["roomConditions", "damageLoss", "maintenanceReport", "stocktakeMinutes"].includes(type)) {
+      const report = type === "roomConditions" ? roomConditionReportData(range.start, range.end)
+        : type === "damageLoss" ? damageLossReportData(range.start, range.end)
+          : type === "maintenanceReport" ? maintenanceReportData(range.start, range.end)
+            : stocktakeMinutesReportData(range.start, range.end);
+      downloadExcel(`laporan-${type}.xlsx`, [...headingRows, report.headers, ...report.rows]);
       return;
     }
     const config = collectionConfig[type];
     if (!config) return;
     const dateField = ({ loans: "startDate", usages: "date", procurements: "date", disposals: "date", depreciations: "date" })[type];
-    const records = (state[type] || []).filter((row) => !dateField || ((!range.start || row[dateField] >= range.start) && (!range.end || row[dateField] <= range.end)));
+    const filters = reportFilters();
+    const records = (state[type] || []).filter((row) => {
+      const good = row.goodId ? getById("goods", row.goodId) : null;
+      return (!dateField || matchesReportDate(row[dateField] || "", range.start, range.end))
+        && (!filters.fundId || (row.fundId || good?.fundId) === filters.fundId)
+        && (!filters.locationId || (row.locationId || good?.locationId) === filters.locationId);
+    });
     downloadExcel(`laporan-${type}.xlsx`, [...headingRows, config.cols.map(([, label]) => label), ...records.map((row) => config.cols.map(([field]) => plainCell(type, field, row)))]);
   }
 
@@ -5033,44 +5653,51 @@
     saveState(); renderMobileNav(); renderPage(); showToast("Urutan dan navigasi mobile berhasil disimpan.");
   }
 
-  function showPendingServerStateRecovery() {
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="pendingStateTitle"><div class="modal-header"><div><h2 id="pendingStateTitle">Perubahan lokal belum tersinkron</h2><p>Ada salinan data dari sesi sebelumnya yang ditolak server. Pilih cara melanjutkan.</p></div><button class="modal-close" data-action="close" aria-label="Tutup"><i data-lucide="x"></i></button></div><div class="modal-form"><p class="form-help">Memulihkan data lokal akan mengganti seluruh data di server dengan salinan ini. Perubahan dari pengguna lain setelah sesi berakhir dapat tertimpa.</p><div class="modal-footer"><button class="btn-quiet" type="button" data-action="discard-pending-state">Gunakan data server</button><button class="btn-primary" type="button" data-action="restore-pending-state"><i data-lucide="cloud-upload"></i>Pulihkan data lokal</button></div></div></section></div>`);
-  }
-
   async function restorePendingServerState() {
     if (!pendingStateRecovery) return showToast("Salinan pemulihan lokal tidak tersedia.", true);
-    if (activeUser?.role !== "Administrator") return showToast("Hanya Administrator yang dapat memulihkan data ke server.", true);
     if (!apiAvailable) return showToast("Sesi server belum aktif. Keluar lalu login kembali sebagai Administrator untuk mencoba sinkronisasi.", true);
     const snapshot = structuredClone(pendingStateRecovery);
-    const serverAdmin = state.accounts.find((account) => account.id === activeUser.id && account.role === "Administrator");
-    if (!serverAdmin) return showToast("Akun Administrator server tidak ditemukan. Data lokal tetap tersimpan.", true);
-    const localAdmin = snapshot.accounts.find((account) => account.email?.toLowerCase() === serverAdmin.email.toLowerCase());
-    snapshot.accounts = snapshot.accounts.filter((account) => account.id !== serverAdmin.id && account.email?.toLowerCase() !== serverAdmin.email.toLowerCase());
-    snapshot.accounts.unshift({ ...serverAdmin, ...(localAdmin || {}), id: serverAdmin.id, email: serverAdmin.email, role: "Administrator", active: true });
-    Object.assign(state, snapshot);
+    const merged = structuredClone(state);
+    Object.entries(snapshot).forEach(([key, localValue]) => {
+      if (key === "accounts") return;
+      const serverValue = merged[key];
+      if (Array.isArray(localValue) && Array.isArray(serverValue)) {
+        const records = new Map();
+        localValue.forEach((record, index) => {
+          const recordKey = record?.id ? `id:${record.id}` : `value:${JSON.stringify(record)}:${index}`;
+          records.set(recordKey, record);
+        });
+        serverValue.forEach((record, index) => {
+          const recordKey = record?.id ? `id:${record.id}` : `value:${JSON.stringify(record)}:${index}`;
+          if (!records.has(recordKey)) records.set(recordKey, record);
+        });
+        merged[key] = [...records.values()];
+      } else if (key === "settings" && localValue && typeof localValue === "object" && serverValue && typeof serverValue === "object") {
+        merged.settings = { ...serverValue, ...localValue };
+      } else {
+        merged[key] = localValue;
+      }
+    });
+    const serverAdmin = merged.accounts.find((account) => account.id === activeUser?.id && account.role === "Administrator");
+    if (serverAdmin && activeUser?.role === "Administrator") {
+      const localAdmin = snapshot.accounts.find((account) => account.id === serverAdmin.id || account.email?.toLowerCase() === serverAdmin.email.toLowerCase());
+      merged.accounts = merged.accounts.filter((account) => account.id !== serverAdmin.id && account.email?.toLowerCase() !== serverAdmin.email.toLowerCase());
+      merged.accounts.unshift({ ...serverAdmin, ...(localAdmin || {}), id: serverAdmin.id, email: serverAdmin.email, role: "Administrator", active: true });
+    }
+    Object.assign(state, merged);
     normalizeAccountRoles();
     try {
       const synced = await persistState();
       if (!synced) return;
-      localStorage.removeItem(PENDING_STATE_KEY);
+      localStorage.removeItem(pendingStateRecoveryKey || pendingServerStateKey(state.school?.code));
+      pendingStateRecoveryKey = "";
       snapshot.accounts.forEach(clearPendingLocalAccount);
       pendingStateRecovery = null;
-      closeModal();
-      activeUser = getById("accounts", serverAdmin.id);
-      enterApp();
-      showToast("Data lokal berhasil dipulihkan ke server.");
+      activeUser = getById("accounts", activeUser?.id) || activeUser;
+      showToast("Perubahan dari sesi sebelumnya berhasil disinkronkan ke server.");
     } catch (error) {
-      showToast(`Pemulihan data gagal: ${error.message}. Data lokal tetap tersimpan.`, true);
+      showToast(`Sinkronisasi otomatis gagal: ${error.message}. Perubahan tetap tersimpan lokal dan akan dicoba lagi saat masuk kembali.`, true);
     }
-  }
-
-  function discardPendingServerState() {
-    if (!pendingStateRecovery) return;
-    pendingStateRecovery.accounts.forEach(clearPendingLocalAccount);
-    localStorage.removeItem(PENDING_STATE_KEY);
-    pendingStateRecovery = null;
-    closeModal();
-    showToast("Data server digunakan. Salinan lokal yang belum tersinkron dihapus.");
   }
 
   function drawChart() {
@@ -5246,7 +5873,46 @@
       $("#schoolRegistrationPanel").classList.remove("hidden");
       $("#registrationResult").textContent = "";
       $("#schoolRegistrationForm").reset();
+      registrationOtpSentPhone = "";
+      $("#registrationOtpCodeField").classList.add("hidden");
+      loadRegistrationOptions();
       $("#schoolRegistrationForm").elements.schoolName.focus();
+    });
+    $("#sendRegistrationOtp").addEventListener("click", async (event) => {
+      const form = $("#schoolRegistrationForm");
+      const phone = form.elements.phone.value.trim();
+      if (!form.elements.phone.reportValidity()) return;
+      const button = event.currentTarget;
+      button.disabled = true;
+      $("#registrationResult").textContent = "Mengirim kode OTP...";
+      try {
+        const response = await fetch("/api/auth/register-school/otp/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Kode OTP tidak dapat dikirim.");
+        registrationOtpSentPhone = registrationPhoneKey(phone);
+        $("#registrationOtpCodeField").classList.remove("hidden");
+        form.elements.otpCode.focus();
+        $("#registrationResult").textContent = "Kode OTP telah dikirim melalui WhatsApp dan berlaku 10 menit.";
+        button.textContent = "Tunggu sebelum meminta kode baru";
+        window.setTimeout(() => {
+          button.disabled = false;
+          button.textContent = "Kirim ulang kode OTP";
+        }, Math.max(1000, Number(result.retryAfter || 60) * 1000));
+      } catch (error) {
+        button.disabled = false;
+        $("#registrationResult").textContent = error.message || "Kode OTP tidak dapat dikirim.";
+      }
+    });
+    $("#schoolRegistrationForm").elements.phone.addEventListener("input", (event) => {
+      if (registrationOtpSentPhone && registrationPhoneKey(event.target.value) !== registrationOtpSentPhone) {
+        registrationOtpSentPhone = "";
+        $("#schoolRegistrationForm").elements.otpCode.value = "";
+        $("#registrationResult").textContent = "Nomor WhatsApp berubah. Kirim ulang kode OTP untuk nomor ini.";
+      }
     });
     $("#backToSchoolLogin").addEventListener("click", () => {
       $("#schoolRegistrationPanel").classList.add("hidden");
@@ -5261,6 +5927,11 @@
         $("#registrationResult").textContent = "Konfirmasi kata sandi tidak cocok.";
         return;
       }
+      if (registrationOtpRequired
+        && (registrationPhoneKey(form.elements.phone.value) !== registrationOtpSentPhone || !form.elements.otpCode.value.trim())) {
+        $("#registrationResult").textContent = "Verifikasi nomor WhatsApp dengan kode OTP sebelum mendaftar.";
+        return;
+      }
       const submit = form.querySelector('button[type="submit"]');
       submit.disabled = true;
       $("#registrationResult").textContent = "Mendaftarkan sekolah...";
@@ -5271,14 +5942,14 @@
           body: JSON.stringify({
             school: {
               name: form.elements.schoolName.value.trim(),
-              level: form.elements.level.value.trim(),
               phone: form.elements.phone.value.trim()
             },
             admin: {
               name: form.elements.adminName.value.trim(),
               email: form.elements.email.value.trim().toLowerCase(),
               password
-            }
+            },
+            ...(registrationOtpRequired ? { otpCode: form.elements.otpCode.value.trim() } : {})
           })
         });
         const result = await response.json();
@@ -5288,6 +5959,8 @@
         $("#loginSchoolCode").value = result.school.code;
         $("#loginEmail").value = form.elements.email.value.trim().toLowerCase();
         form.reset();
+        registrationOtpSentPhone = "";
+        $("#registrationOtpCodeField").classList.add("hidden");
       } catch (error) {
         $("#registrationResult").textContent = error.message || "Pendaftaran sekolah gagal.";
         $("#registrationResult").classList.remove("login-success");
@@ -5304,8 +5977,8 @@
         $("#loginError").textContent = "Masukkan kode sekolah 4 karakter.";
         return;
       }
-      const localStateRecovery = readPendingServerState();
-      const pendingLocalAccounts = readPendingLocalAccounts();
+      const localStateRecovery = readPendingServerState(schoolCode);
+      const pendingLocalAccounts = readPendingLocalAccounts(schoolCode);
       let online = false;
       let authenticatedRole = "";
       try {
@@ -5321,6 +5994,7 @@
           authenticatedRole = auth.user?.role || "";
           tenantFeatureAccess = auth.featureAccess || {};
           tenantSchool = auth.school || null;
+          if (tenantSchool?.code) localStorage.setItem(ACTIVE_SCHOOL_CODE_KEY, tenantSchool.code);
           await loadState();
           await loadTenantPortalContent();
           if (apiAvailable && authenticatedRole === "Administrator") await syncPendingLocalAccounts(pendingLocalAccounts);
@@ -5329,12 +6003,17 @@
         apiAvailable = false;
       }
       const account = state.accounts.find((row) => row.email.toLowerCase() === email && row.active);
-      const validOffline = !online && account && ((email === "admin@sarprah.id" && password === "sarprah123" && !account.passwordHash) || await verifyPassword(account, password));
+      const localSchoolMatches = String(localStorage.getItem(CACHED_STATE_SCHOOL_CODE_KEY) || state.school?.code || "").trim().toUpperCase() === schoolCode;
+      const validOffline = !online && localSchoolMatches && account && ((email === "admin@sarprah.id" && password === "sarprah123" && !account.passwordHash) || await verifyPassword(account, password));
       if (!online && !validOffline) {
         $("#loginError").textContent = apiAvailable ? "Email atau kata sandi tidak sesuai." : "Server tidak tersedia. Periksa koneksi atau gunakan akun lokal yang tersimpan.";
         return;
       }
       if (!account) { $("#loginError").textContent = "Akun tidak ditemukan pada data aplikasi."; return; }
+      if (!online) {
+        tenantSchool = { ...(tenantSchool || {}), code: schoolCode };
+      }
+      localStorage.setItem(ACTIVE_SCHOOL_CODE_KEY, schoolCode);
       activeUser = account;
       if (!account.passwordHash) {
         Object.assign(account, await passwordCredentials(password));
@@ -5347,11 +6026,9 @@
       logActivity("Masuk", "Akun", account.name);
       saveState();
       enterApp();
-      if (online && localStateRecovery && authenticatedRole === "Administrator" && apiAvailable) {
+      if (online && localStateRecovery && apiAvailable) {
         pendingStateRecovery = localStateRecovery;
-        showPendingServerStateRecovery();
-      } else if (online && localStateRecovery) {
-        showToast("Ada perubahan lokal yang belum tersinkron. Minta Administrator login untuk memulihkan data.", true);
+        await restorePendingServerState();
       }
     });
     document.addEventListener("keydown", (event) => {
@@ -5359,6 +6036,30 @@
       if (event.key === "Escape") { closeModal(); closeTopbarProfileMenu(); closeNotificationDropdown(); closeTopbarSearch(); }
     });
     window.addEventListener("resize", () => { if (page === "dashboard") drawChart(); });
+    window.addEventListener("online", async () => {
+      if (activeUser?.role !== "Administrator") return;
+      const schoolCode = activeSchoolCode();
+      const pending = readPendingServerState(schoolCode);
+      if (!pending) return;
+      try {
+        const response = await fetch("/api/auth/session");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const session = await response.json();
+        if (session.user?.id !== activeUser.id || String(session.school?.code || "").toUpperCase() !== schoolCode) return;
+        tenantFeatureAccess = session.featureAccess || {};
+        apiAvailable = true;
+        await loadState();
+        if (!apiAvailable) return;
+        activeUser = getById("accounts", session.user.id);
+        if (activeUser?.role !== "Administrator") return;
+        pendingStateRecovery = pending;
+        await restorePendingServerState();
+        enterApp();
+      } catch (error) {
+        console.error("Sinkronisasi otomatis setelah koneksi pulih gagal:", error);
+        showToast("Sinkronisasi otomatis belum berhasil. Salinan tetap tersimpan dan akan dicoba kembali.", true);
+      }
+    });
     window.addEventListener("beforeprint", () => {
       const school = state.school || seed.school;
       const printHeader = $("#printSchoolHeader");
@@ -5418,6 +6119,7 @@
     tenantFeatureAccess = {};
     tenantSchool = null;
     tenantPortalContent = { terms: "", sla: "", announcements: [], manuals: [] };
+    tenantBillingData = null;
     $("#appShell").classList.add("hidden"); $("#loginScreen").classList.remove("hidden");
     if (window.lucide) lucide.createIcons({ nodes: [$("#loginScreen")] });
   }
@@ -5445,17 +6147,24 @@
       sessionUser = session.user;
       tenantFeatureAccess = session.featureAccess || {};
       tenantSchool = session.school || null;
+      if (tenantSchool?.code) localStorage.setItem(ACTIVE_SCHOOL_CODE_KEY, tenantSchool.code);
       if (sessionUser) {
         apiAvailable = true;
-        const pendingLocalAccounts = readPendingLocalAccounts();
+        const localStateRecovery = readPendingServerState(tenantSchool?.code);
+        const pendingLocalAccounts = readPendingLocalAccounts(tenantSchool?.code);
         await loadState();
         await loadTenantPortalContent();
         activeUser = getById("accounts", sessionUser.id);
-        if (activeUser?.role === "Administrator") await syncPendingLocalAccounts(pendingLocalAccounts);
+        if (activeUser?.role === "Administrator") {
+          await syncPendingLocalAccounts(pendingLocalAccounts);
+          if (apiAvailable && localStateRecovery) {
+            pendingStateRecovery = localStateRecovery;
+            await restorePendingServerState();
+          }
+        }
       } else {
         apiAvailable = false;
-        const cached = localStorage.getItem(STORE_KEY);
-        if (cached) Object.assign(state, JSON.parse(cached));
+        loadLocalStateForCurrentSchool();
         restoreLocalUserSession();
       }
     } catch {

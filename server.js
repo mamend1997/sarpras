@@ -226,6 +226,8 @@ const saveSaasMigration = db.prepare(`
   ON CONFLICT(migration_key) DO UPDATE SET migration_value = excluded.migration_value, completed_at = CURRENT_TIMESTAMP
 `);
 const registrationAttempts = new Map();
+const registrationOtpChallenges = new Map();
+const registrationOtpSendAttempts = new Map();
 const mime = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -276,12 +278,17 @@ function defaultPlatformState() {
       branding: { appName: "Sarprah", tagline: "Sistem Manajemen Sarana & Prasarana", logo: "" },
       defaultMenus: featureKeys,
       qrisImage: "",
+      paymentGateways: {
+        kasera: { enabled: false, environment: "sandbox", apiKeyCipher: "", webhookSecretCipher: "" },
+        xendit: { enabled: false, environment: "sandbox", secretKeyCipher: "", callbackTokenCipher: "" },
+        duitku: { enabled: false, environment: "sandbox", merchantCode: "", apiKeyCipher: "" }
+      },
       pricing: { monthly: 50000, semester: 275000, yearly: 500000 },
       trialDays: 14,
       terms: "Gunakan layanan secara bertanggung jawab dan jaga kerahasiaan akun sekolah.",
       sla: "Dukungan operasional tersedia pada hari kerja. Gangguan kritis ditangani secepatnya setelah laporan diterima.",
       maintenance: { enabled: false, message: "Sistem sedang dalam pemeliharaan. Silakan coba kembali beberapa saat lagi." },
-      whatsapp: { phoneNumberId: "", graphVersion: "v22.0", accessTokenCipher: "" }
+      whatsapp: { fonnteTokenCipher: "", registrationOtpEnabled: false }
     },
     plans: [
       { id: "basic", code: "basic", name: "Basic", description: "Untuk sekolah kecil dengan kebutuhan inventaris inti.", trialDays: 14, active: true, prices: { monthly: 50000, semester: 275000, yearly: 500000 }, features: featureKeys },
@@ -330,9 +337,26 @@ function safePlatformState() {
   const data = platformState();
   const wa = data.settings?.whatsapp || {};
   data.settings.whatsapp = {
-    phoneNumberId: wa.phoneNumberId || "",
-    graphVersion: wa.graphVersion || "v22.0",
-    configured: Boolean(wa.accessTokenCipher)
+    configured: Boolean(wa.fonnteTokenCipher),
+    registrationOtpEnabled: wa.registrationOtpEnabled === true
+  };
+  const gateways = data.settings?.paymentGateways || {};
+  data.settings.paymentGateways = {
+    kasera: {
+      enabled: gateways.kasera?.enabled === true,
+      environment: gateways.kasera?.environment === "production" ? "production" : "sandbox",
+      configured: Boolean(gateways.kasera?.apiKeyCipher && gateways.kasera?.webhookSecretCipher)
+    },
+    xendit: {
+      enabled: gateways.xendit?.enabled === true,
+      environment: gateways.xendit?.environment === "production" ? "production" : "sandbox",
+      configured: Boolean(gateways.xendit?.secretKeyCipher && gateways.xendit?.callbackTokenCipher)
+    },
+    duitku: {
+      enabled: gateways.duitku?.enabled === true,
+      environment: gateways.duitku?.environment === "production" ? "production" : "sandbox",
+      configured: Boolean(gateways.duitku?.merchantCode && gateways.duitku?.apiKeyCipher)
+    }
   };
   return data;
 }
@@ -606,6 +630,28 @@ function normalizeWhatsAppNumber(value) {
   return number;
 }
 
+function validateRegistrationOtp(phoneValue, codeValue) {
+  const phone = normalizeWhatsAppNumber(phoneValue);
+  const challenge = registrationOtpChallenges.get(phone);
+  if (!phone || !challenge) return "Kirim kode OTP ke nomor WhatsApp yang digunakan untuk pendaftaran.";
+  if (challenge.expiresAt <= Date.now()) {
+    registrationOtpChallenges.delete(phone);
+    return "Kode OTP sudah kedaluwarsa. Minta kode baru.";
+  }
+  if (challenge.attempts >= 5) {
+    registrationOtpChallenges.delete(phone);
+    return "Batas percobaan kode OTP tercapai. Minta kode baru.";
+  }
+  const code = String(codeValue || "").trim();
+  const actual = crypto.createHash("sha256").update(code).digest();
+  challenge.attempts++;
+  if (!/^\d{6}$/.test(code) || !crypto.timingSafeEqual(actual, challenge.digest)) {
+    if (challenge.attempts >= 5) registrationOtpChallenges.delete(phone);
+    return "Kode OTP tidak sesuai.";
+  }
+  return "";
+}
+
 async function sendFonnteMessage(tokenCipher, target, message) {
   const token = decryptToken(tokenCipher);
   const phone = normalizeWhatsAppNumber(target);
@@ -634,6 +680,174 @@ async function readJsonBody(req, maxBytes = 5_000_000) {
   }
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
   catch { throw new Error("Data JSON tidak valid."); }
+}
+
+async function readRawBody(req, maxBytes = 1_000_000) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBytes) throw new Error("Ukuran callback melebihi batas.");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+function secureStringEqual(left, right) {
+  const a = Buffer.from(String(left || ""));
+  const b = Buffer.from(String(right || ""));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function embeddedImageBytes(value) {
+  if (typeof value === "string") {
+    const match = /^data:image\/[A-Za-z0-9.+-]+;base64,([A-Za-z0-9+/=]+)$/.exec(value);
+    if (!match) return 0;
+    const encoded = match[1];
+    return Math.max(0, Math.floor(encoded.length * 3 / 4) - (encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0));
+  }
+  if (Array.isArray(value)) return value.reduce((total, entry) => total + embeddedImageBytes(entry), 0);
+  if (value && typeof value === "object") {
+    return Object.values(value).reduce((total, entry) => total + embeddedImageBytes(entry), 0);
+  }
+  return 0;
+}
+
+function tenantStorageQuotaBytes() {
+  const configuredMb = Number(process.env.SARPRAH_TENANT_STORAGE_QUOTA_MB);
+  const quotaMb = Number.isFinite(configuredMb) && configuredMb > 0 ? Math.min(configuredMb, 10_000) : 100;
+  return Math.floor(quotaMb * 1024 * 1024);
+}
+
+function platformPaymentGatewayUrls(provider) {
+  const config = platformState().settings.paymentGateways?.[provider];
+  if (!config?.enabled) throw new Error(`Gateway ${provider} sedang nonaktif.`);
+  const configured = provider === "kasera"
+    ? config.apiKeyCipher && config.webhookSecretCipher
+    : provider === "xendit"
+      ? config.secretKeyCipher && config.callbackTokenCipher
+      : config.merchantCode && config.apiKeyCipher;
+  if (!configured) throw new Error(`Kredensial gateway ${provider} belum lengkap.`);
+  return config;
+}
+
+function paymentPublicBaseUrl(req) {
+  const configured = String(process.env.PUBLIC_APP_URL || "").trim();
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const candidate = configured || req.headers.origin || `${forwardedProto || (req.socket.encrypted ? "https" : "http")}://${req.headers.host || ""}`;
+  let base;
+  try { base = new URL(candidate); }
+  catch { throw new Error("Alamat publik aplikasi tidak valid. Atur PUBLIC_APP_URL atau domain aplikasi terlebih dahulu."); }
+  if (!["http:", "https:"].includes(base.protocol) || base.username || base.password) throw new Error("Alamat publik aplikasi tidak valid.");
+  if (base.protocol !== "https:" && !["localhost", "127.0.0.1"].includes(base.hostname)) {
+    throw new Error("Gateway pembayaran membutuhkan alamat aplikasi HTTPS.");
+  }
+  return base.origin;
+}
+
+function approvePlatformPayment(data, payment, provider = "") {
+  if (payment.status === "Disetujui") return false;
+  payment.status = "Disetujui";
+  payment.verifiedAt = new Date().toISOString();
+  if (provider) payment.note = `Pembayaran terverifikasi otomatis melalui ${provider}.`;
+  const school = data.schools.find((entry) => entry.id === payment.schoolId);
+  if (school) {
+    if (payment.period === "lifetime") {
+      school.expiresAt = "";
+      school.subscriptionPeriod = "lifetime";
+      school.status = "Lifetime";
+    } else {
+      const duration = payment.period === "semester" ? 183 : payment.period === "yearly" ? 365 : 30;
+      const oldEnd = new Date(school.expiresAt || school.trialEndsAt || Date.now());
+      const start = oldEnd > new Date() ? oldEnd : new Date();
+      school.expiresAt = new Date(start.getTime() + duration * 86400000).toISOString();
+      school.activatedAt ||= new Date().toISOString();
+      school.status = "Aktif";
+    }
+    saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
+  }
+  return true;
+}
+
+async function createProviderCheckout(provider, payment, school, req) {
+  const config = platformPaymentGatewayUrls(provider);
+  const baseUrl = paymentPublicBaseUrl(req);
+  const amount = Math.trunc(Number(payment.amount));
+  if (!Number.isSafeInteger(amount) || amount < 1) throw new Error("Nominal tagihan tidak valid untuk pembayaran online.");
+  const orderId = `SARP-${payment.id}-${crypto.randomBytes(4).toString("hex")}`;
+  const description = `Langganan Sarprah ${payment.period || "bulanan"} · ${String(school.name || "").slice(0, 100)}`;
+  const returnUrl = `${baseUrl}/?payment=return`;
+  let endpoint = "";
+  let headers = { "Content-Type": "application/json" };
+  let body;
+  if (provider === "kasera") {
+    endpoint = "https://pay.kasera.id/v1/transactions";
+    headers.Authorization = `Bearer ${decryptToken(config.apiKeyCipher)}`;
+    headers["Idempotency-Key"] = orderId;
+    body = { amount, description, external_id: orderId, checkout: { steps: ["customer", "payment_method", "payment"] } };
+  } else if (provider === "xendit") {
+    endpoint = "https://api.xendit.co/v2/invoices";
+    headers.Authorization = `Basic ${Buffer.from(`${decryptToken(config.secretKeyCipher)}:`).toString("base64")}`;
+    body = {
+      external_id: orderId,
+      amount,
+      currency: "IDR",
+      description,
+      payer_email: school.email || undefined,
+      success_redirect_url: returnUrl,
+      failure_redirect_url: returnUrl,
+      invoice_duration: 86400
+    };
+  } else {
+    endpoint = config.environment === "production"
+      ? "https://passport.duitku.com/webapi/api/merchant/v2/inquiry"
+      : "https://sandbox.duitku.com/webapi/api/merchant/v2/inquiry";
+    const apiKey = decryptToken(config.apiKeyCipher);
+    body = {
+      merchantCode: config.merchantCode,
+      paymentAmount: amount,
+      paymentMethod: "SP",
+      merchantOrderId: orderId,
+      productDetails: description.slice(0, 255),
+      email: school.email || "admin@sarprah.id",
+      customerVaName: "Sarprah",
+      phoneNumber: school.phone || "",
+      callbackUrl: `${baseUrl}/api/payments/webhook/duitku`,
+      returnUrl,
+      expiryPeriod: 1440,
+      signature: crypto.createHmac("sha256", apiKey).update(`${config.merchantCode}${orderId}${amount}`).digest("hex")
+    };
+  }
+  let response;
+  let result;
+  try {
+    response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
+    result = await response.json();
+  } catch (error) {
+    throw new Error(`Tidak dapat menghubungi ${provider}: ${error.message}`);
+  }
+  if (!response.ok) {
+    const detail = result?.message || result?.error || result?.statusMessage || `HTTP ${response.status}`;
+    throw new Error(`Gateway ${provider} menolak permintaan checkout: ${String(detail).slice(0, 300)}`);
+  }
+  let checkoutUrl = "";
+  let reference = "";
+  if (provider === "kasera") {
+    checkoutUrl = String(result.checkout_url || "");
+    reference = String(result.id || result.payment_request_id || "");
+  } else if (provider === "xendit") {
+    checkoutUrl = String(result.invoice_url || "");
+    reference = String(result.id || "");
+  } else {
+    if (String(result.statusCode || "") !== "00") throw new Error(`Duitku gagal membuat tagihan: ${result.statusMessage || result.statusCode || "respons tidak valid"}`);
+    checkoutUrl = String(result.paymentUrl || "");
+    reference = String(result.reference || "");
+  }
+  let checkout;
+  try { checkout = new URL(checkoutUrl); }
+  catch { throw new Error(`Gateway ${provider} tidak memberikan URL pembayaran yang valid.`); }
+  if (checkout.protocol !== "https:") throw new Error(`Gateway ${provider} memberikan tautan pembayaran yang tidak aman.`);
+  return { checkoutUrl: checkout.href, reference, orderId };
 }
 
 function validateAccounts(accounts, currentAdminId) {
@@ -877,6 +1091,52 @@ async function handlePlatformApi(req, res) {
   const session = superAdminFromRequest(req);
   if (!session) return send(res, 401, JSON.stringify({ error: "Silakan masuk sebagai Super Admin." })), true;
 
+  const paymentGatewayMatch = pathname.match(/^\/api\/platform\/payment-gateways\/(kasera|xendit|duitku)$/);
+  if (paymentGatewayMatch && req.method === "PUT") {
+    const provider = paymentGatewayMatch[1];
+    const input = await readJsonBody(req, 32_000);
+    if (typeof input.enabled !== "boolean") return send(res, 400, JSON.stringify({ error: "Status gateway tidak valid." })), true;
+    if (!["sandbox", "production"].includes(input.environment)) return send(res, 400, JSON.stringify({ error: "Mode gateway tidak valid." })), true;
+    const data = platformState();
+    data.settings.paymentGateways ||= defaultPlatformState().settings.paymentGateways;
+    const current = data.settings.paymentGateways[provider] || {};
+    const next = { ...current, enabled: input.enabled, environment: input.environment };
+    const saveSecret = (inputKey, storedKey) => {
+      if (typeof input[inputKey] !== "string" || !input[inputKey].trim()) return;
+      const secret = input[inputKey].trim();
+      if (secret.length < 10 || secret.length > 500 || /\s/.test(secret)) throw new Error("Format kredensial gateway tidak valid.");
+      next[storedKey] = encryptToken(secret);
+    };
+    try {
+      if (provider === "kasera") {
+        saveSecret("apiKey", "apiKeyCipher");
+        saveSecret("webhookSecret", "webhookSecretCipher");
+      } else if (provider === "xendit") {
+        saveSecret("secretKey", "secretKeyCipher");
+        saveSecret("callbackToken", "callbackTokenCipher");
+      } else {
+        saveSecret("apiKey", "apiKeyCipher");
+        if (typeof input.merchantCode === "string" && input.merchantCode.trim()) {
+          const merchantCode = input.merchantCode.trim();
+          if (!/^[A-Za-z0-9_-]{1,50}$/.test(merchantCode)) throw new Error("Kode merchant Duitku tidak valid.");
+          next.merchantCode = merchantCode;
+        }
+      }
+      const configured = provider === "kasera"
+        ? Boolean(next.apiKeyCipher && next.webhookSecretCipher)
+        : provider === "xendit"
+          ? Boolean(next.secretKeyCipher && next.callbackTokenCipher)
+          : Boolean(next.merchantCode && next.apiKeyCipher);
+      if (input.enabled && !configured) throw new Error("Lengkapi kredensial dan rahasia callback sebelum mengaktifkan gateway.");
+      data.settings.paymentGateways[provider] = next;
+      savePlatformState(data);
+      auditPlatform(`Memperbarui gateway ${provider}`, `${input.enabled ? "Aktif" : "Nonaktif"} · ${input.environment}`);
+      return send(res, 200, JSON.stringify({ gateway: safePlatformState().settings.paymentGateways[provider] })), true;
+    } catch (error) {
+      return send(res, 400, JSON.stringify({ error: error.message })), true;
+    }
+  }
+
   if (req.method === "GET" && pathname === "/api/platform/data") {
     return send(res, 200, JSON.stringify(summarizePlatformData())), true;
   }
@@ -884,7 +1144,12 @@ async function handlePlatformApi(req, res) {
     const input = await readJsonBody(req, 8_000_000);
     const data = platformState();
     if (input.settings && typeof input.settings === "object") {
-      data.settings = { ...data.settings, ...input.settings, whatsapp: data.settings.whatsapp };
+      data.settings = {
+        ...data.settings,
+        ...input.settings,
+        whatsapp: data.settings.whatsapp,
+        paymentGateways: data.settings.paymentGateways
+      };
     }
     if (Array.isArray(input.plans)) data.plans = input.plans;
     if (Array.isArray(input.announcements)) data.announcements = input.announcements;
@@ -951,8 +1216,13 @@ async function handlePlatformApi(req, res) {
     if (!row) return send(res, 404, JSON.stringify({ error: "Sekolah tidak ditemukan." })), true;
     const input = await readJsonBody(req, 200_000);
     const school = JSON.parse(row.payload);
-    const allowed = ["name", "level", "email", "phone", "contactName", "principalName", "address", "domain", "planId", "status", "subscriptionPeriod", "expiresAt", "trialEndsAt"];
+    const allowed = ["code", "name", "level", "email", "phone", "contactName", "principalName", "address", "domain", "planId", "status", "subscriptionPeriod", "expiresAt", "trialEndsAt"];
     allowed.forEach((key) => { if (input[key] !== undefined) school[key] = String(input[key]).trim(); });
+    school.code = String(school.code || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{4}$/.test(school.code)) return send(res, 400, JSON.stringify({ error: "Kode sekolah harus terdiri dari 4 karakter huruf atau angka." })), true;
+    const duplicateCode = getAllSchools.all().some(({ id, payload }) =>
+      id !== schoolId && String(JSON.parse(payload).code || "").toUpperCase() === school.code);
+    if (duplicateCode) return send(res, 409, JSON.stringify({ error: "Kode sekolah sudah digunakan tenant lain." })), true;
     if (input.featureAccess && typeof input.featureAccess === "object") {
       school.featureAccess = Object.fromEntries(Object.entries(input.featureAccess).map(([key, enabled]) => [key, Boolean(enabled)]));
     }
@@ -963,6 +1233,7 @@ async function handlePlatformApi(req, res) {
     });
     const data = platformState();
     updatePlatformSchool(data, school);
+    data.payments.forEach((payment) => { if (payment.schoolId === schoolId) payment.schoolCode = school.code; });
     savePlatformState(data);
     if (tenant) saveTenantStateRow.run(schoolId, JSON.stringify(tenant));
     auditPlatform("Memperbarui sekolah", `${school.code} · ${school.name}`, school.id);
@@ -1009,26 +1280,13 @@ async function handlePlatformApi(req, res) {
     if (!["Disetujui", "Ditolak", "Menunggu Verifikasi"].includes(input.status)) {
       return send(res, 400, JSON.stringify({ error: "Status pembayaran tidak valid." })), true;
     }
-    payment.status = input.status;
-    payment.note = String(input.note || "").slice(0, 500);
-    payment.verifiedAt = new Date().toISOString();
     if (input.status === "Disetujui") {
-      const school = data.schools.find((entry) => entry.id === payment.schoolId);
-      if (school) {
-        if (payment.period === "lifetime") {
-          school.expiresAt = "";
-          school.subscriptionPeriod = "lifetime";
-          school.status = "Lifetime";
-        } else {
-          const duration = payment.period === "semester" ? 183 : payment.period === "yearly" ? 365 : 30;
-          const oldEnd = new Date(school.expiresAt || school.trialEndsAt || Date.now());
-          const start = oldEnd > new Date() ? oldEnd : new Date();
-          school.expiresAt = new Date(start.getTime() + duration * 86400000).toISOString();
-          school.activatedAt ||= new Date().toISOString();
-          school.status = "Aktif";
-        }
-        saveSchoolRow.run(school.id, school.code, JSON.stringify(school));
-      }
+      payment.note = String(input.note || "").slice(0, 500);
+      approvePlatformPayment(data, payment);
+    } else {
+      payment.status = input.status;
+      payment.note = String(input.note || "").slice(0, 500);
+      payment.verifiedAt = new Date().toISOString();
     }
     savePlatformState(data);
     auditPlatform("Memperbarui status pembayaran", `${payment.schoolCode} · ${payment.status}`, payment.schoolId);
@@ -1090,35 +1348,30 @@ async function handlePlatformApi(req, res) {
   if (req.method === "PUT" && pathname === "/api/platform/whatsapp") {
     const input = await readJsonBody(req, 32_000);
     const data = platformState();
-    const phoneNumberId = String(input.phoneNumberId || "").trim();
-    const graphVersion = String(input.graphVersion || "v22.0").trim();
-    const token = String(input.accessToken || "").trim();
-    if (phoneNumberId && !/^\d{6,30}$/.test(phoneNumberId)) return send(res, 400, JSON.stringify({ error: "Phone Number ID tidak valid." })), true;
-    if (!/^v\d{1,3}\.\d{1,2}$/.test(graphVersion)) return send(res, 400, JSON.stringify({ error: "Versi Graph API tidak valid." })), true;
-    if (token) data.settings.whatsapp.accessTokenCipher = encryptToken(token);
-    data.settings.whatsapp.phoneNumberId = phoneNumberId;
-    data.settings.whatsapp.graphVersion = graphVersion;
+    const token = String(input.fonnteToken || "").trim();
+    if (token && !/^[A-Za-z0-9_-]{20,200}$/.test(token)) return send(res, 400, JSON.stringify({ error: "Format token Fonnte tidak valid." })), true;
+    const current = data.settings.whatsapp || {};
+    const tokenCipher = token ? encryptToken(token) : current.fonnteTokenCipher || "";
+    const registrationOtpEnabled = typeof input.registrationOtpEnabled === "boolean"
+      ? input.registrationOtpEnabled
+      : current.registrationOtpEnabled === true;
+    if (registrationOtpEnabled && !tokenCipher) return send(res, 409, JSON.stringify({ error: "Simpan token Fonnte sebelum mengaktifkan OTP pendaftaran." })), true;
+    data.settings.whatsapp = { fonnteTokenCipher: tokenCipher, registrationOtpEnabled };
     savePlatformState(data);
-    auditPlatform("Memperbarui konfigurasi WhatsApp", `Phone Number ID ${phoneNumberId || "dikosongkan"}`);
-    return send(res, 200, JSON.stringify({ ok: true, configured: Boolean(data.settings.whatsapp.accessTokenCipher) })), true;
+    auditPlatform("Memperbarui konfigurasi WhatsApp Fonnte", `${token ? "Token diperbarui. " : ""}OTP pendaftaran ${registrationOtpEnabled ? "aktif" : "nonaktif"}.`);
+    return send(res, 200, JSON.stringify({ ok: true, configured: Boolean(tokenCipher), registrationOtpEnabled })), true;
   }
   if (req.method === "POST" && pathname === "/api/platform/whatsapp/send") {
     const input = await readJsonBody(req, 32_000);
     const wa = platformState().settings.whatsapp || {};
-    const token = decryptToken(wa.accessTokenCipher);
-    const to = String(input.to || "").replace(/\D/g, "");
+    const tokenCipher = wa.fonnteTokenCipher || "";
+    const to = String(input.to || "");
     const text = String(input.text || "").trim();
-    if (!token || !wa.phoneNumberId) return send(res, 409, JSON.stringify({ error: "Konfigurasi WhatsApp Cloud API belum lengkap." })), true;
-    if (!/^\d{8,15}$/.test(to) || !text || text.length > 4000) return send(res, 400, JSON.stringify({ error: "Nomor tujuan atau isi pesan tidak valid." })), true;
-    const response = await fetch(`https://graph.facebook.com/${wa.graphVersion}/${wa.phoneNumberId}/messages`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ messaging_product: "whatsapp", to, type: "text", text: { body: text } })
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) return send(res, 502, JSON.stringify({ error: result.error?.message || `WhatsApp API gagal (HTTP ${response.status}).` })), true;
-    auditPlatform("Mengirim pesan WhatsApp", `Pesan terkirim ke ${to}`);
-    return send(res, 200, JSON.stringify({ ok: true, messageId: result.messages?.[0]?.id || "" })), true;
+    if (!tokenCipher) return send(res, 409, JSON.stringify({ error: "Konfigurasi Fonnte belum lengkap. Simpan token API Fonnte terlebih dahulu." })), true;
+    if (!normalizeWhatsAppNumber(to) || !text || text.length > 4000) return send(res, 400, JSON.stringify({ error: "Nomor tujuan atau isi pesan tidak valid." })), true;
+    const result = await sendFonnteMessage(tokenCipher, to, text);
+    auditPlatform("Mengirim pesan WhatsApp melalui Fonnte", `Pesan terkirim ke ${normalizeWhatsAppNumber(to)}`);
+    return send(res, 200, JSON.stringify({ ok: true, messageId: result.id || "" })), true;
   }
   if (req.method === "GET" && pathname === "/api/platform/telegram-backup") {
     const config = getPlatformTelegramBackup.get();
@@ -1322,7 +1575,100 @@ async function handlePlatformApi(req, res) {
   return send(res, 404, JSON.stringify({ error: "Endpoint platform tidak ditemukan." })), true;
 }
 
+async function handlePaymentWebhook(req, res, provider) {
+  let rawBody;
+  let payload;
+  let orderId = "";
+  let eventId = "";
+  let amount = NaN;
+  let eventStatus = "";
+  try {
+    rawBody = await readRawBody(req);
+    if (provider === "duitku") {
+      payload = Object.fromEntries(new URLSearchParams(rawBody.toString("utf8")));
+    } else {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    }
+    const config = platformState().settings.paymentGateways?.[provider];
+    if (!config?.enabled) return send(res, 404, JSON.stringify({ error: "Gateway tidak aktif." }));
+    if (provider === "kasera") {
+      const signature = String(req.headers["kasera-signature-v1"] || "");
+      const parts = signature.split(",");
+      const timestampPart = parts.find((part) => part.startsWith("t="));
+      const timestamp = Number(timestampPart?.slice(2));
+      if (!Number.isFinite(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 300) {
+        return send(res, 401, JSON.stringify({ error: "Timestamp signature Kasera tidak valid." }));
+      }
+      const secret = decryptToken(config.webhookSecretCipher);
+      const expected = crypto.createHmac("sha256", secret).update(`${timestamp}.${rawBody.toString("utf8")}`).digest("hex");
+      const validSignature = parts.filter((part) => part.startsWith("v1="))
+        .some((part) => secureStringEqual(part.slice(3), expected));
+      if (!validSignature) return send(res, 401, JSON.stringify({ error: "Signature webhook Kasera tidak valid." }));
+      if (config.environment === "production" && payload.livemode !== true || config.environment === "sandbox" && payload.livemode === true) {
+        return send(res, 401, JSON.stringify({ error: "Mode webhook Kasera tidak sesuai konfigurasi." }));
+      }
+      eventId = String(req.headers["kasera-event-id"] || payload.id || "");
+      eventStatus = String(payload.type || "");
+      orderId = String(payload.data?.external_id || "");
+      amount = Number(payload.data?.amount);
+    } else if (provider === "xendit") {
+      const token = decryptToken(config.callbackTokenCipher);
+      if (!secureStringEqual(req.headers["x-callback-token"], token)) {
+        return send(res, 401, JSON.stringify({ error: "Callback verification token Xendit tidak valid." }));
+      }
+      eventId = String(payload.id || "");
+      eventStatus = String(payload.status || "").toUpperCase();
+      orderId = String(payload.external_id || "");
+      amount = Number(payload.paid_amount ?? payload.amount);
+    } else {
+      const apiKey = decryptToken(config.apiKeyCipher);
+      const merchantCode = String(payload.merchantCode || "");
+      const receivedSignature = String(payload.signature || "");
+      const expected = crypto.createHmac("sha256", apiKey)
+        .update(`${merchantCode}${payload.amount || ""}${payload.merchantOrderId || ""}`).digest("hex");
+      if (merchantCode !== config.merchantCode || !secureStringEqual(receivedSignature, expected)) {
+        return send(res, 401, JSON.stringify({ error: "Signature callback Duitku tidak valid." }));
+      }
+      eventId = String(payload.reference || "");
+      eventStatus = String(payload.resultCode || "");
+      orderId = String(payload.merchantOrderId || "");
+      amount = Number(payload.amount);
+    }
+    if (!orderId || !Number.isSafeInteger(amount) || amount < 1) return send(res, 400, JSON.stringify({ error: "Data callback pembayaran tidak lengkap." }));
+    const data = platformState();
+    const payment = data.payments.find((entry) => entry.gateway === provider && entry.gatewayOrderId === orderId);
+    if (!payment) return send(res, 404, JSON.stringify({ error: "Referensi tagihan tidak ditemukan." }));
+    if (amount !== Math.trunc(Number(payment.amount))) return send(res, 400, JSON.stringify({ error: "Nominal callback tidak sesuai tagihan." }));
+    if (eventId && (payment.gatewayEventIds || []).includes(eventId)) return send(res, 200, JSON.stringify({ received: true, duplicate: true }));
+    if (eventId) payment.gatewayEventIds = [...(payment.gatewayEventIds || []), eventId].slice(-30);
+    let paid = provider === "kasera"
+      ? eventStatus === "payment.paid" && payload.data?.status === "succeeded"
+      : provider === "xendit"
+        ? eventStatus === "PAID"
+        : eventStatus === "00";
+    if (paid) {
+      approvePlatformPayment(data, payment, provider);
+      payment.gatewayStatus = "paid";
+    } else if (provider === "kasera" && eventStatus === "payment.expired"
+      || provider === "xendit" && eventStatus === "EXPIRED") {
+      payment.gatewayStatus = "expired";
+    } else if (provider === "duitku" && eventStatus === "01") {
+      payment.gatewayStatus = "failed";
+    }
+    savePlatformState(data);
+    if (paid) auditPlatform(`Pembayaran terverifikasi melalui ${provider}`, `${payment.schoolCode} · ${payment.id}`, payment.schoolId);
+    return send(res, 200, JSON.stringify({ received: true }));
+  } catch (error) {
+    console.error(`Webhook ${provider} gagal diproses:`, error);
+    return send(res, 400, JSON.stringify({ error: "Callback pembayaran tidak dapat diproses." }));
+  }
+}
+
 async function handleApi(req, res) {
+  const paymentWebhook = req.method === "POST"
+    ? /^\/api\/payments\/webhook\/(kasera|xendit|duitku)$/.exec(new URL(req.url, "http://localhost").pathname)
+    : null;
+  if (paymentWebhook) return handlePaymentWebhook(req, res, paymentWebhook[1]);
   if (req.method !== "GET" && !verifyOrigin(req)) return send(res, 403, JSON.stringify({ error: "Origin permintaan tidak diizinkan." }));
   const platformHandled = await handlePlatformApi(req, res);
   if (platformHandled !== false) return;
@@ -1389,6 +1735,48 @@ async function handleApi(req, res) {
       appLogo: typeof branding.logo === "string" ? branding.logo : ""
     }));
   }
+  if (req.method === "GET" && req.url === "/api/auth/registration-options") {
+    const whatsapp = platformState().settings.whatsapp || {};
+    return send(res, 200, JSON.stringify({ whatsappOtpRequired: whatsapp.registrationOtpEnabled === true }));
+  }
+  if (req.method === "POST" && req.url === "/api/auth/register-school/otp/send") {
+    const input = await readJsonBody(req, 32_000);
+    const whatsapp = platformState().settings.whatsapp || {};
+    if (whatsapp.registrationOtpEnabled !== true) return send(res, 409, JSON.stringify({ error: "Verifikasi OTP pendaftaran sedang nonaktif." }));
+    if (!whatsapp.fonnteTokenCipher) return send(res, 503, JSON.stringify({ error: "Layanan OTP belum dikonfigurasi. Hubungi administrator platform." }));
+    const phone = normalizeWhatsAppNumber(input.phone);
+    if (!phone) return send(res, 400, JSON.stringify({ error: "Nomor WhatsApp tidak valid. Gunakan format Indonesia, misalnya 081234567890." }));
+    const now = Date.now();
+    for (const [key, challenge] of registrationOtpChallenges) {
+      if (challenge.expiresAt <= now) registrationOtpChallenges.delete(key);
+    }
+    const attemptsKey = `${req.socket.remoteAddress || "unknown"}:${phone}`;
+    const recent = (registrationOtpSendAttempts.get(attemptsKey) || []).filter((timestamp) => now - timestamp < 900_000);
+    if (recent.length >= 3) return send(res, 429, JSON.stringify({ error: "Terlalu banyak permintaan OTP untuk nomor ini. Coba lagi 15 menit." }));
+    const ipKey = `ip:${req.socket.remoteAddress || "unknown"}`;
+    const ipRecent = (registrationOtpSendAttempts.get(ipKey) || []).filter((timestamp) => now - timestamp < 900_000);
+    if (ipRecent.length >= 10) return send(res, 429, JSON.stringify({ error: "Terlalu banyak permintaan OTP dari jaringan ini. Coba lagi 15 menit." }));
+    const existing = registrationOtpChallenges.get(phone);
+    if (existing && now - existing.sentAt < 60_000) {
+      return send(res, 429, JSON.stringify({ error: "Tunggu sebelum meminta kode OTP baru.", retryAfter: Math.ceil((60_000 - (now - existing.sentAt)) / 1000) }));
+    }
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    const digest = crypto.createHash("sha256").update(code).digest();
+    registrationOtpChallenges.set(phone, { digest, attempts: 0, sentAt: now, expiresAt: now + 600_000 });
+    recent.push(now);
+    registrationOtpSendAttempts.set(attemptsKey, recent);
+    ipRecent.push(now);
+    registrationOtpSendAttempts.set(ipKey, ipRecent);
+    const branding = platformState().settings.branding || {};
+    const appName = String(branding.appName || "Sarprah").slice(0, 80);
+    try {
+      await sendFonnteMessage(whatsapp.fonnteTokenCipher, phone, `Kode OTP pendaftaran ${appName}: ${code}. Kode berlaku 10 menit. Jangan bagikan kode ini kepada siapa pun.`);
+    } catch (error) {
+      registrationOtpChallenges.delete(phone);
+      return send(res, 502, JSON.stringify({ error: `OTP tidak dapat dikirim melalui Fonnte: ${error.message}` }));
+    }
+    return send(res, 200, JSON.stringify({ ok: true, expiresIn: 600, retryAfter: 60 }));
+  }
   if (req.method === "POST" && req.url === "/api/auth/register-school") {
     const now = Date.now();
     const ip = req.socket.remoteAddress || "unknown";
@@ -1397,7 +1785,14 @@ async function handleApi(req, res) {
     if (recent.length >= 3) return send(res, 429, JSON.stringify({ error: "Terlalu banyak percobaan pendaftaran. Coba lagi 15 menit." }));
     recent.push(now);
     registrationAttempts.set(ip, recent);
-    const school = createSchoolTenant(await readJsonBody(req, 200_000), { action: "Pendaftaran sekolah" });
+    const input = await readJsonBody(req, 200_000);
+    const otpEnabled = platformState().settings.whatsapp?.registrationOtpEnabled === true;
+    if (otpEnabled) {
+      const otpError = validateRegistrationOtp(input.school?.phone, input.otpCode);
+      if (otpError) return send(res, 400, JSON.stringify({ error: otpError }));
+    }
+    const school = createSchoolTenant(input, { action: "Pendaftaran sekolah" });
+    if (otpEnabled) registrationOtpChallenges.delete(normalizeWhatsAppNumber(input.school?.phone));
     return send(res, 201, JSON.stringify({
       ok: true,
       school: { code: school.code, name: school.name, status: school.status, trialEndsAt: school.trialEndsAt }
@@ -1451,6 +1846,56 @@ async function handleApi(req, res) {
   const blocked = tenantAccessError(session.school);
   if (blocked) return send(res, blocked.status, JSON.stringify({ error: blocked.message }));
   if (!verifyOrigin(req)) return send(res, 403, JSON.stringify({ error: "Origin permintaan tidak diizinkan." }));
+  if (req.method === "GET" && req.url === "/api/tenant/billing") {
+    const data = platformState();
+    const gatewayNames = { kasera: "Kasera Pay", xendit: "Xendit", duitku: "Duitku" };
+    const gateways = Object.entries(data.settings.paymentGateways || {})
+      .filter(([, config]) => config.enabled === true)
+      .map(([id]) => ({ id, name: gatewayNames[id] }));
+    const payments = data.payments.filter((payment) => payment.schoolId === session.schoolId)
+      .map(({ id, type, period, amount, status, note, dueDate, createdAt, gateway, gatewayOrderId, gatewayStatus, checkoutUrl }) => ({
+        id, type, period, amount, status, note, dueDate, createdAt, gateway, gatewayOrderId, gatewayStatus, checkoutUrl,
+        gatewayName: gatewayNames[gateway] || ""
+      }));
+    return send(res, 200, JSON.stringify({ payments, gateways }));
+  }
+  if (req.method === "GET" && req.url === "/api/tenant/storage") {
+    const state = tenantState(session.schoolId);
+    const usedBytes = embeddedImageBytes(state || {});
+    const quotaBytes = tenantStorageQuotaBytes();
+    return send(res, 200, JSON.stringify({ usedBytes, quotaBytes, remainingBytes: Math.max(0, quotaBytes - usedBytes) }));
+  }
+  const tenantCheckoutMatch = req.url.match(/^\/api\/tenant\/billing\/([a-zA-Z0-9-]+)\/checkout$/);
+  if (req.method === "POST" && tenantCheckoutMatch) {
+    const input = await readJsonBody(req, 32_000);
+    const provider = String(input.provider || "");
+    if (!["kasera", "xendit", "duitku"].includes(provider)) return send(res, 400, JSON.stringify({ error: "Gateway pembayaran tidak valid." }));
+    const data = platformState();
+    const payment = data.payments.find((entry) => entry.id === tenantCheckoutMatch[1] && entry.schoolId === session.schoolId);
+    if (!payment) return send(res, 404, JSON.stringify({ error: "Tagihan tidak ditemukan." }));
+    if (["Disetujui", "Lunas", "Ditolak"].includes(payment.status)) return send(res, 409, JSON.stringify({ error: "Tagihan ini tidak lagi dapat dibayar." }));
+    if (payment.gatewayOrderId && payment.gateway) {
+      if (payment.gateway !== provider) return send(res, 409, JSON.stringify({ error: `Tagihan sudah dibuat melalui ${payment.gateway}. Gunakan gateway tersebut agar tidak terjadi pembayaran ganda.` }));
+      if (payment.checkoutUrl) return send(res, 200, JSON.stringify({ checkoutUrl: payment.checkoutUrl, reused: true }));
+    }
+    try {
+      const school = data.schools.find((entry) => entry.id === session.schoolId);
+      if (!school) return send(res, 404, JSON.stringify({ error: "Data sekolah tidak ditemukan." }));
+      const checkout = await createProviderCheckout(provider, payment, school, req);
+      payment.gateway = provider;
+      payment.gatewayOrderId = checkout.orderId;
+      payment.gatewayReference = checkout.reference;
+      payment.gatewayEnvironment = data.settings.paymentGateways[provider].environment;
+      payment.checkoutUrl = checkout.checkoutUrl;
+      payment.checkoutCreatedAt = new Date().toISOString();
+      payment.gatewayStatus = "pending";
+      savePlatformState(data);
+      auditPlatform(`Membuat checkout ${provider}`, `${payment.schoolCode} · ${payment.id}`, payment.schoolId);
+      return send(res, 200, JSON.stringify({ checkoutUrl: checkout.checkoutUrl, reused: false }));
+    } catch (error) {
+      return send(res, 502, JSON.stringify({ error: error.message || "Checkout tidak dapat dibuat." }));
+    }
+  }
   if (req.method === "PUT" && req.url === "/api/tenant/public-portal-settings") {
     if (session.account.role !== "Administrator") return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengatur Portal Publik." }));
     const input = await readJsonBody(req, 32_000);
