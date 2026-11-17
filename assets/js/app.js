@@ -20,7 +20,9 @@
   const defaultLoanReceiptNumberFormat = "{nomor}/PB/{bulan}/{tahun}";
   const formatLoanReceiptNumber = (sequence, date, format = defaultLoanReceiptNumberFormat) => {
     const dateValue = new Date(`${date || dateOffset(0)}T00:00:00`);
-    const month = Number.isFinite(dateValue.getTime()) ? String(dateValue.getMonth() + 1).padStart(2, "0") : "00";
+    const month = Number.isFinite(dateValue.getTime())
+      ? ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"][dateValue.getMonth()]
+      : "I";
     const year = Number.isFinite(dateValue.getTime()) ? String(dateValue.getFullYear()) : String(today.getFullYear());
     return String(format || defaultLoanReceiptNumberFormat)
       .replace(/\{nomor\}/gi, String(sequence).padStart(3, "0"))
@@ -96,7 +98,7 @@
       { id: "it7", code: "E.1-T.4-L3-KS.1", goodId: "gd4", condition: "Baik", locationId: "lo4", received: dateOffset(-150) },
       { id: "it8", code: "E.1-T.5-L2-KS.1", goodId: "gd6", condition: "Baik", locationId: "lo2", received: dateOffset(-740) }
     ],
-    usages: [{ id: "us1", applicant: "Rina Kurniawati", goodId: "gd5", quantity: 3, date: dateOffset(-3), status: "Disetujui" }],
+    usages: [{ id: "us1", applicant: "Rina Kurniawati", goodId: "gd5", quantity: 3, date: dateOffset(-3) }],
     stocktakes: [{ id: "st1", date: dateOffset(-8), goodId: "gd5", oldStock: 52, newStock: 45, total: 45, note: "Penyesuaian stok akhir bulan" }, { id: "st2", date: dateOffset(-26), goodId: "gd4", oldStock: 20, newStock: 18, total: 18, note: "Pengecekan berkala" }],
     loans: [
       { id: "ln1", borrower: "Andi Pratama", goodId: "gd1", locationId: "lo3", startDate: dateOffset(-8), dueDate: dateOffset(-2), note: "Kegiatan lomba informatika", status: "Diterima" },
@@ -111,7 +113,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), goodId: "gd1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), goodId: "gd2", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() }
+    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", customHeaderLines: [], headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() }
   };
 
   const state = structuredClone(seed);
@@ -129,6 +131,7 @@
   let goodsFilters = {};
   let goodsFiltersOpen = false;
   let chartPeriod = "12";
+  let goodsImportDraft = [];
 
   const meta = {
     dashboard: ["Dashboard", "Ringkasan kondisi sarana dan prasarana sekolah hari ini.", "layout-dashboard"],
@@ -144,7 +147,7 @@
     academicYears: ["Tahun Pelajaran", "Kelola daftar tahun pelajaran sekolah.", "calendar-days"],
     goods: ["Data Barang", "Daftar master barang dan informasi pengadaan aset.", "package"],
     checkGoods: ["Cek Barang", "Pindai barcode atau cari barang untuk melihat detail dan riwayat stok.", "scan-search"],
-    usages: ["Penggunaan BHP", "Tinjau dan catat permintaan penggunaan barang habis pakai.", "clipboard-list"],
+    usages: ["Penggunaan BHP", "Catat penggunaan barang habis pakai dan pantau stok.", "clipboard-list"],
     stocktakes: ["Stock Opname", "Rekam hasil pemeriksaan dan penyesuaian stok.", "clipboard-check"],
     barcode: ["Cetak Barcode", "Pilih item inventaris dan cetak label QR Code.", "qr-code"],
     loans: ["Peminjaman & Pengembalian", "Kelola pengajuan, peminjaman, dan pengembalian barang.", "repeat-2"],
@@ -177,7 +180,7 @@
     academicYears: { title: "Tahun Pelajaran", description: "Kelola periode tahun ajaran dan salin data master serta barang dari tahun sebelumnya.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["startDate", "Tanggal Mulai"], ["endDate", "Tanggal Selesai"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["startDate", "Tanggal Mulai", "date", true], ["endDate", "Tanggal Selesai", "date", true], ["copyPreviousData", "Salin data master dan barang beserta stok terakhir dari tahun sebelumnya", "checkbox"], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
     goods: { title: "Data Barang", description: "Informasi barang, spesifikasi, kepemilikan, lokasi, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
-    usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
+    usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
@@ -185,10 +188,9 @@
     depreciations: { title: "Penyusutan Nilai Aset", description: "Hitung beban dan akumulasi penyusutan aset tetap.", singular: "Penyusutan", cols: [["date", "Tanggal Periode"], ["goodId", "Barang"], ["method", "Metode"], ["initialValue", "Harga Awal"], ["residualValue", "Nilai Residu"], ["amount", "Penyusutan Periode Ini"], ["accumulatedAmount", "Akumulasi Penyusutan"], ["finalValue", "Harga Akhir / Nilai Buku"]], fields: [["periodType", "Periode Penyusutan", "select", true, ["Bulanan", "Tahunan"]], ["date", "Tanggal Akhir Periode", "date", true], ["goodId", "Barang", "select", true, "goods"], ["method", "Metode Penyusutan", "select", true, Object.values(depreciationMethods)], ["initialValue", "Harga Awal (Rp)", "number", true], ["residualValue", "Nilai Residu (Rp)", "number", true], ["usefulLifeYears", "Umur Ekonomis (Tahun)", "number", true], ["amount", "Penyusutan Periode Ini (Rp)", "number", true], ["accumulatedAmount", "Akumulasi Penyusutan (Rp)", "number", true], ["finalValue", "Harga Akhir / Nilai Buku (Rp)", "number", true]] },
     accounts: { title: "Pengaturan", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
-  const statusPages = new Set(["usages", "loans", "procurements", "disposals"]);
+  const statusPages = new Set(["loans", "procurements", "disposals"]);
   const bulkDeletePages = new Set(["goods", "usages", "stocktakes", "loans", "procurements", "disposals", "depreciations"]);
   const statusOptions = {
-    usages: ["Semua", "Pengajuan", "Disetujui", "Ditolak"],
     loans: ["Semua", "Pengajuan", "Dipinjam", "Ditolak", "Selesai"],
     procurements: ["Semua", "Pengajuan", "Diterima", "Ditolak"],
     disposals: ["Semua", "Pengajuan", "Diterima", "Ditolak", "Selesai"]
@@ -575,6 +577,16 @@
       showContact: typeof current.showContact === "boolean" ? current.showContact : defaults.showContact,
       headerMode: current.headerMode === "custom" ? "custom" : "school",
       customHeaderText: typeof current.customHeaderText === "string" ? current.customHeaderText : defaults.customHeaderText,
+      customHeaderLines: Array.from({ length: 5 }, (_, index) => {
+        const legacyLine = (typeof current.customHeaderText === "string" ? current.customHeaderText.split(/\r?\n/) : [])[index] || "";
+        const line = Array.isArray(current.customHeaderLines) ? current.customHeaderLines[index] : null;
+        const size = Number(line?.fontSize ?? 16);
+        return {
+          text: typeof line?.text === "string" ? line.text : legacyLine,
+          fontSize: Number.isFinite(size) ? Math.max(10, Math.min(48, Math.round(size))) : 16,
+          bold: typeof line?.bold === "boolean" ? line.bold : index === 0
+        };
+      }),
       headerFontSize: Number.isFinite(Number(current.headerFontSize)) ? Math.max(10, Math.min(48, Math.round(Number(current.headerFontSize)))) : defaults.headerFontSize,
       logoSize: Number.isFinite(Number(current.logoSize)) ? Math.max(24, Math.min(160, Math.round(Number(current.logoSize)))) : defaults.logoSize,
       headerBold: typeof current.headerBold === "boolean" ? current.headerBold : defaults.headerBold,
@@ -1297,8 +1309,9 @@
       ? `<img class="print-school-logo" style="width:${logoSize}px;height:${logoSize}px" src="${esc(school.letterheadLogo)}" alt="">`
       : design.headerMode === "custom" ? "" : `<span class="print-school-initial" style="width:${logoSize}px;height:${logoSize}px;font-size:${Math.round(logoSize * 0.44)}px">${esc((school.name || "S").slice(0, 1))}</span>`;
     if (design.headerMode === "custom") {
-      const customText = esc(design.customHeaderText || "").replace(/\r?\n/g, "<br>");
-      return `${logo}<div class="print-school-copy"><h1 class="print-custom-header-text" style="${titleStyle}">${customText}</h1></div>`;
+      const lines = (design.customHeaderLines || []).filter((line) => String(line.text || "").trim());
+      const customText = lines.map((line) => `<div style="font-size:${Math.max(10, Math.min(48, Number(line.fontSize) || 16))}px;font-weight:${line.bold ? 800 : 500}">${esc(line.text)}</div>`).join("");
+      return `${logo}<div class="print-school-copy print-custom-header-text">${customText}</div>`;
     }
     return `${logo}<div class="print-school-copy"><h1 style="${titleStyle}">${esc(school.name)}</h1><p>${esc(school.address)}</p>${contact ? `<p>${esc(contact)}</p>` : ""}</div>`;
   }
@@ -1315,21 +1328,24 @@
     return `${pageHeading(canEditPage("printDesign") ? `<button class="btn-primary" type="submit" form="printDesignForm"><i data-lucide="save"></i>Simpan desain</button>` : "")}
       <form id="printDesignForm" class="settings-card"><h3>Desain kop, nomor surat, dan penandatangan</h3><p>Atur kop cetak, format nomor bukti peminjaman, dan informasi penandatangan.</p><div class="form-grid">
         <div class="form-field full"><label for="printHeaderMode">Sumber bagian atas kop</label><select id="printHeaderMode" name="headerMode"><option value="school" ${design.headerMode !== "custom" ? "selected" : ""}>Gunakan identitas sekolah</option><option value="custom" ${design.headerMode === "custom" ? "selected" : ""}>Ketik sendiri</option></select></div>
-        <div id="printCustomHeaderOptions" class="form-field full ${design.headerMode === "custom" ? "" : "hidden"}"><label for="customHeaderText">Teks bagian atas kop</label><textarea id="customHeaderText" name="customHeaderText" rows="4" placeholder="Ketik teks kop surat">${esc(design.customHeaderText || "")}</textarea><small class="form-help">Teks ini menggantikan nama, alamat, dan kontak dari identitas sekolah. Gunakan baris baru untuk beberapa baris.</small></div>
+        <div id="printCustomHeaderOptions" class="form-field full ${design.headerMode === "custom" ? "" : "hidden"}"><label>Baris kop surat (maksimal 5 baris)</label><div class="custom-header-lines">${Array.from({ length: 5 }, (_, index) => {
+          const line = design.customHeaderLines?.[index] || { text: "", fontSize: 16, bold: index === 0 };
+          return `<div class="custom-header-line"><label for="customHeaderLine${index + 1}">Baris ${index + 1}</label><input id="customHeaderLine${index + 1}" data-header-line-text="${index}" type="text" maxlength="160" value="${esc(line.text)}" placeholder="Teks baris ${index + 1}"><label class="custom-header-size">Ukuran (px)<input data-header-line-size="${index}" type="number" min="10" max="48" step="1" value="${esc(line.fontSize)}"></label><label class="form-check custom-header-bold"><input data-header-line-bold="${index}" type="checkbox" ${line.bold ? "checked" : ""}><span>Tebal</span></label></div>`;
+        }).join("")}</div><small class="form-help">Atur teks, ukuran font, dan ketebalan setiap baris. Baris kosong tidak ditampilkan.</small></div>
         <div id="printSchoolHeaderOptions" class="print-school-header-options ${design.headerMode === "custom" ? "hidden" : ""}">
           <label class="form-check"><input name="showNpsn" type="checkbox" ${design.showNpsn ? "checked" : ""}><span>Tampilkan NPSN</span></label>
           <label class="form-check"><input name="showContact" type="checkbox" ${design.showContact ? "checked" : ""}><span>Tampilkan telepon, email, dan website</span></label>
         </div>
-        <div class="form-field"><label for="headerFontSize">Ukuran font bagian atas (px)</label><input id="headerFontSize" name="headerFontSize" type="number" min="10" max="48" step="1" required value="${esc(design.headerFontSize)}"></div>
+        <div class="form-field ${design.headerMode === "custom" ? "hidden" : ""}"><label for="headerFontSize">Ukuran font bagian atas (px)</label><input id="headerFontSize" name="headerFontSize" type="number" min="10" max="48" step="1" value="${esc(design.headerFontSize)}"></div>
         <div class="form-field"><label for="logoSize">Ukuran logo kop (px)</label><input id="logoSize" name="logoSize" type="number" min="24" max="160" step="1" required value="${esc(design.logoSize)}"><small class="form-help">Ukuran lebar dan tinggi logo pada kop cetak.</small></div>
-        <div class="form-field"><label class="form-check"><input name="headerBold" type="checkbox" ${design.headerBold ? "checked" : ""}><span>Tebal</span></label></div>
-        <div class="form-field"><label class="form-check"><input name="headerItalic" type="checkbox" ${design.headerItalic ? "checked" : ""}><span>Miring</span></label></div>
+        <div class="form-field ${design.headerMode === "custom" ? "hidden" : ""}"><label class="form-check"><input name="headerBold" type="checkbox" ${design.headerBold ? "checked" : ""}><span>Tebal nama sekolah</span></label></div>
+        <div class="form-field ${design.headerMode === "custom" ? "hidden" : ""}"><label class="form-check"><input name="headerItalic" type="checkbox" ${design.headerItalic ? "checked" : ""}><span>Miring nama sekolah</span></label></div>
         <div class="form-field full"><label>Tempat tanda tangan</label><input name="city" type="text" value="${esc(school.city)}"></div>
         <div class="print-signatories-grid">
           <div class="print-signatory-column">${formInput("principalName", "Nama Kepala Sekolah", school.principalName, "text")}${formInput("principalNip", "NIP Kepala Sekolah", school.principalNip, "text")}</div>
           <div class="print-signatory-column">${formInput("sarprasVicePrincipalName", "Nama Wakasek Sarpras", school.sarprasVicePrincipalName, "text")}${formInput("sarprasVicePrincipalNip", "NIP Wakasek Sarpras", school.sarprasVicePrincipalNip, "text")}</div>
         </div>
-        <div class="form-field full"><label for="loanReceiptNumberFormat">Format nomor bukti peminjaman</label><input id="loanReceiptNumberFormat" name="loanReceiptNumberFormat" type="text" maxlength="100" required value="${esc(loanNumberFormat)}"><small class="form-help">Nomor otomatis bertambah berurutan. Gunakan {nomor} sebagai nomor urut, {bulan} sebagai bulan, dan {tahun} sebagai tahun. Contoh: {nomor}/PB/{bulan}/{tahun}. Pratinjau berikutnya: <b id="loanReceiptNumberPreview">${esc(loanNumberPreview)}</b></small></div>
+        <div class="form-field full"><label for="loanReceiptNumberFormat">Format nomor bukti peminjaman</label><input id="loanReceiptNumberFormat" name="loanReceiptNumberFormat" type="text" maxlength="100" required value="${esc(loanNumberFormat)}"><small class="form-help">Nomor otomatis bertambah berurutan. Gunakan {nomor} sebagai nomor urut, {bulan} sebagai bulan Romawi (I–XII), dan {tahun} sebagai tahun. Contoh: {nomor}/PB/{bulan}/{tahun}. Pratinjau berikutnya: <b id="loanReceiptNumberPreview">${esc(loanNumberPreview)}</b></small></div>
         <div class="form-field full print-letterhead-upload"><label>Logo khusus kop surat</label><div class="print-letterhead-upload-row"><div id="letterheadLogoPreview" class="print-letterhead-logo-preview">${school.letterheadLogo ? `<img src="${esc(school.letterheadLogo)}" alt="Logo khusus kop surat">` : `<i data-lucide="image-plus"></i>`}</div><div class="print-letterhead-upload-fields"><input name="letterheadLogoFile" type="file" accept="image/*"><label class="form-check"><input name="removeLetterheadLogo" type="checkbox"><span>Hapus logo khusus kop surat</span></label><small class="form-help">Logo ini terpisah dari logo sekolah utama. Format gambar, maksimal 2 MB.</small></div></div></div>
         <div class="form-field full"><label class="form-check"><input name="showLogo" type="checkbox" ${design.showLogo ? "checked" : ""}><span>Tampilkan logo khusus pada kop</span></label></div>
       </div></form>
@@ -1351,11 +1367,11 @@
       ? [["name", "Nama Barang"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "Status BHP"]]
       : config.cols;
     const rows = recordsForCurrentAcademicYear(key);
-    const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "loans", "procurements", "disposals", "depreciations", "usages", "stocktakes"].includes(key);
+    const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "loans", "procurements", "disposals", "depreciations", "usages", "stocktakes"].includes(key);
     const bulkDeletable = bulkDeletePages.has(key) && canDeletePage(key);
     const actions = canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : "";
     const importControls = key === "goods"
-      ? `<button class="btn-quiet" data-action="goods-template"><i data-lucide="download"></i>Template Excel</button>${canEditPage(key) ? `<label class="btn-quiet" for="goodsImport"><i data-lucide="upload"></i>Impor Barang</label><input type="file" id="goodsImport" accept=".xlsx,.xls,.csv" class="hidden">` : ""}`
+      ? `<button class="btn-quiet" data-action="goods-template"><i data-lucide="download"></i>Template Excel</button>${canEditPage(key) ? `<button class="btn-quiet" data-action="goods-import"><i data-lucide="upload"></i>Impor Barang</button>` : ""}`
       : "";
     const bulkControls = bulkDeletable ? `<button class="btn-quiet" data-action="select-visible"><i data-lucide="check-check"></i>Pilih semua</button><button class="btn-danger" id="deleteSelectedRecords" data-action="delete-selected" disabled><i data-lucide="trash-2"></i>Hapus terpilih <span id="selectedRecordCount"></span></button>` : "";
     const exportControls = hideExportControls ? "" : `<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel</button>`;
@@ -1379,7 +1395,7 @@
       return `<tr>${selection}${displayCols.map(([field]) => {
         const currency = ["price", "totalPrice", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
-      }).join("")}<td><div class="action-buttons">${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (!["loans", "disposals"].includes(key) && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
+      }).join("")}<td><div class="action-buttons">${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
@@ -1451,7 +1467,8 @@
   }
 
   function renderBarcode() {
-    const items = state.items;
+    const activeGoodIds = new Set(recordsForAcademicYear("goods").map((good) => good.id));
+    const items = state.items.filter((item) => activeGoodIds.has(item.goodId) && item.condition !== "Dihapus");
     return `${pageHeading(`<button class="btn-secondary" data-action="barcode-options"><i data-lucide="sliders-horizontal"></i>Opsi cetak QR Code</button><button class="btn-primary" data-action="print"><i data-lucide="printer"></i>Cetak barcode</button>`)}
       <div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="barcodeSearch" placeholder="Cari kode atau nama barang..."></label><span class="badge neutral">${items.length} item inventaris</span></div><div class="table-toolbar-right"><button class="btn-quiet" data-action="select-all"><i data-lucide="check-check"></i>Pilih semua</button></div></div>
       <div class="panel"><div class="barcode-grid" id="barcodeGrid">${items.map((item) => barcodeCard(item)).join("")}</div></div>`;
@@ -1803,11 +1820,14 @@
       const inputValue = money ? formatThousands(value) : value;
       const numberAttributes = type !== "number" ? ""
         : key === "usages" && name === "quantity" ? 'min="0.01" step="any"'
+          : key === "stocktakes" && name === "newStock" ? 'min="0" step="1"'
           : key === "loans" && ["quantity", "durationDays"].includes(name) ? 'min="1" step="1"'
             : key === "disposals" && name === "quantity" ? 'min="1" step="1"'
               : key === "depreciations" && name === "usefulLifeYears" ? 'min="1" step="1"' : 'min="0"';
       const help = key === "loans" && name === "quantity"
         ? `<small class="form-help" id="loanAvailableQuantity" aria-live="polite"></small>`
+        : key === "usages" && name === "quantity" ? `<small class="form-help" id="usageAvailableQuantity" aria-live="polite"></small>`
+        : key === "stocktakes" && name === "newStock" ? `<small class="form-help">Maksimal stok baru mengikuti jumlah stok awal.</small>`
         : key === "disposals" && name === "quantity" ? `<small class="form-help" id="disposalAvailableQuantity" aria-live="polite"></small>` : "";
       return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="${inputType}" value="${esc(inputValue)}" ${required ? "required" : ""} ${money ? 'class="money-input" inputmode="numeric" autocomplete="off" placeholder="Contoh: 1.000.000"' : numberAttributes}>${help}</div>`;
     }).join("");
@@ -2099,6 +2119,14 @@
     syncGoodConditionCounts(good);
   }
 
+  function restoreUsageStock(usage) {
+    if (usage?.stockAdjusted !== true && usage?.status !== "Disetujui") return;
+    const good = getById("goods", usage.goodId);
+    if (!good) return;
+    good.quantity = Number(good.quantity || 0) + (Number(usage.quantity) || 0);
+    syncGoodConditionCounts(good);
+  }
+
   function showGoodsConditionModal(goodId) {
     const good = getById("goods", goodId);
     if (!good) return;
@@ -2132,27 +2160,40 @@
     const oldStockInput = form.elements.oldStock;
     if (!goodSelect || !oldStockInput) return;
     oldStockInput.readOnly = true;
-    if (form.dataset.record) return;
+    const newStockInput = form.elements.newStock;
+    if (form.dataset.record) goodSelect.disabled = true;
     const updateOldStock = () => {
       const good = getById("goods", goodSelect.value);
-      oldStockInput.value = good ? String(good.quantity ?? 0) : "";
+      const saved = form.dataset.record ? getById("stocktakes", form.dataset.record) : null;
+      oldStockInput.value = saved ? String(saved.oldStock ?? 0) : good ? String(good.quantity ?? 0) : "";
+      if (newStockInput) {
+        newStockInput.max = oldStockInput.value || "0";
+        newStockInput.setCustomValidity("");
+      }
     };
-    goodSelect.addEventListener("change", updateOldStock);
+    if (!form.dataset.record) goodSelect.addEventListener("change", updateOldStock);
     updateOldStock();
   }
 
   function setupUsageForm(form) {
     const goodSelect = form.elements.goodId;
+    const quantityInput = form.elements.quantity;
     const unitIdInput = form.elements.unitId;
     const unitNameInput = $("#usages-unitName", form);
-    const updateUnit = () => {
+    const availability = $("#usageAvailableQuantity", form);
+    const updateUsageDetails = () => {
       const good = getById("goods", goodSelect.value);
       const unitId = good?.unitId || "";
       unitIdInput.value = unitId;
       unitNameInput.value = unitId ? relatedName("units", unitId) : "";
+      const old = form.dataset.record ? getById("usages", form.dataset.record) : null;
+      const restored = (old?.stockAdjusted === true || old?.status === "Disetujui") && old.goodId === good?.id ? Number(old.quantity) || 0 : 0;
+      const available = good ? Math.max(0, Number(good.quantity || 0) + restored) : 0;
+      quantityInput.max = String(available);
+      if (availability) availability.textContent = goodSelect.value ? `Stok tersedia untuk digunakan: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
     };
-    goodSelect.addEventListener("change", updateUnit);
-    updateUnit();
+    goodSelect.addEventListener("change", updateUsageDetails);
+    updateUsageDetails();
   }
 
   function setupRecordBarcodeScanner(form) {
@@ -2318,6 +2359,7 @@
 
   function closeModal() {
     stopBarcodeScanner();
+    goodsImportDraft = [];
     $("#modalRoot").innerHTML = "";
   }
 
@@ -2335,6 +2377,9 @@
     let loanGood = null;
     let priorLoanGood = null;
     let priorLoanQuantity = 0;
+    let usageGood = null;
+    let priorUsageGood = null;
+    let priorUsageQuantity = 0;
     for (const [name, , type] of config.fields) {
       const input = form.elements[name];
       if (!input) continue;
@@ -2413,12 +2458,20 @@
         return;
       }
       data.unitId = good.unitId;
-      const stock = Number(good.quantity || 0);
-      if (data.quantity > stock) {
-        showToast(`Maksimal stok adalah ${stock}.`, true);
+      const restoresOldUsage = (old?.stockAdjusted === true || old?.status === "Disetujui") && old.goodId === good.id;
+      const restoredQuantity = restoresOldUsage ? Number(old.quantity) || 0 : 0;
+      const available = Number(good.quantity || 0) + restoredQuantity;
+      if (data.quantity > available) {
+        showToast(`Maksimal stok adalah ${available}.`, true);
         return;
       }
-      data.status = old?.status || "Pengajuan";
+      if (old?.stockAdjusted === true || old?.status === "Disetujui") {
+        priorUsageGood = getById("goods", old.goodId);
+        priorUsageQuantity = Number(old.quantity) || 0;
+      }
+      usageGood = good;
+      data.stockAdjusted = true;
+      delete data.status;
     }
     if (key === "items" && !old) {
       const goodIndex = Math.max(0, recordsForAcademicYear("goods").findIndex((good) => good.id === data.goodId)) + 1;
@@ -2504,13 +2557,22 @@
         return;
       }
       const newStock = Number(data.newStock);
-      if (!Number.isFinite(newStock) || newStock < 0) {
-        showToast("Stok baru harus berupa angka nol atau lebih.", true);
+      const initialStock = old ? Number(old.oldStock || 0) : Number(stocktakeGood.quantity || 0);
+      if (!Number.isInteger(newStock) || newStock < 0) {
+        showToast("Stok baru harus berupa bilangan bulat nol atau lebih.", true);
+        return;
+      }
+      if (old && old.goodId !== data.goodId) {
+        showToast("Barang pada stock opname yang sudah dibuat tidak dapat diganti.", true);
+        return;
+      }
+      if (newStock > initialStock) {
+        showToast(`Stok baru tidak boleh melebihi stok awal (${initialStock}).`, true);
         return;
       }
       data.newStock = newStock;
       data.total = newStock;
-      if (!old) data.oldStock = Number(stocktakeGood.quantity || 0);
+      data.oldStock = initialStock;
     }
     if (key === "depreciations") {
       const good = getById("goods", data.goodId);
@@ -2572,7 +2634,10 @@
     }
     if (key === "goods") syncGoodConditionCounts(data);
     const previous = key === "accounts" && old ? { ...old } : null;
-    if (old) Object.assign(old, data);
+    if (old) {
+      Object.assign(old, data);
+      if (key === "usages") delete old.status;
+    }
     else state[key].unshift(data);
     if (key === "academicYears") {
       if (data.status === "Aktif") {
@@ -2584,6 +2649,14 @@
     if (stocktakeGood) {
       stocktakeGood.quantity = data.newStock;
       syncGoodConditionCounts(stocktakeGood);
+    }
+    if (priorUsageGood) {
+      priorUsageGood.quantity = Number(priorUsageGood.quantity || 0) + priorUsageQuantity;
+      syncGoodConditionCounts(priorUsageGood);
+    }
+    if (usageGood) {
+      usageGood.quantity = Math.max(0, Number(usageGood.quantity || 0) - data.quantity);
+      syncGoodConditionCounts(usageGood);
     }
     if (priorLoanGood) {
       priorLoanGood.quantity = Number(priorLoanGood.quantity || 0) + priorLoanQuantity;
@@ -2750,6 +2823,7 @@
         showDeleteConfirmation("Hapus data?", `Data "${recordName}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
           if (collection === "disposals") restoreDisposalStock(record);
           if (collection === "loans") restoreLoanStock(record);
+          if (collection === "usages") restoreUsageStock(record);
           state[collection] = state[collection].filter((row) => row.id !== record.id);
           saveState(); showToast("Data berhasil dihapus."); renderPage();
         });
@@ -2766,6 +2840,7 @@
       showDeleteConfirmation("Hapus data terpilih?", `${selectedRows.length} data dari ${collectionConfig[collection].title} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
         if (collection === "disposals") selectedRows.forEach(restoreDisposalStock);
         if (collection === "loans") selectedRows.forEach(restoreLoanStock);
+        if (collection === "usages") selectedRows.forEach(restoreUsageStock);
         state[collection] = state[collection].filter((row) => !selectedIds.has(row.id));
         saveState();
         showToast(`${selectedRows.length} data berhasil dihapus.`);
@@ -2791,6 +2866,7 @@
     else if (action === "export-report") exportReport();
     else if (action === "export" || action === "export-dashboard") exportRows(page);
     else if (action === "goods-template") downloadGoodsTemplate();
+    else if (action === "goods-import") showGoodsImportModal();
     else if (action === "barcode-options") barcodeOptionsModal();
     else if (action === "download-backup") downloadBackup();
     else if (action === "telegram-test") testTelegram();
@@ -2806,9 +2882,9 @@
     const record = getById(page, recordId);
     if (!record) return;
     if (page === "loans" && record.status !== "Diterima") return;
-    const actionLabel = page === "usages" ? "permintaan penggunaan BHP" : page === "loans" ? "peminjaman" : page === "procurements" ? "pengadaan" : "pemusnahan";
+    const actionLabel = page === "loans" ? "peminjaman" : page === "procurements" ? "pengadaan" : "pemusnahan";
     const buttons = ["Pengajuan", "Pending"].includes(record.status)
-      ? `<button class="btn-danger" data-status-choice="Ditolak">Tolak</button><button class="btn-primary" data-status-choice="${page === "usages" ? "Disetujui" : "Diterima"}"><i data-lucide="check"></i>Terima</button>`
+      ? `<button class="btn-danger" data-status-choice="Ditolak">Tolak</button><button class="btn-primary" data-status-choice="Diterima"><i data-lucide="check"></i>Terima</button>`
       : page === "loans" && record.status === "Diterima"
         ? `<button class="btn-primary" data-status-choice="Selesai"><i data-lucide="check"></i>Tandai selesai</button>`
         : page === "disposals" && record.status === "Diterima"
@@ -2827,14 +2903,6 @@
         if (record.stockAdjusted === true) {
           restoreLoanStock(record);
           record.stockAdjusted = false;
-        }
-      }
-      if (page === "usages" && next === "Disetujui") {
-        const good = getById("goods", record.goodId);
-        if (good && good.quantity < record.quantity) { showToast(`Stok tidak cukup. Maksimal stok adalah ${good.quantity}.`, true); return; }
-        if (good) {
-          good.quantity -= Number(record.quantity);
-          syncGoodConditionCounts(good);
         }
       }
       saveState(); closeModal(); showToast(`Status ${actionLabel} diperbarui menjadi ${next}.`); renderPage();
@@ -2874,6 +2942,9 @@
       const custom = event.target.value === "custom";
       $("#printCustomHeaderOptions")?.classList.toggle("hidden", !custom);
       $("#printSchoolHeaderOptions")?.classList.toggle("hidden", custom);
+      ["#headerFontSize", "input[name='headerBold']", "input[name='headerItalic']"].forEach((selector) => {
+        $(selector)?.closest(".form-field")?.classList.toggle("hidden", custom);
+      });
     });
     $("#loanReceiptNumberFormat")?.addEventListener("input", (event) => {
       const preview = $("#loanReceiptNumberPreview");
@@ -2904,11 +2975,20 @@
       if (!canEditPage("printDesign")) return showToast("Akun Anda tidak memiliki izin mengubah desain kop.", true);
       const form = event.currentTarget;
       const headerMode = form.elements.headerMode.value === "custom" ? "custom" : "school";
-      const customHeaderText = form.elements.customHeaderText.value.trim();
+      const customHeaderLines = Array.from({ length: 5 }, (_, index) => {
+        const sizeValue = $(`[data-header-line-size="${index}"]`, form)?.value || "16";
+        return {
+          text: $(`[data-header-line-text="${index}"]`, form)?.value.trim() || "",
+          fontSize: Number(sizeValue),
+          bold: $(`[data-header-line-bold="${index}"]`, form)?.checked || false
+        };
+      });
+      const customHeaderText = customHeaderLines.map((line) => line.text).filter(Boolean).join("\n");
       const headerFontSize = Number(form.elements.headerFontSize.value);
       const logoSize = Number(form.elements.logoSize.value);
       const loanReceiptNumberFormat = form.elements.loanReceiptNumberFormat.value.trim();
-      if (headerMode === "custom" && !customHeaderText) return showToast("Teks bagian atas kop wajib diisi saat menggunakan mode ketik sendiri.", true);
+      if (headerMode === "custom" && !customHeaderText) return showToast("Isi minimal satu baris kop saat menggunakan mode ketik sendiri.", true);
+      if (headerMode === "custom" && customHeaderLines.some((line) => line.text && (!Number.isInteger(line.fontSize) || line.fontSize < 10 || line.fontSize > 48))) return showToast("Ukuran font setiap baris kop harus antara 10 sampai 48 px.", true);
       if (!Number.isInteger(headerFontSize) || headerFontSize < 10 || headerFontSize > 48) return showToast("Ukuran font kop harus antara 10 sampai 48 px.", true);
       if (!Number.isInteger(logoSize) || logoSize < 24 || logoSize > 160) return showToast("Ukuran logo kop harus antara 24 sampai 160 px.", true);
       if (!/\{nomor\}/i.test(loanReceiptNumberFormat)) return showToast("Format nomor peminjaman wajib memuat placeholder {nomor}.", true);
@@ -2930,6 +3010,7 @@
           showContact: form.elements.showContact.checked,
           headerMode,
           customHeaderText,
+          customHeaderLines,
           headerFontSize,
           logoSize,
           headerBold: form.elements.headerBold.checked,
@@ -2988,7 +3069,6 @@
       if (file) restoreBackup(file);
       event.target.value = "";
     });
-    $("#goodsImport")?.addEventListener("change", importGoods);
     const updateReport = () => {
       const type = $("#reportType")?.value;
       if (!type) return;
@@ -3106,18 +3186,39 @@
     return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
   }
 
-  function importGoods(event) {
-    const input = event.target;
-    const file = input.files?.[0];
-    if (!file) return;
+  function showGoodsImportModal() {
     if (!canEditPage("goods")) {
-      input.value = "";
       showToast("Akun Anda tidak memiliki izin mengimpor barang.", true);
       return;
     }
+    goodsImportDraft = [];
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Impor Barang</h2><p>Unggah file Excel atau CSV, lalu lengkapi data pada pratinjau.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><label id="goodsImportDrop" class="goods-import-drop"><i data-lucide="file-up"></i><b>Tarik file ke area ini</b><span>atau pilih file Excel / CSV</span><input type="file" id="goodsImport" accept=".xlsx,.xls,.csv"></label><small class="form-help">Kolom yang tidak ada atau kosong dapat dilengkapi pada tahap pratinjau. Nama Barang harus tersedia sebagai judul kolom.</small><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button></div></div></section></div>`);
+    const input = $("#goodsImport");
+    const drop = $("#goodsImportDrop");
+    input?.addEventListener("change", () => {
+      const file = input.files?.[0];
+      if (file) importGoods(file);
+      input.value = "";
+    });
+    drop?.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      drop.classList.add("drag-over");
+    });
+    drop?.addEventListener("dragleave", (event) => {
+      if (!drop.contains(event.relatedTarget)) drop.classList.remove("drag-over");
+    });
+    drop?.addEventListener("drop", (event) => {
+      event.preventDefault();
+      drop.classList.remove("drag-over");
+      const file = event.dataTransfer?.files?.[0];
+      if (file) importGoods(file);
+    });
+  }
+
+  function importGoods(file) {
+    if (!canEditPage("goods")) return showToast("Akun Anda tidak memiliki izin mengimpor barang.", true);
     const extension = file.name.toLowerCase().split(".").pop();
     if (!["xlsx", "xls", "csv"].includes(extension)) {
-      input.value = "";
       showToast("Pilih file Excel sesuai template impor barang.", true);
       return;
     }
@@ -3130,7 +3231,7 @@
         const headers = rows[0].map(normalize);
         const column = (...names) => headers.findIndex((header) => names.some((name) => header === normalize(name)));
         const columns = {
-          name: column("Nama Barang"),
+          name: column("Nama Barang", "Nama"),
           specification: column("Spesifikasi Barang (Opsional)", "Spesifikasi Barang", "Spesifikasi"),
           ownership: column("Kepemilikan", "Milik"),
           ownerOther: column("Nama Pemilik Lainnya", "Pemilik Lainnya"),
@@ -3141,116 +3242,168 @@
           unit: column("Satuan"),
           supplier: column("Supplier", "Nama Supplier"),
           quantity: column("Jumlah Barang", "Jumlah"),
-          price: column("Harga Barang (Rp)", "Harga Barang", "Tarif Barang"),
+          price: column("Harga Barang (Rp)", "Harga Barang", "Harga", "Tarif Barang"),
           consumable: column("Status BHP (BHP/Barang Modal)", "Status BHP", "Barang Habis Pakai (Ya/Tidak)", "Habis Pakai", "BHP")
         };
-        const requiredColumns = ["name", "ownership", "fund", "type", "category", "location", "unit", "supplier", "quantity", "price", "consumable"];
-        const columnLabels = {
-          name: "Nama Barang", ownership: "Kepemilikan", fund: "Sumber Dana", type: "Jenis Barang", category: "Kategori Barang", location: "Ruang / Lokasi",
-          unit: "Satuan", supplier: "Supplier", quantity: "Jumlah Barang", price: "Harga Barang (Rp)",
-          consumable: "Status BHP"
-        };
-        const missingColumns = requiredColumns.filter((name) => columns[name] < 0).map((name) => columnLabels[name]);
-        if (missingColumns.length) throw new Error(`Kolom template tidak lengkap: ${missingColumns.join(", ")}.`);
-        if (rows.length < 2) {
-          showToast("Belum ada baris barang untuk diimpor.");
-          return;
-        }
-
-        const valueAt = (row, name) => String(row[columns[name]] || "").trim();
+        if (columns.name < 0) throw new Error('Kolom "Nama Barang" tidak ditemukan.');
+        const valueAt = (row, name) => columns[name] < 0 ? "" : String(row[columns[name]] ?? "").trim();
         const findByName = (collection, name) => recordsForAcademicYear(collection).find((record) => normalize(record.name) === normalize(name));
-        const existingNames = new Set(recordsForAcademicYear("goods").map((good) => normalize(good.name)));
-        const imported = [];
-        const errors = [];
-        let duplicates = 0;
-        rows.slice(1).forEach((row, index) => {
-          const rowNumber = index + 2;
-          const name = valueAt(row, "name");
-          if (!name) return;
-          const normalizedName = normalize(name);
-          if (existingNames.has(normalizedName)) {
-            duplicates += 1;
-            return;
-          }
-          const fundName = valueAt(row, "fund");
-          const typeName = valueAt(row, "type");
-          const categoryName = valueAt(row, "category");
-          const locationName = valueAt(row, "location");
-          const unitName = valueAt(row, "unit");
-          const supplierName = valueAt(row, "supplier");
-          const ownershipValue = ownershipNameFromLegacy(valueAt(row, "ownership"), valueAt(row, "ownerOther")) || "Milik";
-          const fund = findByName("funds", fundName);
-          const ownership = findByName("ownerships", ownershipValue);
-          const type = findByName("types", typeName);
-          const category = findByName("categories", categoryName);
-          const location = findByName("locations", locationName);
-          const unit = findByName("units", unitName);
-          const supplier = findByName("suppliers", supplierName);
-          const quantityText = valueAt(row, "quantity");
-          const priceText = valueAt(row, "price");
-          const quantity = parseGroupedInteger(quantityText);
-          const price = parseGroupedInteger(priceText);
-          const consumableText = normalize(valueAt(row, "consumable"));
-          const yesValues = ["ya", "yes", "true", "1", "bhp", "barang habis pakai", "barang habis pakai (bhp)"];
-          const noValues = ["tidak", "no", "false", "0", "modal", "barang modal"];
-          const rowErrors = [];
-          if (!ownership) rowErrors.push(`kepemilikan "${ownershipValue || "kosong"}" tidak ditemukan`);
-          if (!fund) rowErrors.push(`Sumber dana "${fundName || "kosong"}" tidak ditemukan`);
-          if (!type) rowErrors.push(`jenis barang "${typeName || "kosong"}" tidak ditemukan`);
-          if (!category) rowErrors.push(`kategori "${categoryName || "kosong"}" tidak ditemukan`);
-          else if (type && category.typeId !== type.id) rowErrors.push("kategori tidak sesuai dengan jenis barang");
-          if (!location) rowErrors.push(`ruang/lokasi "${locationName || "kosong"}" tidak ditemukan`);
-          if (!unit) rowErrors.push(`satuan "${unitName || "kosong"}" tidak ditemukan`);
-          if (!supplier) rowErrors.push(`supplier "${supplierName || "kosong"}" tidak ditemukan`);
-          if (quantity === null) rowErrors.push("jumlah barang harus berupa bilangan bulat");
-          if (price === null) rowErrors.push("harga barang harus berupa bilangan bulat");
-          if (consumableText && !yesValues.includes(consumableText) && !noValues.includes(consumableText)) rowErrors.push('Status BHP harus diisi "BHP" atau "Barang Modal"');
-          if (rowErrors.length) {
-            errors.push(`Baris ${rowNumber}: ${rowErrors.join(", ")}.`);
-            return;
-          }
-          imported.push({
-            id: id(),
-            academicYearId: currentAcademicYearId(),
-            name,
+        const yesValues = ["ya", "yes", "true", "1", "bhp", "barang habis pakai", "barang habis pakai (bhp)"];
+        const noValues = ["tidak", "no", "false", "0", "modal", "barang modal"];
+        goodsImportDraft = rows.slice(1).filter((row) => row.some((value) => String(value ?? "").trim())).map((row) => {
+          const ownershipValue = ownershipNameFromLegacy(valueAt(row, "ownership"), valueAt(row, "ownerOther"));
+          const statusValue = normalize(valueAt(row, "consumable"));
+          const bhpValue = yesValues.includes(statusValue) ? "true" : noValues.includes(statusValue) ? "false" : "";
+          const referenceId = (collection, value) => findByName(collection, value)?.id || "";
+          return {
+            name: valueAt(row, "name"),
             specification: valueAt(row, "specification"),
-            ownershipId: ownership.id,
-            fundId: fund.id,
-            typeId: type.id,
-            categoryId: category.id,
-            locationId: location.id,
-            unitId: unit.id,
-            supplierId: supplier.id,
-            quantity,
-            price,
-            consumable: yesValues.includes(consumableText)
-          });
-          existingNames.add(normalizedName);
+            ownershipId: referenceId("ownerships", ownershipValue),
+            fundId: referenceId("funds", valueAt(row, "fund")),
+            typeId: referenceId("types", valueAt(row, "type")),
+            categoryId: referenceId("categories", valueAt(row, "category")),
+            locationId: referenceId("locations", valueAt(row, "location")),
+            unitId: referenceId("units", valueAt(row, "unit")),
+            supplierId: referenceId("suppliers", valueAt(row, "supplier")),
+            quantity: valueAt(row, "quantity"),
+            price: valueAt(row, "price"),
+            consumable: bhpValue
+          };
         });
-        if (errors.length) {
-          showToast(`Impor dibatalkan. ${errors.slice(0, 3).join(" ")}`, true);
-          return;
-        }
-        if (!imported.length) {
-          showToast(duplicates ? `Tidak ada barang baru; ${duplicates} nama duplikat dilewati.` : "Tidak ada baris barang untuk diimpor.", !!duplicates);
-          return;
-        }
-        state.goods.push(...imported);
-        saveState();
-        showToast(`${imported.length} barang berhasil diimpor${duplicates ? `; ${duplicates} duplikat dilewati` : ""}.`);
-        renderPage();
+        if (!goodsImportDraft.length) throw new Error("Tidak ada baris barang untuk ditampilkan.");
+        showGoodsImportPreview();
       } catch (error) {
         showToast(`Impor barang gagal: ${error.message}`, true);
-      } finally {
-        input.value = "";
       }
     };
-    reader.onerror = () => {
-      input.value = "";
-      showToast("File Excel tidak dapat dibaca.", true);
-    };
+    reader.onerror = () => showToast("File Excel tidak dapat dibaca.", true);
     if (extension === "csv") reader.readAsText(file);
     else reader.readAsArrayBuffer(file);
+  }
+
+  function goodsImportSelect(rowIndex, field, label, collection) {
+    const selected = goodsImportDraft[rowIndex][field];
+    const options = recordsForAcademicYear(collection).map((record) => `<option value="${esc(record.id)}" ${record.id === selected ? "selected" : ""}>${esc(record.name)}</option>`).join("");
+    return `<select data-import-row="${rowIndex}" data-import-field="${field}" aria-label="${esc(label)}"><option value="">Pilih ${esc(label.toLowerCase())}</option>${options}</select>`;
+  }
+
+  function showGoodsImportPreview() {
+    const editableField = (index, field, value, label, type = "text") => `<input type="${type}" data-import-row="${index}" data-import-field="${field}" value="${esc(value)}" aria-label="${esc(label)}" ${field === "quantity" || field === "price" ? 'inputmode="numeric"' : ""}>`;
+    const rows = goodsImportDraft.map((row, index) => `<tr data-import-preview-row="${index}">
+      <td>${index + 1}</td>
+      <td>${editableField(index, "name", row.name, "Nama Barang")}</td>
+      <td>${editableField(index, "specification", row.specification, "Spesifikasi Barang")}</td>
+      <td>${goodsImportSelect(index, "ownershipId", "Kepemilikan", "ownerships")}</td>
+      <td>${goodsImportSelect(index, "fundId", "Sumber Dana", "funds")}</td>
+      <td>${goodsImportSelect(index, "typeId", "Jenis Barang", "types")}</td>
+      <td>${goodsImportSelect(index, "categoryId", "Kategori Barang", "categories")}</td>
+      <td>${goodsImportSelect(index, "locationId", "Ruang / Lokasi", "locations")}</td>
+      <td>${goodsImportSelect(index, "unitId", "Satuan", "units")}</td>
+      <td>${goodsImportSelect(index, "supplierId", "Supplier", "suppliers")}</td>
+      <td>${editableField(index, "quantity", row.quantity, "Jumlah Barang")}</td>
+      <td>${editableField(index, "price", row.price, "Harga Barang")}</td>
+      <td><select data-import-row="${index}" data-import-field="consumable" aria-label="Status BHP"><option value="">Pilih status</option><option value="true" ${row.consumable === "true" ? "selected" : ""}>BHP</option><option value="false" ${row.consumable === "false" ? "selected" : ""}>Barang Modal</option></select></td>
+      <td><span class="goods-import-row-error" id="goodsImportRowError${index}"></span></td>
+    </tr>`).join("");
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal modal-wide" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Pratinjau dan Lengkapi Barang</h2><p>Semua kolom kecuali spesifikasi wajib valid sebelum disimpan.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div id="goodsImportValidation" class="goods-import-validation" aria-live="polite"></div><div class="goods-import-preview-wrap"><table class="goods-import-table"><thead><tr><th>No.</th><th>Nama Barang *</th><th>Spesifikasi</th><th>Kepemilikan *</th><th>Sumber Dana *</th><th>Jenis *</th><th>Kategori *</th><th>Ruang / Lokasi *</th><th>Satuan *</th><th>Supplier *</th><th>Jumlah *</th><th>Harga *</th><th>Status BHP *</th><th>Validasi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="button" class="btn-primary" id="saveGoodsImport"><i data-lucide="save"></i>Simpan barang</button></div></div></section></div>`, true);
+    if ($("#modalRoot")) {
+      $("#modalRoot").oninput = updateGoodsImportFromPreview;
+      $("#modalRoot").onchange = updateGoodsImportFromPreview;
+    }
+    $("#saveGoodsImport")?.addEventListener("click", saveGoodsImport);
+    updateGoodsImportValidation();
+  }
+
+  function updateGoodsImportFromPreview(event) {
+    const field = event.target.closest("[data-import-field]");
+    if (!field) return;
+    const rowIndex = Number(field.dataset.importRow);
+    const row = goodsImportDraft[rowIndex];
+    if (!row) return;
+    row[field.dataset.importField] = field.value;
+    updateGoodsImportValidation();
+  }
+
+  function validateGoodsImportDraft() {
+    const normalize = (value) => String(value || "").trim().toLocaleLowerCase("id-ID");
+    const names = new Set(recordsForAcademicYear("goods").map((good) => normalize(good.name)));
+    return goodsImportDraft.map((row) => {
+      const errors = [];
+      if (!row.name.trim()) errors.push("Nama barang wajib diisi");
+      const normalizedName = normalize(row.name);
+      if (normalizedName && names.has(normalizedName)) errors.push("Nama barang duplikat");
+      if (normalizedName) names.add(normalizedName);
+      const references = [
+        ["ownershipId", "ownerships", "Kepemilikan"],
+        ["fundId", "funds", "Sumber dana"],
+        ["typeId", "types", "Jenis barang"],
+        ["categoryId", "categories", "Kategori"],
+        ["locationId", "locations", "Ruang/lokasi"],
+        ["unitId", "units", "Satuan"],
+        ["supplierId", "suppliers", "Supplier"]
+      ];
+      for (const [field, collection, label] of references) {
+        if (!row[field] || !recordsForAcademicYear(collection).some((record) => record.id === row[field])) errors.push(`${label} wajib dipilih`);
+      }
+      const type = getById("types", row.typeId);
+      const category = getById("categories", row.categoryId);
+      if (type && category && category.typeId !== type.id) errors.push("Kategori tidak sesuai dengan jenis");
+      if (parseGroupedInteger(row.quantity) === null) errors.push("Jumlah harus bilangan bulat");
+      if (parseGroupedInteger(row.price) === null) errors.push("Harga harus bilangan bulat");
+      if (!["true", "false"].includes(row.consumable)) errors.push("Status BHP wajib dipilih");
+      return errors;
+    });
+  }
+
+  function updateGoodsImportValidation() {
+    const errors = validateGoodsImportDraft();
+    const invalidCount = errors.filter((rowErrors) => rowErrors.length).length;
+    errors.forEach((rowErrors, index) => {
+      const row = $(`[data-import-preview-row="${index}"]`, $("#modalRoot"));
+      const error = $(`#goodsImportRowError${index}`, $("#modalRoot"));
+      if (row) row.classList.toggle("has-error", rowErrors.length > 0);
+      if (error) error.textContent = rowErrors.join("; ");
+    });
+    const summary = $("#goodsImportValidation", $("#modalRoot"));
+    if (summary) {
+      summary.textContent = invalidCount
+        ? `${invalidCount} dari ${goodsImportDraft.length} baris perlu diperbaiki sebelum disimpan.`
+        : `${goodsImportDraft.length} baris valid dan siap disimpan.`;
+      summary.classList.toggle("is-valid", invalidCount === 0);
+    }
+    const saveButton = $("#saveGoodsImport", $("#modalRoot"));
+    if (saveButton) saveButton.disabled = invalidCount > 0 || !goodsImportDraft.length;
+  }
+
+  function saveGoodsImport() {
+    if (!canEditPage("goods")) return showToast("Akun Anda tidak memiliki izin mengimpor barang.", true);
+    const errors = validateGoodsImportDraft();
+    if (!goodsImportDraft.length || errors.some((rowErrors) => rowErrors.length)) {
+      updateGoodsImportValidation();
+      return showToast("Lengkapi semua kolom wajib dan perbaiki kesalahan pada pratinjau.", true);
+    }
+    const imported = goodsImportDraft.map((row) => ({
+      id: id(),
+      academicYearId: currentAcademicYearId(),
+      name: row.name.trim(),
+      specification: row.specification.trim(),
+      ownershipId: row.ownershipId,
+      fundId: row.fundId,
+      typeId: row.typeId,
+      categoryId: row.categoryId,
+      locationId: row.locationId,
+      unitId: row.unitId,
+      supplierId: row.supplierId,
+      quantity: parseGroupedInteger(row.quantity),
+      price: parseGroupedInteger(row.price),
+      consumable: row.consumable === "true"
+    }));
+    state.goods.push(...imported);
+    saveState();
+    goodsImportDraft = [];
+    closeModal();
+    showToast(`${imported.length} barang berhasil diimpor.`);
+    renderPage();
   }
 
   function exportRows(key) {
