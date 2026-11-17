@@ -168,8 +168,7 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
  .login-register-link{margin:18px 0 0;text-align:center;color:#778396;font-size:12px}
  .login-register-link button{border:0;background:transparent;color:#e85d04;font:inherit;font-weight:700;cursor:pointer}
  .login-register-link button:hover{text-decoration:underline}
- .login-form-wrap #schoolRegistrationPanel{max-width:440px;max-height:calc(100vh - 40px);overflow:auto}
- .login-form-wrap #schoolRegistrationPanel .muted{margin-bottom:20px}
+ .login-form-wrap #schoolRegistrationPanel{max-width:440px;max-height:none;overflow:visible}
  .login-form-wrap #schoolRegistrationPanel .field-label{margin-top:12px}
  .login-form-wrap #schoolRegistrationPanel .field-label input{margin-top:6px}
  .login-form-wrap #schoolRegistrationPanel .login-register-link{margin-top:14px}

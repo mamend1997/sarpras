@@ -39,6 +39,7 @@ Data contoh lama tetap tersedia setelah database dimigrasikan. Sekolah baru dapa
 - Di **Barang → Data Barang**, unduh **Template CSV** sebelum impor. Isi nama sumber dana, jenis, kategori, satuan, dan supplier sesuai data master yang sudah terdaftar. Nilai harga boleh ditulis seperti `1.000.000`; impor dibatalkan jika ada referensi atau nilai yang tidak valid, sedangkan nama barang duplikat dilewati.
 - **Tambah barang yang sudah ada** mencatat tanggal pembelian, sumber dana, supplier, jumlah, dan harga lalu menambahkan stok tanpa membuat master barang baru. **Tambah barang baru** tetap tersedia untuk mendaftarkan barang berbeda.
 - Menu **Pindah Ruang Barang** mencatat perpindahan per item inventaris, tanggal pemindahan, ruang asal/tujuan, dan penanggung jawab. Laporan **Riwayat Pergerakan Aset** merangkum barang masuk, peminjaman, perpindahan, dan pemusnahan untuk barang yang dipilih.
+- Menu **Portal Publik** membuat link otomatis dari kode sekolah, menampilkan QR Code yang dapat diunduh, dan menyediakan aksi salin link.
 - Pada form harga, pemisah ribuan menggunakan titik dan nilai tetap disimpan sebagai angka. Pada stock opname, pilih barang manual atau pindai kode item; stok lama terisi otomatis dari stok saat ini, stok baru wajib diisi, dan total stok tetap ditampilkan sebagai jumlah tanpa awalan Rp.
 - Data supplier mencakup nama, alamat, nomor telepon, serta email opsional.
 - Grup navigasi sidebar bekerja sebagai accordion: hanya satu grup submenu yang terbuka pada satu waktu.
