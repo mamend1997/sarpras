@@ -228,6 +228,13 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .theme-option i{width:15px;height:15px;margin-left:auto}
 .theme-swatch{width:23px;height:23px;border-radius:50%;background:var(--swatch);box-shadow:inset 0 0 0 1px #0001}
 .storage-usage-card{padding:10px 13px;margin:0 0 15px;border:1px solid #eef0f3;border-radius:10px;background:#fff;max-width:390px}
+.goods-purchase-history{margin-top:16px}
+.goods-purchase-history-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.goods-purchase-history-heading h3{margin:0 0 5px}
+.goods-purchase-history-heading p{margin:0;color:#8993a3;font-size:10px;line-height:1.5}
+.goods-purchase-history .goods-toolbar-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.goods-purchase-history .goods-toolbar-actions>.btn-quiet,.goods-purchase-history .goods-toolbar-actions>.btn-danger{min-height:28px;padding:5px 8px;font-size:9px}
+@media(max-width:700px){.goods-purchase-history-heading{flex-direction:column}.goods-purchase-history .goods-toolbar-actions{justify-content:flex-start}}
 .dashboard-storage-footer{display:flex;justify-content:flex-end;margin-top:14px}
 .dashboard-storage-footer .storage-usage-card{margin:0}
 .storage-usage-heading{display:flex;align-items:center;gap:9px}

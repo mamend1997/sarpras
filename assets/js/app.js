@@ -57,6 +57,7 @@
     { code: "D", label: "KIB D: Jalan, Irigasi, dan Jaringan" },
     { code: "E", label: "KIB E: Aset Tetap Lainnya" }
   ];
+  const kibClassificationOptions = ["Non KIB", ...kibClasses.map(({ label }) => label)];
   const maintenanceTypes = ["Rutin", "Perbaikan", "Pengecekan", "Pembersihan"];
   const maintenanceStatuses = ["Menunggu Jadwal", "Sedang Diservis", "Selesai"];
   const maintenanceTypeClasses = { Rutin: "routine", Perbaikan: "repair", Pengecekan: "inspection", Pembersihan: "cleaning" };
@@ -233,7 +234,7 @@
 
   const collectionConfig = {
     types: { title: "Jenis Barang", description: "Daftar nama jenis barang.", singular: "Jenis Barang", cols: [["name", "Nama Jenis"]], fields: [["name", "Nama Jenis", "text", true]] },
-    categories: { title: "Kategori Barang", description: "Kategori membantu mengelompokkan barang dan menentukan golongan Kartu Inventaris Barang.", singular: "Kategori", cols: [["name", "Nama Kategori"], ["typeId", "Jenis Barang"], ["kibClass", "Klasifikasi KIB"], ["note", "Keterangan"]], fields: [["name", "Nama Kategori", "text", true], ["typeId", "Jenis Barang", "select", true, "types"], ["kibClass", "Klasifikasi KIB", "select", false, kibClasses.map(({ label }) => label)], ["note", "Keterangan", "text"]] },
+    categories: { title: "Kategori Barang", description: "Pilih Non KIB untuk barang habis pakai atau barang yang bukan aset tetap; kategori aset tetap dapat ditetapkan ke golongan KIB A–E.", singular: "Kategori", cols: [["name", "Nama Kategori"], ["typeId", "Jenis Barang"], ["kibClass", "Klasifikasi KIB"], ["note", "Keterangan"]], fields: [["name", "Nama Kategori", "text", true], ["typeId", "Jenis Barang", "select", true, "types"], ["kibClass", "Klasifikasi KIB", "select", false, kibClassificationOptions], ["note", "Keterangan", "text"]] },
     units: { title: "Satuan", description: "Satuan untuk mencatat jumlah barang.", singular: "Satuan", cols: [["name", "Nama Satuan"]], fields: [["name", "Nama Satuan", "text", true]] },
     locations: { title: "Ruang / Lokasi", description: "Kelola ruang sekolah sebagai prasarana beserta kepemilikan dan ukurannya.", singular: "Ruangan", cols: [["name", "Nama Ruangan"], ["code", "Kode Ruangan"], ["ownershipId", "Kepemilikan"], ["floor", "Lantai Ke"], ["length", "Panjang (m)"], ["width", "Lebar (m)"], ["area", "Luas (m²)"], ["condition", "Kondisi Ruangan"], ["status", "Status"]], fields: [["name", "Nama Ruangan", "text", true], ["code", "Kode Ruangan", "text", true], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["floor", "Lantai Ke", "number", true], ["length", "Panjang (m)", "number", true], ["width", "Lebar (m)", "number", true], ["area", "Luas (m²)", "number"], ["status", "Status", "select", true, ["Aktif", "Nonaktif"]]] },
     ownerships: { title: "Kepemilikan", description: "Daftar jenis kepemilikan yang dapat dipilih pada Data Barang.", singular: "Kepemilikan", cols: [["name", "Nama Kepemilikan"]], fields: [["name", "Nama Kepemilikan", "text", true]] },
@@ -333,6 +334,9 @@
   const relatedName = (collection, value, key = "name") => getById(collection, value)?.[key] || "—";
   const titleOfGood = (value) => relatedName("goods", value);
   const isBhp = (good) => good.consumable === true || ["true", "bhp", "barang habis pakai", "barang habis pakai (bhp)"].includes(String(good.consumable || "").trim().toLocaleLowerCase("id-ID"));
+  const isStockAdditionRecord = (record) => record?.stockAddition === true
+    || (record?.title?.startsWith("Pembelian barang:")
+      && record?.note === "Pembelian barang yang sudah terdaftar dan penambahan stok.");
   function bhpStockAlert(good) {
     if (!good || !isBhp(good)) return null;
     const initial = Math.max(0, Number(good.initialQuantity) || 0);
@@ -2069,9 +2073,32 @@
       return `<tr>${selection}${displayCols.map(([field]) => {
         const currency = ["price", "totalPrice", "unitPrice", "estimatedCost", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
-      }).join("")}<td><div class="action-buttons">${bastAction}${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${key === "locations" && canEditPage(key) ? `<button class="mini-action" title="Kondisi ruangan" aria-label="Kondisi ruangan ${esc(row.name)}" data-action="room-condition" data-id="${row.id}"><i data-lucide="triangle-alert"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
+      }).join("")}<td><div class="action-buttons">${bastAction}${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${key === "locations" && canEditPage(key) ? `<button class="mini-action" title="Kondisi ruangan" aria-label="Kondisi ruangan ${esc(row.name)}" data-action="room-condition" data-id="${row.id}"><i data-lucide="triangle-alert"></i></button>` : ""}${canEditPage(key) && !(key === "procurements" && isStockAdditionRecord(row)) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
-    return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
+    const purchaseHistory = key === "goods" ? renderGoodsPurchaseHistory() : "";
+    return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>${purchaseHistory}`;
+  }
+
+  function renderGoodsPurchaseHistory() {
+    const canManage = canDeletePage("goods");
+    const purchases = (state.procurements || [])
+      .filter((record) => isStockAdditionRecord(record) && (!record.academicYearId || record.academicYearId === currentAcademicYearId()));
+    const selectionHeader = canManage ? `<th class="bulk-select-column"><input id="selectAllGoodsPurchases" type="checkbox" aria-label="Pilih semua riwayat barang masuk"></th>` : "";
+    const purchaseRows = purchases.map((record, index) => {
+      const good = getById("goods", record.goodId);
+      return `<tr>${canManage ? `<td class="bulk-select-column"><input type="checkbox" class="goods-purchase-select" value="${esc(record.id)}" aria-label="Pilih riwayat ${esc(good?.name || record.title)}"></td>` : ""}
+        <td>${index + 1}</td><td>${esc(niceDate(record.date))}</td><td>${esc(good?.name || record.title || "Barang tidak ditemukan")}</td>
+        <td>${integerId.format(Number(record.quantity) || 0)} ${esc(relatedName("units", good?.unitId))}</td>
+        <td class="goods-price-cell">${currencyCell(record.unitPrice)}</td>
+        <td class="goods-price-cell">${currencyCell((Number(record.quantity) || 0) * (Number(record.unitPrice) || 0))}</td>
+        <td>${esc(relatedName("funds", record.fundId))}</td><td>${esc(relatedName("suppliers", record.supplierId || good?.supplierId))}</td>
+        ${canManage ? `<td><button type="button" class="mini-action" title="Hapus riwayat barang masuk" aria-label="Hapus riwayat ${esc(good?.name || record.title)}" data-action="delete-goods-purchase" data-id="${esc(record.id)}"><i data-lucide="trash-2"></i></button></td>` : ""}</tr>`;
+    }).join("");
+    const selectionControls = canManage
+      ? `<button type="button" class="btn-quiet" data-action="select-visible-goods-purchases"><i data-lucide="check-check"></i>Pilih semua</button><button type="button" class="btn-danger" id="deleteSelectedGoodsPurchases" data-action="delete-selected-goods-purchases" disabled><i data-lucide="trash-2"></i>Hapus terpilih <span id="selectedGoodsPurchaseCount"></span></button>`
+      : "";
+    return `<section class="settings-card goods-purchase-history"><div class="goods-purchase-history-heading"><div><h3>Riwayat Barang Masuk / Penambahan Stok</h3><p>Setiap penambahan stok barang terdaftar dicatat berdasarkan tanggal, jumlah, harga, sumber dana, dan supplier.</p></div>${selectionControls ? `<div class="goods-toolbar-actions">${selectionControls}</div>` : ""}</div>
+      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectionHeader}<th>NO.</th><th>TANGGAL MASUK</th><th>NAMA BARANG</th><th>JUMLAH</th><th>HARGA SATUAN</th><th>TOTAL</th><th>SUMBER DANA</th><th>SUPPLIER</th>${canManage ? "<th>AKSI</th>" : ""}</tr></thead><tbody>${purchaseRows || `<tr><td class="empty-state" colspan="${8 + Number(canManage) * 2}">Belum ada riwayat penambahan stok.</td></tr>`}</tbody></table></div><div class="table-footer"><span>${purchases.length} riwayat barang masuk</span></div></div></section>`;
   }
 
   function renderAssetMovements() {
@@ -2581,7 +2608,9 @@
     );
   }
   function kibClassCode(category) {
-    const match = /(?:KIB\s*)?([A-E])(?:\b|$)/i.exec(String(category?.kibClass || "").trim());
+    const classification = String(category?.kibClass || "").trim();
+    if (!classification || classification.toLocaleLowerCase("id-ID") === "non kib") return "";
+    const match = /(?:KIB\s*)?([A-E])(?:\b|$)/i.exec(classification);
     return match?.[1]?.toUpperCase() || "";
   }
   function kibReportData(startDate = "", endDate = "") {
@@ -2594,6 +2623,7 @@
       const goods = recordsForAcademicYear("goods", reportYearId).filter((good) => {
         const category = getById("categories", good.categoryId);
         return kibClassCode(category) === code
+          && !isBhp(good)
           && (!filters.fundId || good.fundId === filters.fundId)
           && matchesReportDate(good.receivedDate || "", startDate, endDate);
       });
@@ -2685,10 +2715,17 @@
       return grouped.get(key);
     };
     const trackedByGood = new Map();
+    const trackedConditionsByGood = new Map();
     (state.items || []).filter((item) => goodIds.has(item.goodId)).forEach((item) => {
       const good = goods.find((row) => row.id === item.goodId);
       if (!good) return;
       trackedByGood.set(good.id, (trackedByGood.get(good.id) || 0) + (item.condition === "Hilang" ? 0 : 1));
+      const tracked = trackedConditionsByGood.get(good.id) || { goodQty: 0, damagedQty: 0, missingQty: 0, totalCount: 0 };
+      tracked.totalCount += 1;
+      if (item.condition === "Hilang") tracked.missingQty += 1;
+      else if (item.condition === "Rusak" || item.condition === "Rusak Berat") tracked.damagedQty += 1;
+      else tracked.goodQty += 1;
+      trackedConditionsByGood.set(good.id, tracked);
       const locationId = item.locationId || good.locationId;
       if (filters.locationId && locationId !== filters.locationId) return;
       const row = ensureRow(good, locationId);
@@ -2697,6 +2734,33 @@
       else row.goodQty += 1;
     });
     goods.forEach((good) => {
+      const hasConditionSummary = ["goodConditionCount", "damagedConditionCount", "missingConditionCount"]
+        .some((field) => Object.prototype.hasOwnProperty.call(good, field));
+      if (hasConditionSummary) {
+        const tracked = trackedConditionsByGood.get(good.id) || { goodQty: 0, damagedQty: 0, missingQty: 0, totalCount: 0 };
+        const remaining = Math.max(0, (Number(good.quantity) || 0) - tracked.totalCount);
+        if (!remaining || filters.locationId && good.locationId !== filters.locationId) return;
+        const counts = {
+          goodQty: Math.max(0, (Number(good.goodConditionCount) || 0) - tracked.goodQty),
+          damagedQty: Math.max(0, (Number(good.damagedConditionCount) || 0) - tracked.damagedQty),
+          missingQty: Math.max(0, (Number(good.missingConditionCount) || 0) - tracked.missingQty)
+        };
+        let difference = remaining - Object.values(counts).reduce((sum, count) => sum + count, 0);
+        if (difference > 0) counts.goodQty += difference;
+        else if (difference < 0) {
+          difference = -difference;
+          for (const field of ["goodQty", "damagedQty", "missingQty"]) {
+            const reduction = Math.min(counts[field], difference);
+            counts[field] -= reduction;
+            difference -= reduction;
+          }
+        }
+        const row = ensureRow(good, good.locationId);
+        row.goodQty += counts.goodQty;
+        row.damagedQty += counts.damagedQty;
+        row.missingQty += counts.missingQty;
+        return;
+      }
       const remaining = Math.max(0, (Number(good.quantity) || 0) - (trackedByGood.get(good.id) || 0));
       if (!remaining || filters.locationId && good.locationId !== filters.locationId) return;
       ensureRow(good, good.locationId).goodQty += remaining;
@@ -3339,6 +3403,7 @@
       if (key === "academicYears" && name === "copyPreviousData" && record) return "";
       let value = record?.[name] ?? (key === "goods" && name === "ownershipId"
         ? (recordsForAcademicYear("ownerships").find((ownership) => ownership.name.toLocaleLowerCase("id-ID") === "milik")?.id || recordsForAcademicYear("ownerships")[0]?.id || "")
+        : key === "categories" && name === "kibClass" ? "Non KIB"
         : key === "academicYears" && name === "status" ? "Aktif"
           : key === "accounts" && name === "active" ? true
             : key === "loans" && name === "quantity" ? 1
@@ -3528,17 +3593,27 @@
     if (!recordsForAcademicYear("suppliers").some((supplier) => supplier.id === supplierId)) return showToast("Pilih supplier yang valid.", true);
     const previousQuantity = Math.max(0, Number(good.quantity) || 0);
     const previousInitial = Math.max(previousQuantity, Number(good.initialQuantity ?? good.quantity) || 0);
+    const purchaseId = id();
+    const previousGoodData = {
+      receivedDate: good.receivedDate || "",
+      price: Number(good.price) || 0,
+      fundId: good.fundId || "",
+      supplierId: good.supplierId || "",
+      stockAdditionRecordId: good.stockAdditionRecordId || ""
+    };
     good.quantity = previousQuantity + quantity;
     good.initialQuantity = previousInitial + quantity;
     good.price = unitPrice;
     good.fundId = fundId;
     good.supplierId = supplierId;
     good.receivedDate = purchaseDate;
+    good.stockAdditionRecordId = purchaseId;
     state.procurements.unshift({
-      id: id(),
+      id: purchaseId,
       academicYearId: currentAcademicYearId(),
       proposer: activeUser?.name || "Administrator",
       title: `Pembelian barang: ${good.name}`,
+      stockAddition: true,
       goodId: good.id,
       priority: "Normal",
       quantity,
@@ -3546,6 +3621,7 @@
       fundId,
       supplierId,
       date: purchaseDate,
+      previousGoodData,
       note: "Pembelian barang yang sudah terdaftar dan penambahan stok.",
       status: "Diterima"
     });
@@ -3822,11 +3898,47 @@
     syncGoodConditionCounts(good);
   }
 
+  function removeStockAdditionStock(record) {
+    const good = getById("goods", record.goodId);
+    const quantity = Math.max(0, Number(record.quantity) || 0);
+    if (!good || !quantity || Number(good.quantity || 0) < quantity) return false;
+    good.quantity = Math.max(0, Number(good.quantity || 0) - quantity);
+    good.initialQuantity = Math.max(0, Number(good.initialQuantity ?? good.quantity + quantity) - quantity);
+    if (good.stockAdditionRecordId === record.id) {
+      const previous = record.previousGoodData || {};
+      good.receivedDate = previous.receivedDate || "";
+      good.price = Number(previous.price) || 0;
+      good.fundId = previous.fundId || good.fundId;
+      good.supplierId = previous.supplierId || good.supplierId;
+      good.stockAdditionRecordId = previous.stockAdditionRecordId || "";
+    }
+    syncGoodConditionCounts(good);
+    return true;
+  }
+
+  function restoreStockAdditionStock(record) {
+    const good = getById("goods", record.goodId);
+    const quantity = Math.max(0, Number(record.quantity) || 0);
+    if (!good || !quantity) return false;
+    good.quantity = Math.max(0, Number(good.quantity || 0)) + quantity;
+    good.initialQuantity = Math.max(0, Number(good.initialQuantity ?? good.quantity - quantity)) + quantity;
+    if (!good.stockAdditionRecordId || String(record.date || "") >= String(good.receivedDate || "")) {
+      good.receivedDate = record.date || good.receivedDate || "";
+      good.price = Number(record.unitPrice) || 0;
+      good.fundId = record.fundId || good.fundId;
+      good.supplierId = record.supplierId || good.supplierId;
+      good.stockAdditionRecordId = record.id;
+    }
+    syncGoodConditionCounts(good);
+    return true;
+  }
+
   function moveRecordToTrash(collection, record) {
     if (!Array.isArray(state[collection]) || !record) return false;
     if (collection === "disposals") restoreDisposalStock(record);
     if (collection === "loans") restoreLoanStock(record);
     if (collection === "usages") restoreUsageStock(record);
+    if (collection === "procurements" && isStockAdditionRecord(record) && !removeStockAdditionStock(record)) return false;
     state[collection] = state[collection].filter((row) => row.id !== record.id);
     const entry = {
       id: id(),
@@ -3852,9 +3964,11 @@
       showToast("Data dengan ID yang sama sudah ada di menu asal.", true);
       return false;
     }
+    const restoresStockAddition = collection === "procurements" && isStockAdditionRecord(record);
     const requiresStockAdjustment = (collection === "loans" && record.stockAdjusted === true)
       || (collection === "disposals" && record.stockAdjusted === true)
-      || (collection === "usages" && (record.stockAdjusted === true || record.status === "Disetujui"));
+      || (collection === "usages" && (record.stockAdjusted === true || record.status === "Disetujui"))
+      || restoresStockAddition;
     if (requiresStockAdjustment) {
       const good = getById("goods", record.goodId);
       const quantity = Math.max(0, Number(record.quantity) || 0);
@@ -3862,12 +3976,19 @@
         showToast("Barang terkait tidak ditemukan; data tidak dapat dipulihkan.", true);
         return false;
       }
-      if (quantity > Number(good.quantity || 0)) {
+      if (!restoresStockAddition && quantity > Number(good.quantity || 0)) {
         showToast(`Stok tidak mencukupi untuk memulihkan transaksi ini. Stok tersedia ${Number(good.quantity) || 0} unit.`, true);
         return false;
       }
-      good.quantity = Math.max(0, Number(good.quantity || 0) - quantity);
-      syncGoodConditionCounts(good);
+      if (restoresStockAddition) {
+        if (!restoreStockAdditionStock(record)) {
+          showToast("Jumlah atau data barang masuk tidak valid; riwayat tidak dapat dipulihkan.", true);
+          return false;
+        }
+      } else {
+        good.quantity = Math.max(0, Number(good.quantity || 0) - quantity);
+        syncGoodConditionCounts(good);
+      }
     }
     state[collection].unshift(structuredClone(record));
     state.trash = state.trash.filter((row) => row.id !== entry.id);
@@ -3894,22 +4015,27 @@
     if (!good) return;
     const total = Math.max(0, Number(good.quantity) || 0);
     const damagedCount = Math.min(total, Math.max(0, Number(good.damagedConditionCount) || 0));
-    const goodCount = total - damagedCount;
+    const missingCount = Math.min(total - damagedCount, Math.max(0, Number(good.missingConditionCount) || 0));
+    const goodCount = total - damagedCount - missingCount;
     showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Kondisi Barang</h2><p>${esc(good.name)}</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="goodsConditionForm"><div class="form-grid">
       <div class="form-field"><label for="conditionTotal">Total jumlah barang</label><input id="conditionTotal" type="number" value="${esc(total)}" readonly></div>
       <div class="form-field"><label for="goodConditionCount">Jumlah kondisi barang baik</label><input id="goodConditionCount" name="goodConditionCount" type="number" min="0" max="${esc(total)}" step="any" value="${esc(goodCount)}" required></div>
       <div class="form-field"><label for="damagedConditionCount">Jumlah kondisi barang rusak</label><input id="damagedConditionCount" name="damagedConditionCount" type="number" min="0" max="${esc(total)}" step="any" value="${esc(damagedCount)}" required></div>
+      <div class="form-field"><label for="missingConditionCount">Jumlah barang hilang</label><input id="missingConditionCount" name="missingConditionCount" type="number" min="0" max="${esc(total)}" step="any" value="${esc(missingCount)}" required></div>
     </div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan kondisi</button></div></form></section></div>`);
     $("#goodsConditionForm").addEventListener("submit", (event) => {
       event.preventDefault();
       const goodCount = Number(event.currentTarget.elements.goodConditionCount.value);
       const damaged = Number(event.currentTarget.elements.damagedConditionCount.value);
-      if (!Number.isFinite(goodCount) || !Number.isFinite(damaged) || goodCount < 0 || damaged < 0 || Math.abs(goodCount + damaged - total) > 1e-8) {
-        showToast(`Jumlah kondisi baik dan rusak harus sama dengan total barang (${total}).`, true);
+      const missing = Number(event.currentTarget.elements.missingConditionCount.value);
+      if (![goodCount, damaged, missing].every((count) => Number.isFinite(count) && count >= 0)
+        || Math.abs(goodCount + damaged + missing - total) > 1e-8) {
+        showToast(`Jumlah kondisi baik, rusak, dan hilang harus sama dengan total barang (${total}).`, true);
         return;
       }
       good.goodConditionCount = goodCount;
       good.damagedConditionCount = damaged;
+      good.missingConditionCount = missing;
       saveState();
       closeModal();
       showToast("Kondisi barang berhasil diperbarui.");
@@ -4832,6 +4958,52 @@
     }
   }
 
+  function updateGoodsPurchaseSelection() {
+    const checks = $$(".goods-purchase-select", $("#pageContent"));
+    const selected = checks.filter((check) => check.checked);
+    const selectAll = $("#selectAllGoodsPurchases");
+    if (selectAll) {
+      selectAll.checked = checks.length > 0 && selected.length === checks.length;
+      selectAll.indeterminate = selected.length > 0 && selected.length < checks.length;
+    }
+    const deleteButton = $("#deleteSelectedGoodsPurchases");
+    if (deleteButton) {
+      deleteButton.disabled = selected.length === 0;
+      $("#selectedGoodsPurchaseCount").textContent = selected.length ? `(${selected.length})` : "";
+    }
+  }
+
+  function deleteGoodsPurchaseRecords(recordIds) {
+    if (page !== "goods" || !canDeletePage("goods")) return showToast("Akun Anda tidak memiliki izin menghapus riwayat barang masuk.", true);
+    const selectedIds = new Set(recordIds);
+    const purchases = (state.procurements || []).filter((record) => selectedIds.has(record.id) && isStockAdditionRecord(record));
+    if (!purchases.length) return showToast("Riwayat barang masuk tidak ditemukan.", true);
+    const quantitiesByGood = new Map();
+    purchases.forEach((record) => quantitiesByGood.set(record.goodId, (quantitiesByGood.get(record.goodId) || 0) + Math.max(0, Number(record.quantity) || 0)));
+    for (const [goodId, quantity] of quantitiesByGood) {
+      const good = getById("goods", goodId);
+      if (!good) return showToast("Barang terkait tidak ditemukan; riwayat tidak dapat dihapus.", true);
+      if (quantity > Number(good.quantity || 0)) {
+        return showToast(`Stok ${good.name} sudah berkurang dan tidak cukup untuk membatalkan penambahan ini. Riwayat tidak dihapus.`, true);
+      }
+    }
+    showDeleteConfirmation(
+      "Hapus riwayat barang masuk?",
+      `${purchases.length} riwayat akan dipindahkan ke Kotak Sampah dan jumlah stok terkait akan dikurangi.`,
+      () => {
+        for (const record of purchases) {
+          if (!moveRecordToTrash("procurements", record)) {
+            return showToast("Riwayat tidak dapat dihapus karena stok barang tidak mencukupi.", true);
+          }
+        }
+        saveState();
+        showToast(`${purchases.length} riwayat barang masuk dihapus dan stok diperbarui.`);
+        renderPage();
+      },
+      "Hapus riwayat"
+    );
+  }
+
   function openCalendarScheduleForm(date = "", record = null) {
     if (!canEditPage("maintenanceCalendar")) return showToast("Akun Anda tidak memiliki izin mengatur jadwal.", true);
     calendarPrefillDate = date || calendarSelectedDate || dateOffset(0);
@@ -4965,6 +5137,13 @@
         showToast(`${selectedRows.length} data dipindahkan ke kotak sampah.`);
         renderPage();
       }, "Pindahkan ke Sampah");
+    } else if (action === "delete-goods-purchase") {
+      deleteGoodsPurchaseRecords([button.dataset.id]);
+    } else if (action === "select-visible-goods-purchases") {
+      $$(".goods-purchase-select", $("#pageContent")).forEach((check) => { check.checked = true; });
+      updateGoodsPurchaseSelection();
+    } else if (action === "delete-selected-goods-purchases") {
+      deleteGoodsPurchaseRecords($$(".goods-purchase-select:checked", $("#pageContent")).map((check) => check.value));
     } else if (action === "restore-trash") {
       if (!canEditPage("trash")) return showToast("Akun Anda tidak memiliki izin memulihkan data.", true);
       const entry = (state.trash || []).find((row) => row.id === button.dataset.id);
@@ -5135,6 +5314,11 @@
       updateBulkSelection();
     });
     $$(".record-select", $("#pageContent")).forEach((check) => check.addEventListener("change", updateBulkSelection));
+    $("#selectAllGoodsPurchases")?.addEventListener("change", (event) => {
+      $$(".goods-purchase-select", $("#pageContent")).forEach((check) => { check.checked = event.target.checked; });
+      updateGoodsPurchaseSelection();
+    });
+    $$(".goods-purchase-select", $("#pageContent")).forEach((check) => check.addEventListener("change", updateGoodsPurchaseSelection));
     $("#tableSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#tableSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#ticketSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#ticketSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#statusFilter")?.addEventListener("change", (event) => { selectedFilter = event.target.value; renderPage(); });
