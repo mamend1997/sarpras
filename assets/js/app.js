@@ -2818,6 +2818,15 @@
     document.addEventListener("click", (event) => {
       if (!$("#topbarProfile")?.contains(event.target)) closeTopbarProfileMenu();
     });
+    $("#loginPasswordToggle").addEventListener("click", (event) => {
+      const password = $("#loginPassword");
+      const visible = password.type === "password";
+      password.type = visible ? "text" : "password";
+      event.currentTarget.setAttribute("aria-label", visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi");
+      event.currentTarget.setAttribute("aria-pressed", String(visible));
+      event.currentTarget.innerHTML = `<i data-lucide="${visible ? "eye-off" : "eye"}"></i>`;
+      if (window.lucide) lucide.createIcons({ nodes: [event.currentTarget] });
+    });
     $("#loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const email = $("#loginEmail").value.trim().toLowerCase(), password = $("#loginPassword").value;
