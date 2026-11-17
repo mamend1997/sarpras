@@ -41,6 +41,8 @@
     sumOfYears: "Jumlah Angka Tahun (Sum-of-the-Years'-Digits)"
   };
   const goodsImportHeaders = ["Nama Barang", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
+  const maintenanceTypes = ["Rutin", "Perbaikan", "Pengecekan", "Pembersihan"];
+  const maintenanceTypeClasses = { Rutin: "routine", Perbaikan: "repair", Pengecekan: "inspection", Pembersihan: "cleaning" };
   const goodsFilterFields = [
     ["ownershipId", "Kepemilikan", "ownerships"],
     ["fundId", "Sumber Dana", "funds"],
@@ -51,7 +53,7 @@
     ["supplierId", "Supplier", "suppliers"]
   ];
   const yearMasterCollections = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds"];
-  const yearScopedCollections = new Set([...yearMasterCollections, "goods"]);
+  const yearScopedCollections = new Set([...yearMasterCollections, "goods", "repairTickets", "maintenanceSchedules"]);
   const inventoryReportTypes = new Set(["inventarisBhp", "inventarisModal"]);
   const formatThousands = (value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const parseThousands = (value) => Number(String(value ?? "").replace(/\D/g, "")) || 0;
@@ -62,7 +64,7 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "loans", "procurements", "disposals", "depreciations", "reports"];
   const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
@@ -100,6 +102,8 @@
     ],
     usages: [{ id: "us1", applicant: "Rina Kurniawati", goodId: "gd5", quantity: 3, date: dateOffset(-3) }],
     stocktakes: [{ id: "st1", date: dateOffset(-8), goodId: "gd5", oldStock: 52, newStock: 45, total: 45, note: "Penyesuaian stok akhir bulan" }, { id: "st2", date: dateOffset(-26), goodId: "gd4", oldStock: 20, newStock: 18, total: 18, note: "Pengecekan berkala" }],
+    repairTickets: [],
+    maintenanceSchedules: [],
     loans: [
       { id: "ln1", borrower: "Andi Pratama", goodId: "gd1", locationId: "lo3", startDate: dateOffset(-8), dueDate: dateOffset(-2), note: "Kegiatan lomba informatika", status: "Diterima" },
       { id: "ln2", borrower: "Dewi Lestari", goodId: "gd2", locationId: "lo2", startDate: dateOffset(-1), dueDate: dateOffset(5), note: "Presentasi kelas XI", status: "Pengajuan" },
@@ -132,6 +136,11 @@
   let goodsFiltersOpen = false;
   let chartPeriod = "12";
   let goodsImportDraft = [];
+  let repairTicketPriority = "Semua";
+  let calendarViewMode = "month";
+  let calendarCursor = `${dateOffset(0).slice(0, 7)}-01`;
+  let calendarSelectedDate = dateOffset(0);
+  let calendarPrefillDate = "";
 
   const meta = {
     dashboard: ["Dashboard", "Ringkasan kondisi sarana dan prasarana sekolah hari ini.", "layout-dashboard"],
@@ -150,6 +159,8 @@
     usages: ["Penggunaan BHP", "Catat penggunaan barang habis pakai dan pantau stok.", "clipboard-list"],
     stocktakes: ["Stock Opname", "Rekam hasil pemeriksaan dan penyesuaian stok.", "clipboard-check"],
     barcode: ["Cetak Barcode", "Pilih item inventaris dan cetak label QR Code.", "qr-code"],
+    repairTickets: ["Tiket Perbaikan", "Kelola laporan kerusakan sarana dan prasarana.", "ticket"],
+    maintenanceCalendar: ["Kalender Pemeliharaan", "Atur jadwal perawatan, perbaikan, dan pengecekan barang.", "calendar-days"],
     loans: ["Peminjaman & Pengembalian", "Kelola pengajuan, peminjaman, dan pengembalian barang.", "repeat-2"],
     procurements: ["Pengadaan Barang", "Pantau usulan dan realisasi pengadaan aset.", "shopping-cart"],
     disposals: ["Pemusnahan Barang", "Kelola pengajuan pemusnahan aset rusak.", "archive-x"],
@@ -163,7 +174,7 @@
     { section: "RINGKASAN", links: [{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard" }] },
     { section: "PENGELOLAAN", groups: [
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] },
-      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
+      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"], ["repairTickets", "Tiket Perbaikan"], ["maintenanceCalendar", "Kalender Pemeliharaan"]] },
       { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["ownerships", "Kepemilikan"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
     ] },
     { links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
@@ -182,18 +193,21 @@
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
+    repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan", "file", true], ["goodId", "Barang", "select", true, "repairGoods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
+    maintenanceSchedules: { title: "Jadwal Pemeliharaan", description: "Atur jadwal perawatan dan pengecekan barang.", singular: "Jadwal", cols: [["date", "Tanggal"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["type", "Jenis Perawatan"], ["technician", "Teknisi"], ["description", "Deskripsi"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["type", "Jenis Perawatan", "select", true, maintenanceTypes], ["date", "Tanggal", "date", true], ["technician", "Nama Teknisi (opsional)", "text"], ["description", "Deskripsi", "textarea"]] },
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
     disposals: { title: "Pemusnahan Barang", description: "Catat pemusnahan barang dan pengurangan stok secara langsung.", singular: "Pemusnahan", cols: [["goodId", "Nama Barang"], ["quantity", "Jumlah Barang"], ["locationId", "Lokasi"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pemusnahan"], ["status", "Status"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pemusnahan", "date", true]] },
     depreciations: { title: "Penyusutan Nilai Aset", description: "Hitung beban dan akumulasi penyusutan aset tetap.", singular: "Penyusutan", cols: [["date", "Tanggal Periode"], ["goodId", "Barang"], ["method", "Metode"], ["initialValue", "Harga Awal"], ["residualValue", "Nilai Residu"], ["amount", "Penyusutan Periode Ini"], ["accumulatedAmount", "Akumulasi Penyusutan"], ["finalValue", "Harga Akhir / Nilai Buku"]], fields: [["periodType", "Periode Penyusutan", "select", true, ["Bulanan", "Tahunan"]], ["date", "Tanggal Akhir Periode", "date", true], ["goodId", "Barang", "select", true, "goods"], ["method", "Metode Penyusutan", "select", true, Object.values(depreciationMethods)], ["initialValue", "Harga Awal (Rp)", "number", true], ["residualValue", "Nilai Residu (Rp)", "number", true], ["usefulLifeYears", "Umur Ekonomis (Tahun)", "number", true], ["amount", "Penyusutan Periode Ini (Rp)", "number", true], ["accumulatedAmount", "Akumulasi Penyusutan (Rp)", "number", true], ["finalValue", "Harga Akhir / Nilai Buku (Rp)", "number", true]] },
     accounts: { title: "Pengaturan", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
-  const statusPages = new Set(["loans", "procurements", "disposals"]);
+  const statusPages = new Set(["loans", "procurements", "disposals", "repairTickets"]);
   const bulkDeletePages = new Set(["goods", "usages", "stocktakes", "loans", "procurements", "disposals", "depreciations"]);
   const statusOptions = {
     loans: ["Semua", "Pengajuan", "Dipinjam", "Ditolak", "Selesai"],
     procurements: ["Semua", "Pengajuan", "Diterima", "Ditolak"],
-    disposals: ["Semua", "Pengajuan", "Diterima", "Ditolak", "Selesai"]
+    disposals: ["Semua", "Pengajuan", "Diterima", "Ditolak", "Selesai"],
+    repairTickets: ["Semua", "Diajukan", "Diproses", "Selesai"]
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -956,6 +970,7 @@
       dashboard: "Beranda", school: "Sekolah", types: "Jenis", categories: "Kategori",
       units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana", academicYears: "Tahun",
       goods: "Barang", checkGoods: "Cek", usages: "BHP", stocktakes: "Opname", barcode: "QR",
+      repairTickets: "Tiket", maintenanceCalendar: "Kalender",
       loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
       depreciations: "Susut", reports: "Laporan", accounts: "Akun", backup: "Backup"
     };
@@ -1023,6 +1038,8 @@
     else if (page === "printDesign") root.innerHTML = renderPrintDesign();
     else if (page === "checkGoods") root.innerHTML = renderGoodsCheck();
     else if (page === "barcode") root.innerHTML = renderBarcode();
+    else if (page === "repairTickets") root.innerHTML = renderRepairTickets();
+    else if (page === "maintenanceCalendar") root.innerHTML = renderMaintenanceCalendar();
     else if (page === "reports") root.innerHTML = renderReports();
     else if (page === "accounts") root.innerHTML = renderAccounts();
     else if (page === "backup") root.innerHTML = renderBackup();
@@ -1400,6 +1417,130 @@
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
 
+  function renderRepairTickets() {
+    const records = recordsForCurrentAcademicYear("repairTickets");
+    const countForStatus = (status) => records.filter((ticket) => ticket.status === status).length;
+    const filtered = records.filter((ticket) => {
+      if (selectedFilter !== "Semua" && ticket.status !== selectedFilter) return false;
+      if (repairTicketPriority !== "Semua" && ticket.priority !== repairTicketPriority) return false;
+      const query = searchTerm.toLocaleLowerCase("id-ID");
+      return !query || [
+        ticket.ticketNo, ticket.title, ticket.description, titleOfGood(ticket.goodId),
+        relatedName("locations", ticket.locationId), ticket.priority, ticket.status
+      ].join(" ").toLocaleLowerCase("id-ID").includes(query);
+    });
+    const summary = [
+      ["Total Tiket", records.length, "ticket", "neutral"],
+      ["Diajukan", countForStatus("Diajukan"), "clock-3", "warning"],
+      ["Diproses", countForStatus("Diproses"), "wrench", "info"],
+      ["Selesai", countForStatus("Selesai"), "circle-check", "success"]
+    ].map(([label, count, icon, tone]) => `<article class="ticket-stat-card"><span class="ticket-stat-icon ${tone}"><i data-lucide="${icon}"></i></span><div><b>${count}</b><small>${label}</small></div></article>`).join("");
+    const cards = filtered.map((ticket) => {
+      const statusClass = ({ Diajukan: "submitted", Diproses: "processing", Selesai: "done" })[ticket.status] || "submitted";
+      const priorityClass = ({ Rendah: "low", Sedang: "medium", Tinggi: "high", Urgent: "urgent" })[ticket.priority] || "medium";
+      const nextStatus = ticket.status === "Diajukan" ? "Diproses" : ticket.status === "Diproses" ? "Selesai" : "";
+      return `<article class="repair-ticket-card priority-${priorityClass}">
+        <div class="repair-ticket-card-top"><span class="repair-ticket-number">${esc(ticket.ticketNo || `TKT-${ticket.id}`)}</span><span class="ticket-status ${statusClass}">${esc(ticket.status || "Diajukan")}</span></div>
+        <div class="repair-ticket-content">${ticket.photo ? `<img class="repair-ticket-thumb" src="${esc(ticket.photo)}" alt="Foto kerusakan ${esc(ticket.title)}">` : ""}
+          <div class="repair-ticket-copy"><div class="repair-ticket-card-title"><h3>${esc(ticket.title)}</h3><span class="ticket-priority ${priorityClass}">${esc(ticket.priority || "Sedang")}</span></div>
+          <p>${esc(ticket.description)}</p><div class="repair-ticket-meta"><span><i data-lucide="package"></i>${esc(titleOfGood(ticket.goodId))} · ${esc(ticket.quantity)} unit</span><span><i data-lucide="map-pin"></i>${esc(relatedName("locations", ticket.locationId))}</span><span><i data-lucide="calendar-days"></i>${esc(niceDate(ticket.createdAt || ticket.date))}</span></div></div>
+        </div><div class="repair-ticket-actions"><button class="btn-quiet" data-action="repair-ticket-detail" data-id="${esc(ticket.id)}"><i data-lucide="eye"></i>Detail</button>
+        ${canEditPage("repairTickets") && nextStatus ? `<button class="btn-secondary" data-action="repair-ticket-status" data-id="${esc(ticket.id)}" data-status="${nextStatus}">${nextStatus === "Diproses" ? "Mulai diproses" : "Tandai selesai"}</button>` : ""}
+        ${canEditPage("repairTickets") ? `<button class="mini-action" title="Edit tiket" data-action="edit" data-id="${esc(ticket.id)}"><i data-lucide="pencil"></i></button>` : ""}
+        ${canDeletePage("repairTickets") ? `<button class="mini-action" title="Hapus tiket" data-action="delete" data-id="${esc(ticket.id)}"><i data-lucide="trash-2"></i></button>` : ""}</div>
+      </article>`;
+    }).join("");
+    const priorities = ["Semua", "Rendah", "Sedang", "Tinggi", "Urgent"];
+    return `${pageHeading(canEditPage("repairTickets") ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Buat Tiket</button>` : "")}
+      <div class="ticket-summary-grid">${summary}</div>
+      <div class="ticket-toolbar"><label class="search-field"><i data-lucide="search"></i><input id="ticketSearch" placeholder="Cari tiket..." value="${esc(searchTerm)}"></label>
+      <select class="table-filter" id="statusFilter" aria-label="Filter status tiket">${statusOptions.repairTickets.map((status) => `<option ${selectedFilter === status ? "selected" : ""}>${esc(status)}</option>`).join("")}</select>
+      <select class="table-filter" id="repairTicketPriority" aria-label="Filter prioritas tiket">${priorities.map((priority) => `<option value="${esc(priority)}" ${repairTicketPriority === priority ? "selected" : ""}>${esc(priority === "Semua" ? "Semua Prioritas" : priority)}</option>`).join("")}</select></div>
+      <div class="repair-ticket-grid">${cards || `<div class="panel empty-state"><i data-lucide="inbox"></i>${records.length ? "Tidak ada tiket yang cocok dengan filter." : "Belum ada tiket perbaikan. Buat tiket untuk melaporkan kerusakan."}</div>`}</div>`;
+  }
+
+  function repairTicketDetail(ticketId) {
+    const ticket = getById("repairTickets", ticketId);
+    if (!ticket) return;
+    const priorityClass = ({ Rendah: "low", Sedang: "medium", Tinggi: "high", Urgent: "urgent" })[ticket.priority] || "medium";
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Detail Tiket Perbaikan</h2><p>${esc(ticket.ticketNo || `TKT-${ticket.id}`)}</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div class="repair-ticket-detail-status"><span class="ticket-status ${(ticket.status === "Selesai" ? "done" : ticket.status === "Diproses" ? "processing" : "submitted")}">${esc(ticket.status || "Diajukan")}</span><span class="ticket-priority ${priorityClass}">${esc(ticket.priority || "Sedang")}</span></div>${ticket.photo ? `<img class="repair-ticket-detail-photo" src="${esc(ticket.photo)}" alt="Foto kerusakan ${esc(ticket.title)}">` : ""}<h3>${esc(ticket.title)}</h3><p class="repair-ticket-detail-description">${esc(ticket.description)}</p><dl class="repair-ticket-detail-list"><div><dt>Barang</dt><dd>${esc(titleOfGood(ticket.goodId))}</dd></div><div><dt>Jumlah</dt><dd>${esc(ticket.quantity)} unit</dd></div><div><dt>Lokasi</dt><dd>${esc(relatedName("locations", ticket.locationId))}</dd></div><div><dt>Tanggal</dt><dd>${esc(niceDate(ticket.createdAt || ticket.date))}</dd></div></dl><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Tutup</button></div></div></section></div>`);
+  }
+
+  function monthTitle(year, month, options = {}) {
+    return new Intl.DateTimeFormat("id-ID", { month: "long", year: options.year === false ? undefined : "numeric", timeZone: "UTC" })
+      .format(new Date(Date.UTC(year, month, 1)));
+  }
+
+  function calendarMonthMarkup(year, month, schedules, compact = false, academicYear = null) {
+    const weekdays = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+    const firstWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay();
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const cellCount = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+    const startBoundary = academicYear?.startDate || "";
+    const endBoundary = academicYear?.endDate || "";
+    const cells = Array.from({ length: cellCount }, (_, index) => {
+      const day = index - firstWeekday + 1;
+      if (day < 1 || day > daysInMonth) return `<span class="calendar-day empty"></span>`;
+      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const dailySchedules = schedules.filter((schedule) => schedule.date === date);
+      const outsideYear = Boolean((startBoundary && date < startBoundary) || (endBoundary && date > endBoundary));
+      const selected = date === calendarSelectedDate;
+      const todayClass = date === dateOffset(0) ? " today" : "";
+      const markers = dailySchedules.slice(0, compact ? 3 : 2).map((schedule) => `<i class="calendar-event-dot ${maintenanceTypeClasses[schedule.type] || "routine"}" title="${esc(schedule.type)}"></i>`).join("");
+      const eventLabel = compact
+        ? `<span class="calendar-day-markers">${markers}</span>`
+        : `<span class="calendar-day-markers">${markers}</span>${dailySchedules.length ? `<small>${dailySchedules.length} jadwal</small>` : ""}`;
+      return `<button type="button" class="calendar-day${selected ? " selected" : ""}${todayClass}${dailySchedules.length ? " has-events" : ""}${outsideYear ? " outside-year" : ""}" data-action="calendar-select-date" data-date="${date}" ${outsideYear ? "disabled" : ""} aria-label="${day} ${monthTitle(year, month)}${dailySchedules.length ? `, ${dailySchedules.length} jadwal` : ""}"><span class="calendar-day-number">${day}</span>${eventLabel}</button>`;
+    }).join("");
+    return `<section class="calendar-month-card${compact ? " compact" : ""}"><h3>${esc(monthTitle(year, month))}</h3><div class="calendar-weekdays">${weekdays.map((day) => `<span>${day}</span>`).join("")}</div><div class="calendar-days-grid">${cells}</div></section>`;
+  }
+
+  function academicYearMonths(year) {
+    if (!year?.startDate || !year?.endDate || year.startDate > year.endDate) return [];
+    const start = new Date(`${year.startDate}T00:00:00Z`);
+    const end = new Date(`${year.endDate}T00:00:00Z`);
+    const months = [];
+    for (let cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+      cursor <= end && months.length < 24;
+      cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1))) {
+      months.push({ year: cursor.getUTCFullYear(), month: cursor.getUTCMonth() });
+    }
+    return months;
+  }
+
+  function renderMaintenanceCalendar() {
+    const schedules = recordsForCurrentAcademicYear("maintenanceSchedules");
+    const academicYear = state.academicYears.find((year) => year.id === currentAcademicYearId());
+    const [cursorYear, cursorMonth] = calendarCursor.slice(0, 7).split("-").map(Number);
+    if (calendarViewMode === "academicYear" && academicYear && (calendarSelectedDate < academicYear.startDate || calendarSelectedDate > academicYear.endDate)) {
+      calendarSelectedDate = academicYear.startDate;
+    }
+    const monthGrid = calendarViewMode === "month"
+      ? calendarMonthMarkup(cursorYear, cursorMonth - 1, schedules)
+      : academicYearMonths(academicYear).map(({ year, month }) => calendarMonthMarkup(year, month, schedules, true, academicYear)).join("");
+    const selectedSchedules = schedules.filter((schedule) => schedule.date === calendarSelectedDate).sort((a, b) => String(a.type).localeCompare(String(b.type)));
+    const scheduleCards = selectedSchedules.map((schedule) => {
+      const typeClass = maintenanceTypeClasses[schedule.type] || "routine";
+      return `<article class="calendar-schedule-card ${typeClass}"><div class="calendar-schedule-card-top"><span class="maintenance-type-label ${typeClass}">${esc(schedule.type)}</span><span class="calendar-schedule-actions">${canEditPage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Edit jadwal" title="Edit jadwal" data-action="edit-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage("maintenanceCalendar") ? `<button class="mini-action" aria-label="Hapus jadwal" title="Hapus jadwal" data-action="delete-calendar-schedule" data-id="${esc(schedule.id)}"><i data-lucide="trash-2"></i></button>` : ""}</span></div><h4>${esc(titleOfGood(schedule.goodId))}</h4><p>${esc(schedule.quantity)} unit · ${esc(relatedName("locations", schedule.locationId))}</p>${schedule.technician ? `<p><i data-lucide="user-round"></i>Teknisi: ${esc(schedule.technician)}</p>` : ""}${schedule.description ? `<p class="calendar-schedule-description">${esc(schedule.description)}</p>` : ""}</article>`;
+    }).join("");
+    const addScheduleButton = canEditPage("maintenanceCalendar")
+      ? `<button class="btn-secondary calendar-add-day" data-action="add-calendar-schedule" data-date="${esc(calendarSelectedDate)}"><i data-lucide="plus"></i>Tambah jadwal tanggal ini</button>` : "";
+    const currentLabel = calendarViewMode === "month"
+      ? monthTitle(cursorYear, cursorMonth - 1)
+      : academicYear?.name || "Tahun pelajaran belum tersedia";
+    const navigation = calendarViewMode === "month"
+      ? `<button class="mini-action" aria-label="Bulan sebelumnya" data-action="calendar-month-prev"><i data-lucide="chevron-left"></i></button><h2>${esc(currentLabel)}</h2><button class="mini-action" aria-label="Bulan berikutnya" data-action="calendar-month-next"><i data-lucide="chevron-right"></i></button>`
+      : `<h2><i data-lucide="calendar-days"></i>${esc(currentLabel)}</h2>`;
+    const legend = maintenanceTypes.map((type) => `<span class="calendar-legend-item"><i class="calendar-event-dot ${maintenanceTypeClasses[type]}"></i>${esc(type)}</span>`).join("");
+    const selectedDateTitle = calendarSelectedDate ? niceDate(calendarSelectedDate) : "Pilih tanggal";
+    return `${pageHeading(canEditPage("maintenanceCalendar") ? `<button class="btn-primary" data-action="add-calendar-schedule"><i data-lucide="plus"></i>Tambah Jadwal</button>` : "")}
+      <div class="maintenance-calendar-layout"><section class="panel maintenance-calendar-panel"><div class="maintenance-calendar-toolbar"><label for="calendarViewMode">Tampilan kalender</label><select class="table-filter" id="calendarViewMode"><option value="month" ${calendarViewMode === "month" ? "selected" : ""}>Per Bulan</option><option value="academicYear" ${calendarViewMode === "academicYear" ? "selected" : ""}>Satu Tahun Pelajaran</option></select><div class="calendar-period-navigation">${navigation}</div></div>
+      ${calendarViewMode === "academicYear" && !academicYear ? `<div class="empty-state">Tambahkan tahun pelajaran terlebih dahulu.</div>` : `<div class="${calendarViewMode === "academicYear" ? "academic-year-calendar-grid" : "calendar-single-month"}">${monthGrid}</div>`}
+      <div class="calendar-legend">${legend}</div></section>
+      <aside class="panel calendar-day-panel"><div class="calendar-day-panel-header"><span class="eyebrow">JADWAL TERPILIH</span><h3>${esc(selectedDateTitle)}</h3></div>${addScheduleButton}
+      <div class="calendar-schedule-list">${scheduleCards || `<div class="calendar-empty-day"><i data-lucide="calendar-days"></i><p>Belum ada jadwal pada tanggal ini.</p><small>Klik tanggal pada kalender untuk melihat jadwal.</small></div>`}</div></aside></div>`;
+  }
+
   function matchesSearch(key, row, query) {
     if (!query) return true;
     const config = collectionConfig[key];
@@ -1760,6 +1901,7 @@
     let rows = yearScopedCollections.has(source) ? recordsForAcademicYear(source, academicYearId) : state[source] || [];
     if (source === "bhpGoods") rows = recordsForAcademicYear("goods", academicYearId).filter(isBhp);
     if (source === "loanGoods") rows = recordsForAcademicYear("goods", academicYearId).filter((good) => !isBhp(good));
+    if (source === "repairGoods") rows = recordsForAcademicYear("goods", academicYearId).filter((good) => !isBhp(good));
     if (source === "items") rows = state.items;
     const text = source === "items" ? (row) => `${row.code} — ${titleOfGood(row.goodId)}` : (row) => row.name;
     return rows.map((row) => `<option value="${row.id}">${esc(text(row))}</option>`).join("");
@@ -1788,6 +1930,10 @@
           : key === "accounts" && name === "active" ? true
             : key === "loans" && name === "quantity" ? 1
               : key === "disposals" && name === "quantity" ? 1
+            : ["repairTickets", "maintenanceSchedules"].includes(key) && name === "quantity" ? 1
+              : key === "repairTickets" && name === "priority" ? "Sedang"
+                : key === "maintenanceSchedules" && name === "type" ? "Rutin"
+                  : key === "maintenanceSchedules" && name === "date" ? calendarPrefillDate || dateOffset(0)
               : key === "loans" && name === "durationDays" ? loanDuration
                 : key === "loans" && name === "dueDate" ? addDaysToDate(dateOffset(0), 1)
                   : key === "depreciations" && name === "periodType" ? depreciationPeriodType
@@ -1814,13 +1960,14 @@
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source, recordYearId).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
       if (type === "textarea") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><textarea id="${idAttr}" name="${name}" ${required ? "required" : ""}>${esc(value)}</textarea></div>`;
       if (type === "password") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${key === "accounts" && !record && name === "password" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="password" autocomplete="new-password" ${key === "accounts" && !record && name === "password" ? "required minlength=\"8\"" : ""}></div>`;
-      if (type === "file") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}</label><div class="file-drop"><i data-lucide="image-plus"></i><span>Pilih foto bukti</span><input id="${idAttr}" name="${name}" type="file" accept="image/*" class="form-file"><img class="file-preview ${record?.[name] ? "" : "hidden"}" src="${esc(record?.[name] || "")}" alt="Pratinjau bukti"></div><small class="form-help">Pratinjau 120 × 120 px · maksimal 2 MB.</small></div>`;
+      if (type === "file") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><div class="file-drop"><i data-lucide="image-plus"></i><span>${key === "repairTickets" ? "Pilih foto kerusakan" : "Pilih foto bukti"}</span><input id="${idAttr}" name="${name}" type="file" accept="image/*" class="form-file"><img class="file-preview ${record?.[name] ? "" : "hidden"}" src="${esc(record?.[name] || "")}" alt="Pratinjau foto"></div><small class="form-help">Foto maksimal 2 MB.</small></div>`;
       const money = moneyFields.has(name);
       const inputType = money ? "text" : type;
       const inputValue = money ? formatThousands(value) : value;
       const numberAttributes = type !== "number" ? ""
         : key === "usages" && name === "quantity" ? 'min="0.01" step="any"'
-          : key === "stocktakes" && name === "newStock" ? 'min="0" step="1"'
+          : ["repairTickets", "maintenanceSchedules"].includes(key) && name === "quantity" ? 'min="1" step="1"'
+            : key === "stocktakes" && name === "newStock" ? 'min="0" step="1"'
           : key === "loans" && ["quantity", "durationDays"].includes(name) ? 'min="1" step="1"'
             : key === "disposals" && name === "quantity" ? 'min="1" step="1"'
               : key === "depreciations" && name === "usefulLifeYears" ? 'min="1" step="1"' : 'min="0"';
@@ -2367,6 +2514,12 @@
     event.preventDefault();
     const form = event.currentTarget;
     const key = form.dataset.collection;
+    const permissionKey = key === "maintenanceSchedules" ? "maintenanceCalendar" : key;
+    if (!canEditPage(permissionKey)) {
+      showToast("Akun Anda tidak memiliki izin menyimpan data ini.", true);
+      return;
+    }
+    if (!Array.isArray(state[key])) state[key] = [];
     const printLoanAfterSave = key === "loans" && event.submitter?.value === "saveAndPrint";
     const recordId = form.dataset.record;
     const config = collectionConfig[key];
@@ -2389,6 +2542,10 @@
       else if (type === "password") continue;
       else if (type === "file") {
         if (input.files?.[0]) {
+          if (key === "repairTickets" && !input.files[0].type.startsWith("image/")) {
+            showToast("Foto kerusakan harus berupa file gambar.", true);
+            return;
+          }
           if (input.files[0].size > 2_000_000) { showToast("Ukuran gambar maksimal 2 MB.", true); return; }
           try { data[name] = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -2472,6 +2629,56 @@
       usageGood = good;
       data.stockAdjusted = true;
       delete data.status;
+    }
+    if (key === "repairTickets") {
+      const good = getById("goods", data.goodId);
+      if (!good || !recordsForAcademicYear("goods").some((row) => row.id === good.id) || isBhp(good)) {
+        showToast("Pilih barang modal yang masih aktif untuk tiket perbaikan.", true);
+        return;
+      }
+      if (!Number.isInteger(data.quantity) || data.quantity < 1) {
+        showToast("Jumlah barang pada tiket minimal 1 unit.", true);
+        return;
+      }
+      if (!["Rendah", "Sedang", "Tinggi", "Urgent"].includes(data.priority)) {
+        showToast("Pilih prioritas tiket yang valid.", true);
+        return;
+      }
+      if (!data.photo) {
+        showToast("Foto kerusakan wajib dilampirkan.", true);
+        return;
+      }
+      data.status = old?.status || "Diajukan";
+      data.createdAt = old?.createdAt || dateOffset(0);
+      if (!old) {
+        const nextSequence = Math.max(0, ...state.repairTickets.map((ticket) => Number(ticket.ticketSequence) || 0)) + 1;
+        data.ticketSequence = nextSequence;
+        data.ticketNo = `TKT-${today.getFullYear()}-${String(nextSequence).padStart(4, "0")}`;
+      }
+    }
+    if (key === "maintenanceSchedules") {
+      const good = getById("goods", data.goodId);
+      const location = recordsForAcademicYear("locations").find((row) => row.id === data.locationId);
+      if (!good || !recordsForAcademicYear("goods").some((row) => row.id === good.id)) {
+        showToast("Pilih barang yang masih aktif pada tahun pelajaran ini.", true);
+        return;
+      }
+      if (!location) {
+        showToast("Pilih lokasi yang valid.", true);
+        return;
+      }
+      if (!Number.isInteger(data.quantity) || data.quantity < 1) {
+        showToast("Jumlah barang pada jadwal minimal 1 unit.", true);
+        return;
+      }
+      if (!maintenanceTypes.includes(data.type)) {
+        showToast("Pilih jenis perawatan yang valid.", true);
+        return;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+        showToast("Tanggal jadwal wajib diisi dengan benar.", true);
+        return;
+      }
     }
     if (key === "items" && !old) {
       const goodIndex = Math.max(0, recordsForAcademicYear("goods").findIndex((good) => good.id === data.goodId)) + 1;
@@ -2784,6 +2991,13 @@
     }
   }
 
+  function openCalendarScheduleForm(date = "", record = null) {
+    if (!canEditPage("maintenanceCalendar")) return showToast("Akun Anda tidak memiliki izin mengatur jadwal.", true);
+    calendarPrefillDate = date || calendarSelectedDate || dateOffset(0);
+    showModal(modalForm("maintenanceSchedules", record));
+    calendarPrefillDate = "";
+  }
+
   function recordActions(event) {
     const button = event.target.closest("[data-action]");
     if (!button) return;
@@ -2857,6 +3071,46 @@
       if (currentIndex < 0 || nextIndex < 0 || nextIndex >= mobileNavDraft.length) return;
       [mobileNavDraft[currentIndex], mobileNavDraft[nextIndex]] = [mobileNavDraft[nextIndex], mobileNavDraft[currentIndex]];
       renderPage();
+    } else if (action === "repair-ticket-detail") {
+      repairTicketDetail(button.dataset.id);
+    } else if (action === "repair-ticket-status") {
+      if (!canEditPage("repairTickets")) return showToast("Akun Anda tidak memiliki izin memperbarui tiket.", true);
+      const ticket = getById("repairTickets", button.dataset.id);
+      const allowedNext = ticket?.status === "Diajukan" ? "Diproses" : ticket?.status === "Diproses" ? "Selesai" : "";
+      if (!ticket || button.dataset.status !== allowedNext) return;
+      ticket.status = allowedNext;
+      if (allowedNext === "Diproses") ticket.startedAt = dateOffset(0);
+      if (allowedNext === "Selesai") ticket.completedAt = dateOffset(0);
+      saveState();
+      showToast(`Tiket ${ticket.ticketNo || ""} diperbarui menjadi ${allowedNext}.`);
+      renderPage();
+    } else if (action === "add-calendar-schedule") {
+      openCalendarScheduleForm(button.dataset.date || "");
+    } else if (action === "calendar-select-date") {
+      calendarSelectedDate = button.dataset.date;
+      calendarCursor = `${calendarSelectedDate.slice(0, 7)}-01`;
+      renderPage();
+    } else if (action === "calendar-month-prev" || action === "calendar-month-next") {
+      const current = new Date(`${calendarCursor}T00:00:00Z`);
+      const offset = action === "calendar-month-prev" ? -1 : 1;
+      const next = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + offset, 1));
+      calendarCursor = `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-01`;
+      calendarSelectedDate = calendarCursor;
+      renderPage();
+    } else if (action === "edit-calendar-schedule") {
+      if (!canEditPage("maintenanceCalendar")) return showToast("Akun Anda tidak memiliki izin mengubah jadwal.", true);
+      const schedule = getById("maintenanceSchedules", button.dataset.id);
+      if (schedule) openCalendarScheduleForm(schedule.date, schedule);
+    } else if (action === "delete-calendar-schedule") {
+      if (!canDeletePage("maintenanceCalendar")) return showToast("Akun Anda tidak memiliki izin menghapus jadwal.", true);
+      const schedule = getById("maintenanceSchedules", button.dataset.id);
+      if (!schedule) return;
+      showDeleteConfirmation("Hapus jadwal?", `Jadwal ${titleOfGood(schedule.goodId)} pada ${niceDate(schedule.date)} akan dihapus.`, () => {
+        state.maintenanceSchedules = (state.maintenanceSchedules || []).filter((row) => row.id !== schedule.id);
+        saveState();
+        showToast("Jadwal berhasil dihapus.");
+        renderPage();
+      });
     } else if (action === "status") statusModal(button.dataset.id);
     else if (action === "print-loan") {
       const loan = getById("loans", button.dataset.id);
@@ -2921,7 +3175,18 @@
     });
     $$(".record-select", $("#pageContent")).forEach((check) => check.addEventListener("change", updateBulkSelection));
     $("#tableSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#tableSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
+    $("#ticketSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#ticketSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#statusFilter")?.addEventListener("change", (event) => { selectedFilter = event.target.value; renderPage(); });
+    $("#repairTicketPriority")?.addEventListener("change", (event) => { repairTicketPriority = event.target.value; renderPage(); });
+    $("#calendarViewMode")?.addEventListener("change", (event) => {
+      calendarViewMode = event.target.value === "academicYear" ? "academicYear" : "month";
+      if (calendarViewMode === "academicYear") {
+        const academicYear = state.academicYears.find((year) => year.id === currentAcademicYearId());
+        if (academicYear?.startDate) calendarSelectedDate = academicYear.startDate;
+      }
+      calendarCursor = `${calendarSelectedDate.slice(0, 7)}-01`;
+      renderPage();
+    });
     $("#goodsFilterDetails")?.addEventListener("toggle", (event) => { goodsFiltersOpen = event.currentTarget.open; });
     $("#clearGoodsFilters")?.addEventListener("click", () => {
       goodsFilters = {};
