@@ -17,12 +17,22 @@
     const endTime = Date.parse(`${end}T00:00:00Z`);
     return Number.isFinite(startTime) && Number.isFinite(endTime) ? Math.round((endTime - startTime) / 86400000) : 1;
   };
+  const defaultLoanReceiptNumberFormat = "{nomor}/PB/{bulan}/{tahun}";
+  const formatLoanReceiptNumber = (sequence, date, format = defaultLoanReceiptNumberFormat) => {
+    const dateValue = new Date(`${date || dateOffset(0)}T00:00:00`);
+    const month = Number.isFinite(dateValue.getTime()) ? String(dateValue.getMonth() + 1).padStart(2, "0") : "00";
+    const year = Number.isFinite(dateValue.getTime()) ? String(dateValue.getFullYear()) : String(today.getFullYear());
+    return String(format || defaultLoanReceiptNumberFormat)
+      .replace(/\{nomor\}/gi, String(sequence).padStart(3, "0"))
+      .replace(/\{bulan\}/gi, month)
+      .replace(/\{tahun\}/gi, year);
+  };
   const currentMonth = today.toISOString().slice(0, 7);
   const id = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   const rupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0);
   const integerId = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
-  const moneyFields = new Set(["price", "unitPrice", "initialValue", "amount"]);
+  const moneyFields = new Set(["price", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"]);
   const goodsImportHeaders = ["Nama Barang", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
   const goodsFilterFields = [
     ["ownershipId", "Kepemilikan", "ownerships"],
@@ -96,7 +106,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), goodId: "gd1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), goodId: "gd2", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() },
+    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() },
     months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
   };
 
@@ -168,7 +178,7 @@
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
     procurements: { title: "Pengadaan Barang", description: "Usulan pengadaan, prioritas, dan realisasi barang.", singular: "Pengadaan", cols: [["title", "Nama Pengadaan"], ["proposer", "Nama Pengusul"], ["goodId", "Barang"], ["priority", "Prioritas"], ["date", "Tanggal"], ["total", "Nominal"], ["status", "Status"]], fields: [["proposer", "Nama Pengusul", "text", true], ["title", "Nama Pengadaan", "text", true], ["goodId", "Barang", "select", true, "goods"], ["priority", "Prioritas", "select", true, ["Normal", "Mendesak"]], ["quantity", "Jumlah Barang", "number", true], ["unitPrice", "Harga Satuan (Rp)", "number", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["date", "Tanggal Pengadaan", "date", true], ["note", "Keterangan", "textarea"]] },
     disposals: { title: "Pemusnahan Barang", description: "Catat pemusnahan barang dan pengurangan stok secara langsung.", singular: "Pemusnahan", cols: [["goodId", "Nama Barang"], ["quantity", "Jumlah Barang"], ["locationId", "Lokasi"], ["reason", "Keterangan"], ["evidence", "Bukti"], ["date", "Tanggal Pemusnahan"], ["status", "Status"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["reason", "Alasan pemusnahan", "textarea", true], ["evidence", "Bukti foto (opsional)", "file"], ["date", "Tanggal Pemusnahan", "date", true]] },
-    depreciations: { title: "Penyusutan Nilai Aset", description: "Catat penyusutan nilai barang secara berkala.", singular: "Penyusutan", cols: [["date", "Tanggal"], ["goodId", "Barang"], ["initialValue", "Harga Awal"], ["amount", "Penyusutan"], ["finalValue", "Harga Akhir"]], fields: [["date", "Tanggal", "date", true], ["goodId", "Barang", "select", true, "goods"], ["initialValue", "Harga Awal (Rp)", "number", true], ["amount", "Penyusutan (Rp)", "number", true]] },
+    depreciations: { title: "Penyusutan Nilai Aset", description: "Hitung beban dan akumulasi penyusutan aset tetap.", singular: "Penyusutan", cols: [["date", "Tanggal Periode"], ["goodId", "Barang"], ["method", "Metode"], ["initialValue", "Harga Awal"], ["residualValue", "Nilai Residu"], ["amount", "Penyusutan Periode Ini"], ["accumulatedAmount", "Akumulasi Penyusutan"], ["finalValue", "Harga Akhir / Nilai Buku"]], fields: [["periodType", "Periode Penyusutan", "select", true, ["Bulanan", "Tahunan"]], ["date", "Tanggal Akhir Periode", "date", true], ["goodId", "Barang", "select", true, "goods"], ["method", "Metode Penyusutan", "select", true, ["Garis Lurus"]], ["initialValue", "Harga Awal (Rp)", "number", true], ["residualValue", "Nilai Residu (Rp)", "number", true], ["usefulLifeYears", "Umur Ekonomis (Tahun)", "number", true], ["amount", "Penyusutan Periode Ini (Rp)", "number", true], ["accumulatedAmount", "Akumulasi Penyusutan (Rp)", "number", true], ["finalValue", "Harga Akhir / Nilai Buku (Rp)", "number", true]] },
     accounts: { title: "Pengaturan", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
   const statusPages = new Set(["usages", "loans", "procurements", "disposals"]);
@@ -383,8 +393,48 @@
       state.settings.appName = "Sarprah";
       changed = true;
     }
+    if (typeof state.settings.appTagline !== "string") {
+      state.settings.appTagline = "School asset manager";
+      changed = true;
+    }
     if (typeof state.settings.appLogo !== "string") {
       state.settings.appLogo = "";
+      changed = true;
+    }
+    return changed;
+  }
+
+  function ensureLoanReceiptDefaults() {
+    let changed = false;
+    const settings = state.settings || (state.settings = {});
+    if (typeof settings.loanReceiptNumberFormat !== "string" || !settings.loanReceiptNumberFormat.trim()) {
+      settings.loanReceiptNumberFormat = defaultLoanReceiptNumberFormat;
+      changed = true;
+    }
+    const loans = Array.isArray(state.loans) ? state.loans : [];
+    const highestSequence = () => loans.reduce((highest, loan) => {
+      const sequence = Number(loan.transactionSequence);
+      return Number.isInteger(sequence) && sequence > highest ? sequence : highest;
+    }, 0);
+    let nextSequence = highestSequence() + 1;
+    [...loans]
+      .filter((loan) => !Number.isInteger(Number(loan.transactionSequence)) || Number(loan.transactionSequence) < 1)
+      .sort((left, right) => String(left.startDate || "").localeCompare(String(right.startDate || "")))
+      .forEach((loan) => {
+        loan.transactionSequence = nextSequence;
+        nextSequence += 1;
+        changed = true;
+      });
+    loans.forEach((loan) => {
+      if (!loan.transactionNo) {
+        loan.transactionNo = formatLoanReceiptNumber(loan.transactionSequence, loan.startDate, settings.loanReceiptNumberFormat);
+        changed = true;
+      }
+    });
+    const requiredNextSequence = highestSequence() + 1;
+    const configuredNextSequence = Number(settings.loanReceiptNextSequence);
+    if (!Number.isInteger(configuredNextSequence) || configuredNextSequence < requiredNextSequence) {
+      settings.loanReceiptNextSequence = requiredNextSequence;
       changed = true;
     }
     return changed;
@@ -556,6 +606,7 @@
     const appLogo = state.settings.appLogo;
     document.title = `${appName} — Manajemen Sarana & Prasarana`;
     $$("[data-app-name]").forEach((node) => { node.textContent = appName; });
+    $$("[data-app-tagline]").forEach((node) => { node.textContent = state.settings.appTagline; });
     $$("[data-app-brand]").forEach((node) => {
       node.classList.toggle("has-app-logo", Boolean(appLogo));
       node.innerHTML = appLogo ? `<img class="app-brand-logo" src="${esc(appLogo)}" alt="${esc(appName)}">` : `<i data-lucide="boxes"></i>`;
@@ -708,13 +759,14 @@
     const rolesChanged = normalizeAccountRoles();
     const permissionsChanged = ensurePermissionDefaults();
     const brandingChanged = ensureBrandingDefaults();
+    const loanReceiptDefaultsChanged = ensureLoanReceiptDefaults();
     if (needsBootstrap && apiAvailable) {
       try { await persistState(); }
       catch (error) {
         apiAvailable = false;
         showToast(`Data awal gagal disimpan ke SQLite: ${error.message}`, true);
       }
-    } else if (ownershipsChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged) saveState();
+    } else if (ownershipsChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged || loanReceiptDefaultsChanged) saveState();
   }
 
   async function syncPendingLocalAccounts(pendingAccounts) {
@@ -1255,8 +1307,10 @@
   function renderPrintDesign() {
     const school = state.school || seed.school;
     const design = state.settings.printDesign || seed.settings.printDesign;
+    const loanNumberFormat = state.settings.loanReceiptNumberFormat || defaultLoanReceiptNumberFormat;
+    const loanNumberPreview = formatLoanReceiptNumber(Number(state.settings.loanReceiptNextSequence) || 1, dateOffset(0), loanNumberFormat);
     return `${pageHeading(canEditPage("printDesign") ? `<button class="btn-primary" type="submit" form="printDesignForm"><i data-lucide="save"></i>Simpan desain</button>` : "")}
-      <form id="printDesignForm" class="settings-card"><h3>Desain kop dan informasi penandatangan</h3><p>Pilih identitas sekolah atau isi sendiri bagian atas kop surat.</p><div class="form-grid">
+      <form id="printDesignForm" class="settings-card"><h3>Desain kop, nomor surat, dan penandatangan</h3><p>Atur kop cetak, format nomor bukti peminjaman, dan informasi penandatangan.</p><div class="form-grid">
         <div class="form-field full"><label for="printHeaderMode">Sumber bagian atas kop</label><select id="printHeaderMode" name="headerMode"><option value="school" ${design.headerMode !== "custom" ? "selected" : ""}>Gunakan identitas sekolah</option><option value="custom" ${design.headerMode === "custom" ? "selected" : ""}>Ketik sendiri</option></select></div>
         <div id="printCustomHeaderOptions" class="form-field full ${design.headerMode === "custom" ? "" : "hidden"}"><label for="customHeaderText">Teks bagian atas kop</label><textarea id="customHeaderText" name="customHeaderText" rows="4" placeholder="Ketik teks kop surat">${esc(design.customHeaderText || "")}</textarea><small class="form-help">Teks ini menggantikan nama, alamat, dan kontak dari identitas sekolah. Gunakan baris baru untuk beberapa baris.</small></div>
         <div id="printSchoolHeaderOptions" class="print-school-header-options ${design.headerMode === "custom" ? "hidden" : ""}">
@@ -1272,6 +1326,7 @@
           <div class="print-signatory-column">${formInput("principalName", "Nama Kepala Sekolah", school.principalName, "text")}${formInput("principalNip", "NIP Kepala Sekolah", school.principalNip, "text")}</div>
           <div class="print-signatory-column">${formInput("sarprasVicePrincipalName", "Nama Wakasek Sarpras", school.sarprasVicePrincipalName, "text")}${formInput("sarprasVicePrincipalNip", "NIP Wakasek Sarpras", school.sarprasVicePrincipalNip, "text")}</div>
         </div>
+        <div class="form-field full"><label for="loanReceiptNumberFormat">Format nomor bukti peminjaman</label><input id="loanReceiptNumberFormat" name="loanReceiptNumberFormat" type="text" maxlength="100" required value="${esc(loanNumberFormat)}"><small class="form-help">Nomor otomatis bertambah berurutan. Gunakan {nomor} sebagai nomor urut, {bulan} sebagai bulan, dan {tahun} sebagai tahun. Contoh: {nomor}/PB/{bulan}/{tahun}. Pratinjau berikutnya: <b id="loanReceiptNumberPreview">${esc(loanNumberPreview)}</b></small></div>
         <div class="form-field full print-letterhead-upload"><label>Logo khusus kop surat</label><div class="print-letterhead-upload-row"><div id="letterheadLogoPreview" class="print-letterhead-logo-preview">${school.letterheadLogo ? `<img src="${esc(school.letterheadLogo)}" alt="Logo khusus kop surat">` : `<i data-lucide="image-plus"></i>`}</div><div class="print-letterhead-upload-fields"><input name="letterheadLogoFile" type="file" accept="image/*"><label class="form-check"><input name="removeLetterheadLogo" type="checkbox"><span>Hapus logo khusus kop surat</span></label><small class="form-help">Logo ini terpisah dari logo sekolah utama. Format gambar, maksimal 2 MB.</small></div></div></div>
         <div class="form-field full"><label class="form-check"><input name="showLogo" type="checkbox" ${design.showLogo ? "checked" : ""}><span>Tampilkan logo khusus pada kop</span></label></div>
       </div></form>
@@ -1281,6 +1336,7 @@
   function renderAppBranding() {
     return `<form id="appBrandingForm" class="settings-card"><h3>Identitas Aplikasi</h3><p>Atur nama dan logo yang tampil di aplikasi, judul tab browser, dan favicon.</p><div class="form-grid">
       ${formInput("appName", "Nama Aplikasi", state.settings.appName, "text", true)}
+      ${formInput("appTagline", "Subjudul Aplikasi", state.settings.appTagline)}
       <div class="form-field full"><label for="appLogoFile">Logo Aplikasi</label><div class="app-branding-upload"><div id="appLogoPreview" class="app-logo-preview">${state.settings.appLogo ? `<img src="${esc(state.settings.appLogo)}" alt="Logo aplikasi">` : `<i data-lucide="boxes"></i>`}</div><div><input id="appLogoFile" name="appLogoFile" type="file" accept="image/png,image/jpeg,image/webp"><small class="form-help">PNG, JPG, atau WEBP · maksimal 2 MB. Logo juga digunakan sebagai favicon.</small><label class="app-logo-remove"><input name="removeAppLogo" type="checkbox"> Gunakan ikon bawaan</label></div></div></div>
       <div class="form-field full"><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan identitas aplikasi</button></div>
       </div></form>`;
@@ -1318,7 +1374,7 @@
     const body = filtered.length ? filtered.map((row) => {
       const selection = bulkDeletable ? `<td class="bulk-select-column"><input type="checkbox" class="record-select" value="${esc(row.id)}" aria-label="Pilih ${esc(row.name || row.title || row.borrower || row.applicant || row.date || config.singular)}"></td>` : "";
       return `<tr>${selection}${displayCols.map(([field]) => {
-        const currency = ["price", "totalPrice", "unitPrice", "initialValue", "amount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
+        const currency = ["price", "totalPrice", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
       }).join("")}<td><div class="action-buttons">${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (!["loans", "disposals"].includes(key) && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
@@ -1366,7 +1422,7 @@
       return currencyCell(amount);
     }
     if (field === "totalPrice") return currencyCell((Number(row.quantity) || 0) * (Number(row.price) || 0));
-    if (["price", "unitPrice", "initialValue", "amount", "finalValue"].includes(field)) return currencyCell(value);
+    if (["price", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"].includes(field)) return currencyCell(value);
     if (field === "consumable") return `<span class="badge ${isBhp(row) ? "success" : "neutral"}">${isBhp(row) ? "BHP" : "Barang Modal"}</span>`;
     if (field === "active") return `<span class="badge ${value ? "success" : "neutral"}">${value ? "Aktif" : "Nonaktif"}</span>`;
     if (field === "name" && key === "accounts") return `<span class="table-title">${esc(value)}</span>`;
@@ -1495,7 +1551,7 @@
       const dateField = ({ loans: "startDate", items: "received", stocktakes: "date", usages: "date", procurements: "date", disposals: "date", depreciations: "date" })[type];
       rows = (state[type] || []).filter((row) => !dateField || ((!startDate || row[dateField] >= startDate) && (!endDate || row[dateField] <= endDate))).map((row) => config.cols.map(([field]) => plainCell(type, field, row)));
     }
-    const currencyFields = new Set(["price", "unitPrice", "initialValue", "amount", "finalValue", "total", "totalPrice", "value"]);
+    const currencyFields = new Set(["price", "unitPrice", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue", "total", "totalPrice", "value"]);
     const inventoryTotal = isInventoryReport(type)
       ? recordsForAcademicYear("goods").filter((good) => type === "inventarisBhp" ? isBhp(good) : !isBhp(good)).reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0)
       : 0;
@@ -1686,6 +1742,11 @@
       ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "item"}</b><small>${key === "usages" ? "Pindai barcode BHP atau pilih barang secara manual dari daftar." : "Pindai kode QR/barcode item atau masukkan kodenya untuk mengisi barang secara otomatis."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh: E.1-T.1-L1-KS.1"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const loanDuration = record?.durationDays ?? (record?.startDate && record?.dueDate ? Math.max(1, daysBetweenDates(record.startDate, record.dueDate)) : 1);
+    const depreciationPeriodType = record?.periodType || (record ? "Tahunan" : "Bulanan");
+    const depreciationCost = Number(record?.initialValue ?? getById("goods", record?.goodId)?.price) || 0;
+    const legacyDepreciationLife = record?.usefulLifeYears ?? (Number(record?.amount) > 0
+      ? Math.max(1, Math.round((depreciationCost - (Number(record?.residualValue) || 0)) / Number(record.amount)))
+      : 5);
     const fields = config.fields.map(([name, label, type, required, source]) => {
       if (key === "academicYears" && name === "copyPreviousData" && record) return "";
       let value = record?.[name] ?? (key === "goods" && name === "ownershipId"
@@ -1696,6 +1757,11 @@
               : key === "disposals" && name === "quantity" ? 1
               : key === "loans" && name === "durationDays" ? loanDuration
                 : key === "loans" && name === "dueDate" ? addDaysToDate(dateOffset(0), 1)
+                  : key === "depreciations" && name === "periodType" ? depreciationPeriodType
+                    : key === "depreciations" && name === "method" ? "Garis Lurus"
+                      : key === "depreciations" && name === "residualValue" ? 0
+                        : key === "depreciations" && name === "usefulLifeYears" ? legacyDepreciationLife
+                          : key === "depreciations" && name === "date" ? depreciationPeriodEnd(depreciationPeriodType)
                   : type === "date" ? (key === "academicYears" ? "" : dateOffset(0)) : "");
       const idAttr = `${key}-${name}`;
       if (key === "usages" && name === "unitId") {
@@ -1706,6 +1772,8 @@
       if (key === "loans" && name === "signature") return `<div class="form-field full"><label for="loanSignatureCanvas">${esc(label)}</label><div class="loan-signature-field"><canvas id="loanSignatureCanvas" class="loan-signature-pad" aria-label="Area tanda tangan peminjam"></canvas><input type="hidden" name="signature" value="${esc(value)}"><button id="clearLoanSignature" class="btn-quiet" type="button"><i data-lucide="eraser"></i>Hapus tanda tangan</button></div><small class="form-help">Tanda tangan dapat diisi dengan mouse atau layar sentuh; biarkan kosong jika tidak diperlukan.</small></div>`;
       if (key === "loans" && name === "dueDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${required ? "required" : ""} readonly><small class="form-help">Dihitung otomatis dari tanggal sewa dan jumlah hari.</small></div>`;
       if (key === "depreciations" && name === "initialValue") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly><small class="form-help">Terisi otomatis dari harga satuan barang.</small></div>`;
+      if (key === "depreciations" && name === "date") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" required readonly><small class="form-help">Otomatis mengikuti akhir bulan atau akhir tahun buku.</small></div>`;
+      if (key === "depreciations" && ["amount", "accumulatedAmount", "finalValue"].includes(name)) return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input depreciation-computed" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
       if (key === "goods" && name === "consumable") return `<div class="form-field"><label for="${idAttr}">Status BHP *</label><select id="${idAttr}" name="${name}" required><option value="true" ${isBhp({ consumable: value }) ? "selected" : ""}>Barang Habis Pakai (BHP)</option><option value="false" ${isBhp({ consumable: value }) ? "" : "selected"}>Barang Modal</option></select></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source, recordYearId).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
@@ -1718,7 +1786,8 @@
       const numberAttributes = type !== "number" ? ""
         : key === "usages" && name === "quantity" ? 'min="0.01" step="any"'
           : key === "loans" && ["quantity", "durationDays"].includes(name) ? 'min="1" step="1"'
-            : key === "disposals" && name === "quantity" ? 'min="1" step="1"' : 'min="0"';
+            : key === "disposals" && name === "quantity" ? 'min="1" step="1"'
+              : key === "depreciations" && name === "usefulLifeYears" ? 'min="1" step="1"' : 'min="0"';
       const help = key === "loans" && name === "quantity"
         ? `<small class="form-help" id="loanAvailableQuantity" aria-live="polite"></small>`
         : key === "disposals" && name === "quantity" ? `<small class="form-help" id="disposalAvailableQuantity" aria-live="polite"></small>` : "";
@@ -1803,13 +1872,77 @@
   function setupDepreciationForm(form) {
     const goodSelect = form.elements.goodId;
     const initialValue = form.elements.initialValue;
-    if (!goodSelect || !initialValue) return;
+    const residualValue = form.elements.residualValue;
+    const usefulLifeYears = form.elements.usefulLifeYears;
+    const periodType = form.elements.periodType;
+    const periodDate = form.elements.date;
+    const amount = form.elements.amount;
+    const accumulatedAmount = form.elements.accumulatedAmount;
+    const finalValue = form.elements.finalValue;
+    if (!goodSelect || !initialValue || !residualValue || !usefulLifeYears || !periodType || !periodDate) return;
     const updateInitialValue = () => {
       const good = getById("goods", goodSelect.value);
       initialValue.value = good ? formatThousands(good.price) : "";
     };
-    goodSelect.addEventListener("change", updateInitialValue);
-    if (!form.dataset.record) updateInitialValue();
+    const updatePeriodDate = () => { periodDate.value = depreciationPeriodEnd(periodType.value); };
+    const updateCalculation = () => {
+      updateInitialValue();
+      const calculation = calculateDepreciation(
+        goodSelect.value,
+        periodDate.value,
+        periodType.value,
+        Number(usefulLifeYears.value),
+        parseThousands(residualValue.value),
+        form.dataset.record
+      );
+      const hasGood = Boolean(getById("goods", goodSelect.value));
+      if (amount) amount.value = hasGood ? formatThousands(calculation.amount) : "";
+      if (accumulatedAmount) accumulatedAmount.value = hasGood ? formatThousands(calculation.accumulatedAmount) : "";
+      if (finalValue) finalValue.value = hasGood ? formatThousands(calculation.finalValue) : "";
+    };
+    goodSelect.addEventListener("change", updateCalculation);
+    residualValue.addEventListener("input", updateCalculation);
+    usefulLifeYears.addEventListener("input", updateCalculation);
+    periodType.addEventListener("change", () => { updatePeriodDate(); updateCalculation(); });
+    if (!form.dataset.record) updatePeriodDate();
+    updateCalculation();
+  }
+
+  function depreciationPeriodEnd(periodType, referenceDate = dateOffset(0)) {
+    const match = String(referenceDate || "").match(/^(\d{4})-(\d{2})-\d{2}$/);
+    if (!match) return "";
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    if (periodType === "Tahunan") {
+      const academicYear = state.academicYears?.find((row) => row.id === currentAcademicYearId());
+      if (academicYear?.endDate) return academicYear.endDate;
+      return `${year}-12-31`;
+    }
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  }
+
+  function calculateDepreciation(goodId, periodDate, periodType, usefulLifeYears, residualValue, excludeRecordId = "") {
+    const good = getById("goods", goodId);
+    const initialValue = Number(good?.price) || 0;
+    const residual = Number(residualValue) || 0;
+    const priorAccumulated = (state.depreciations || []).reduce((total, record) => {
+      if (record.id === excludeRecordId || record.goodId !== goodId || !record.date || record.date >= periodDate) return total;
+      return total + Math.max(0, Number(record.amount) || 0);
+    }, 0);
+    const depreciableBasis = Math.max(0, initialValue - residual);
+    const plannedAnnual = usefulLifeYears > 0 ? depreciableBasis / usefulLifeYears : 0;
+    const plannedAmount = periodType === "Bulanan" ? Math.round(plannedAnnual / 12) : Math.round(plannedAnnual);
+    const remaining = Math.max(0, depreciableBasis - priorAccumulated);
+    const amount = Math.min(Math.max(0, plannedAmount), remaining);
+    const accumulatedAmount = priorAccumulated + amount;
+    return {
+      initialValue,
+      priorAccumulated,
+      amount,
+      accumulatedAmount,
+      finalValue: Math.max(residual, initialValue - accumulatedAmount)
+    };
   }
 
   function setupLoanSignature(form) {
@@ -1905,6 +2038,14 @@
     const good = getById("goods", disposal.goodId);
     if (!good) return;
     good.quantity = Number(good.quantity || 0) + Math.max(1, Number(disposal.quantity) || 1);
+    syncGoodConditionCounts(good);
+  }
+
+  function restoreLoanStock(loan) {
+    if (loan?.stockAdjusted !== true) return;
+    const good = getById("goods", loan.goodId);
+    if (!good) return;
+    good.quantity = Number(good.quantity || 0) + Math.max(1, Number(loan.quantity) || 1);
     syncGoodConditionCounts(good);
   }
 
@@ -2271,6 +2412,11 @@
         priorLoanQuantity = Math.max(1, Number(old.quantity) || 1);
       }
       data.stockAdjusted = data.status === "Diterima";
+      if (!old) {
+        data.transactionSequence = Math.max(1, Number(state.settings.loanReceiptNextSequence) || 1);
+        data.transactionNo = formatLoanReceiptNumber(data.transactionSequence, dateOffset(0), state.settings.loanReceiptNumberFormat);
+        state.settings.loanReceiptNextSequence = data.transactionSequence + 1;
+      }
     }
     if (key === "procurements") data.status = old?.status || "Pengajuan";
     let disposalGood = null;
@@ -2317,7 +2463,57 @@
       if (!old) data.oldStock = Number(stocktakeGood.quantity || 0);
     }
     if (key === "depreciations") {
-      data.finalValue = Math.max(0, data.initialValue - data.amount);
+      const good = getById("goods", data.goodId);
+      if (!good) {
+        showToast("Pilih barang yang valid untuk dicatat penyusutannya.", true);
+        return;
+      }
+      const initialValue = Number(good.price);
+      const residualValue = Number(data.residualValue);
+      if (!Number.isFinite(initialValue) || initialValue <= 0) {
+        showToast("Harga awal barang harus lebih dari Rp0 agar dapat disusutkan.", true);
+        return;
+      }
+      if (data.method !== "Garis Lurus") {
+        showToast("Metode penyusutan yang dipilih belum didukung.", true);
+        return;
+      }
+      if (!Number.isInteger(data.usefulLifeYears) || data.usefulLifeYears < 1) {
+        showToast("Umur ekonomis harus berupa bilangan bulat minimal 1 tahun.", true);
+        return;
+      }
+      if (!Number.isFinite(residualValue) || residualValue < 0 || residualValue > initialValue) {
+        showToast("Nilai residu harus berada di antara Rp0 dan harga awal barang.", true);
+        return;
+      }
+      const expectedPeriodEnd = depreciationPeriodEnd(data.periodType, data.date);
+      if (!expectedPeriodEnd || data.date !== expectedPeriodEnd) {
+        showToast("Tanggal penyusutan harus berada pada akhir periode yang dipilih.", true);
+        return;
+      }
+      const duplicatePeriod = state.depreciations.some((record) =>
+        record.id !== old?.id && record.goodId === data.goodId && record.date === data.date
+      );
+      if (duplicatePeriod) {
+        showToast("Penyusutan untuk barang dan periode tersebut sudah tercatat.", true);
+        return;
+      }
+      const calculation = calculateDepreciation(
+        data.goodId,
+        data.date,
+        data.periodType,
+        data.usefulLifeYears,
+        residualValue,
+        old?.id
+      );
+      if (calculation.amount <= 0) {
+        showToast("Tidak ada nilai yang dapat disusutkan pada periode ini; aset telah mencapai nilai residu.", true);
+        return;
+      }
+      data.initialValue = initialValue;
+      data.amount = calculation.amount;
+      data.accumulatedAmount = calculation.accumulatedAmount;
+      data.finalValue = calculation.finalValue;
     }
     if (key === "goods") syncGoodConditionCounts(data);
     const previous = key === "accounts" && old ? { ...old } : null;
@@ -2396,11 +2592,12 @@
     const good = getById("goods", loan.goodId);
     const signature = loan.signature
       ? `<img class="loan-receipt-signature-image" src="${esc(loan.signature)}" alt="Tanda tangan peminjam">`
-      : `<div class="loan-receipt-signature-line"></div>`;
+      : `<div class="loan-receipt-signature-space"></div>`;
+    const school = state.school || seed.school;
     receipt.innerHTML = `<div class="loan-receipt">
-      <div class="report-heading">${printSchoolHeaderMarkup(state.school || seed.school, state.settings.printDesign || seed.settings.printDesign)}</div>
+      <div class="report-heading">${printSchoolHeaderMarkup(school, state.settings.printDesign || seed.settings.printDesign)}</div>
       <h1>Bukti Peminjaman Barang</h1>
-      <p class="loan-receipt-number">Nomor transaksi: ${esc(loan.id)}</p>
+      <p class="loan-receipt-number">Nomor: ${esc(loan.transactionNo || loan.id)}</p>
       <table><tbody>
         <tr><th>Nama peminjam</th><td>${esc(loan.borrower)}</td></tr>
         <tr><th>Nama barang</th><td>${esc(good?.name || "—")}</td></tr>
@@ -2411,8 +2608,18 @@
         <tr><th>Tanggal kembali</th><td>${esc(niceDate(loan.dueDate))}</td></tr>
         <tr><th>Keterangan</th><td>${esc(loan.note || "—")}</td></tr>
       </tbody></table>
-      <div class="loan-receipt-signature"><span>Peminjam</span>${signature}<b>${esc(loan.borrower)}</b></div>
-      <p class="loan-receipt-date">${esc(state.school?.city || "")}, ${esc(niceDate(dateOffset(0)))}</p>
+      <div class="loan-receipt-signatures">
+        <div class="loan-receipt-signatory">
+          <p>Mengetahui,</p><p>Wakasek Sarpras</p>
+          <div class="loan-receipt-signature-line"></div>
+          <b>${esc(school.sarprasVicePrincipalName || "________________________")}</b>
+          ${school.sarprasVicePrincipalNip ? `<small>NIP. ${esc(school.sarprasVicePrincipalNip)}</small>` : ""}
+        </div>
+        <div class="loan-receipt-signatory">
+          <p>${esc(school.city || "................")}, ${esc(niceDate(dateOffset(0)))}</p><p>Peminjam</p>
+          ${signature}<b>${esc(loan.borrower)}</b>
+        </div>
+      </div>
     </div>`;
     document.body.classList.add("print-loan-receipt");
     window.print();
@@ -2471,6 +2678,7 @@
         const recordName = record.name || record.title || record.code || "ini";
         showDeleteConfirmation("Hapus data?", `Data "${recordName}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
           if (collection === "disposals") restoreDisposalStock(record);
+          if (collection === "loans") restoreLoanStock(record);
           state[collection] = state[collection].filter((row) => row.id !== record.id);
           saveState(); showToast("Data berhasil dihapus."); renderPage();
         });
@@ -2486,6 +2694,7 @@
       const collection = page;
       showDeleteConfirmation("Hapus data terpilih?", `${selectedRows.length} data dari ${collectionConfig[collection].title} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
         if (collection === "disposals") selectedRows.forEach(restoreDisposalStock);
+        if (collection === "loans") selectedRows.forEach(restoreLoanStock);
         state[collection] = state[collection].filter((row) => !selectedIds.has(row.id));
         saveState();
         showToast(`${selectedRows.length} data berhasil dihapus.`);
@@ -2503,6 +2712,10 @@
       [mobileNavDraft[currentIndex], mobileNavDraft[nextIndex]] = [mobileNavDraft[nextIndex], mobileNavDraft[currentIndex]];
       renderPage();
     } else if (action === "status") statusModal(button.dataset.id);
+    else if (action === "print-loan") {
+      const loan = getById("loans", button.dataset.id);
+      if (loan) printLoanReceipt(loan);
+    }
     else if (action === "print") window.print();
     else if (action === "export-report") exportReport();
     else if (action === "export" || action === "export-dashboard") exportRows(page);
@@ -2521,6 +2734,7 @@
     if (page === "disposals") return;
     const record = getById(page, recordId);
     if (!record) return;
+    if (page === "loans" && record.status !== "Diterima") return;
     const actionLabel = page === "usages" ? "permintaan penggunaan BHP" : page === "loans" ? "peminjaman" : page === "procurements" ? "pengadaan" : "pemusnahan";
     const buttons = ["Pengajuan", "Pending"].includes(record.status)
       ? `<button class="btn-danger" data-status-choice="Ditolak">Tolak</button><button class="btn-primary" data-status-choice="${page === "usages" ? "Disetujui" : "Diterima"}"><i data-lucide="check"></i>Terima</button>`
@@ -2536,6 +2750,10 @@
       const next = button.dataset.statusChoice;
       if (next === "Selesai" && !window.confirm(page === "disposals" ? "Tandai pengajuan pemusnahan barang ini sebagai selesai?" : "Peminjaman barang sudah dikembalikan?")) return;
       record.status = next;
+      if (page === "loans" && next === "Selesai" && record.stockAdjusted === true) {
+        restoreLoanStock(record);
+        record.stockAdjusted = false;
+      }
       if (page === "procurements" && next === "Diterima" && $("#statusFund")) record.fundId = $("#statusFund").value;
       if (page === "usages" && next === "Disetujui") {
         const good = getById("goods", record.goodId);
@@ -2583,6 +2801,10 @@
       $("#printCustomHeaderOptions")?.classList.toggle("hidden", !custom);
       $("#printSchoolHeaderOptions")?.classList.toggle("hidden", custom);
     });
+    $("#loanReceiptNumberFormat")?.addEventListener("input", (event) => {
+      const preview = $("#loanReceiptNumberPreview");
+      if (preview) preview.textContent = formatLoanReceiptNumber(Number(state.settings.loanReceiptNextSequence) || 1, dateOffset(0), event.target.value);
+    });
     $("#schoolForm")?.addEventListener("submit", (event) => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -2611,9 +2833,12 @@
       const customHeaderText = form.elements.customHeaderText.value.trim();
       const headerFontSize = Number(form.elements.headerFontSize.value);
       const logoSize = Number(form.elements.logoSize.value);
+      const loanReceiptNumberFormat = form.elements.loanReceiptNumberFormat.value.trim();
       if (headerMode === "custom" && !customHeaderText) return showToast("Teks bagian atas kop wajib diisi saat menggunakan mode ketik sendiri.", true);
       if (!Number.isInteger(headerFontSize) || headerFontSize < 10 || headerFontSize > 48) return showToast("Ukuran font kop harus antara 10 sampai 48 px.", true);
       if (!Number.isInteger(logoSize) || logoSize < 24 || logoSize > 160) return showToast("Ukuran logo kop harus antara 24 sampai 160 px.", true);
+      if (!/\{nomor\}/i.test(loanReceiptNumberFormat)) return showToast("Format nomor peminjaman wajib memuat placeholder {nomor}.", true);
+      if (loanReceiptNumberFormat.length > 100) return showToast("Format nomor peminjaman maksimal 100 karakter.", true);
       const file = form.elements.letterheadLogoFile.files?.[0];
       if (file && file.size > 2_000_000) return showToast("Ukuran logo kop surat maksimal 2 MB.", true);
       let letterheadLogoData = "";
@@ -2636,6 +2861,7 @@
           headerBold: form.elements.headerBold.checked,
           headerItalic: form.elements.headerItalic.checked
         };
+        state.settings.loanReceiptNumberFormat = loanReceiptNumberFormat;
         saveState();
         showToast("Desain kop dan tanda tangan berhasil disimpan.");
         renderPage();
@@ -2651,6 +2877,7 @@
       if (!canEditPage("school")) return showToast("Akun Anda tidak memiliki izin mengubah identitas aplikasi.", true);
       const form = event.currentTarget;
       const appName = form.elements.appName.value.trim();
+      const appTagline = form.elements.appTagline.value.trim();
       const file = form.elements.appLogoFile.files?.[0];
       if (!appName) return showToast("Nama aplikasi wajib diisi.", true);
       if (file && (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2_000_000)) {
@@ -2658,6 +2885,7 @@
       }
       const commit = (appLogo) => {
         state.settings.appName = appName;
+        state.settings.appTagline = appTagline;
         if (appLogo !== undefined) state.settings.appLogo = appLogo;
         else if (form.elements.removeAppLogo.checked) state.settings.appLogo = "";
         saveState();
