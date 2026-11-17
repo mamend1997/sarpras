@@ -2,6 +2,7 @@
   "use strict";
 
   const STORE_KEY = "sarprah-state-v1";
+  const pendingAccountKey = (accountId) => `${STORE_KEY}:pending-account:${accountId}`;
   const today = new Date();
   const dateOffset = (days) => new Date(today.getTime() + days * 86400000).toISOString().slice(0, 10);
   const currentMonth = today.toISOString().slice(0, 7);
@@ -9,7 +10,7 @@
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   const rupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0);
   const moneyFields = new Set(["price", "unitPrice", "initialValue", "amount"]);
-  const goodsImportHeaders = ["Nama Barang", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Barang Habis Pakai (Ya/Tidak)"];
+  const goodsImportHeaders = ["Nama Barang", "Milik", "Nama Pemilik Lainnya", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Barang Habis Pakai (Ya/Tidak)"];
   const formatThousands = (value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const parseThousands = (value) => Number(String(value ?? "").replace(/\D/g, "")) || 0;
   const parseGroupedInteger = (value) => {
@@ -19,8 +20,8 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "suppliers", "funds", "academicYears", "goods", "checkGoods", "items", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
-  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
+  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
     Object.fromEntries(permissionPages.map((key) => [key, defaultMenuPermissions[key] || "hidden"]))
@@ -37,12 +38,12 @@
     funds: [{ id: "fd1", name: "BOS", description: "Bantuan Operasional Sekolah" }, { id: "fd2", name: "Komite Sekolah", description: "Dana partisipasi komite" }, { id: "fd3", name: "Kenang-kenangan Siswa", description: "Hibah dan kenang-kenangan" }],
     academicYears: [{ id: "ay1", name: "2026/2027", status: "Aktif" }],
     goods: [
-      { id: "gd1", name: "Laptop Lenovo ThinkPad", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un1", supplierId: "sp1", quantity: 24, price: 8750000, consumable: false },
-      { id: "gd2", name: "Proyektor Epson EB-X06", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un1", supplierId: "sp1", quantity: 8, price: 6200000, consumable: false },
-      { id: "gd3", name: "Meja Siswa Kayu", fundId: "fd2", typeId: "tp2", categoryId: "ct2", unitId: "un1", supplierId: "sp2", quantity: 120, price: 485000, consumable: false },
-      { id: "gd4", name: "Bola Basket Molten", fundId: "fd3", typeId: "tp4", categoryId: "ct3", unitId: "un2", supplierId: "sp3", quantity: 18, price: 375000, consumable: false },
-      { id: "gd5", name: "Kertas A4 80gsm", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un4", supplierId: "sp3", quantity: 45, price: 58000, consumable: true },
-      { id: "gd6", name: "Ruang Kelas", fundId: "fd1", typeId: "tp3", categoryId: "ct4", unitId: "un1", supplierId: "sp2", quantity: 12, price: 125000000, consumable: false }
+      { id: "gd1", name: "Laptop Lenovo ThinkPad", owner: "Sekolah", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un1", supplierId: "sp1", quantity: 24, price: 8750000, consumable: false },
+      { id: "gd2", name: "Proyektor Epson EB-X06", owner: "Sekolah", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un1", supplierId: "sp1", quantity: 8, price: 6200000, consumable: false },
+      { id: "gd3", name: "Meja Siswa Kayu", owner: "Sekolah", fundId: "fd2", typeId: "tp2", categoryId: "ct2", unitId: "un1", supplierId: "sp2", quantity: 120, price: 485000, consumable: false },
+      { id: "gd4", name: "Bola Basket Molten", owner: "Sekolah", fundId: "fd3", typeId: "tp4", categoryId: "ct3", unitId: "un2", supplierId: "sp3", quantity: 18, price: 375000, consumable: false },
+      { id: "gd5", name: "Kertas A4 80gsm", owner: "Sekolah", fundId: "fd1", typeId: "tp1", categoryId: "ct1", unitId: "un4", supplierId: "sp3", quantity: 45, price: 58000, consumable: true },
+      { id: "gd6", name: "Ruang Kelas", owner: "Sekolah", fundId: "fd1", typeId: "tp3", categoryId: "ct4", unitId: "un1", supplierId: "sp2", quantity: 12, price: 125000000, consumable: false }
     ],
     items: [
       { id: "it1", code: "E.1-T.1-L1-KS.1", goodId: "gd1", condition: "Baik", locationId: "lo3", received: dateOffset(-370) },
@@ -97,7 +98,6 @@
     academicYears: ["Tahun Pelajaran", "Kelola daftar tahun pelajaran sekolah.", "calendar-days"],
     goods: ["Data Barang", "Daftar master barang dan informasi pengadaan aset.", "package"],
     checkGoods: ["Cek Barang", "Pindai barcode atau cari barang untuk melihat detail dan riwayat stok.", "scan-search"],
-    items: ["Data Item", "Pantau kondisi, lokasi, dan kode unik setiap unit inventaris.", "scan-line"],
     usages: ["Penggunaan BHP", "Tinjau dan catat permintaan penggunaan barang habis pakai.", "clipboard-list"],
     stocktakes: ["Stock Opname", "Rekam hasil pemeriksaan dan penyesuaian stok.", "clipboard-check"],
     barcode: ["Cetak Barcode", "Pilih item inventaris dan cetak label QR Code.", "qr-code"],
@@ -114,7 +114,7 @@
     { section: "RINGKASAN", links: [{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard" }] },
     { section: "PENGELOLAAN", groups: [
       { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] },
-      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["items", "Data Item"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
+      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] }
     ] },
     { section: "LAINNYA", links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
@@ -128,7 +128,7 @@
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     academicYears: { title: "Tahun Pelajaran", description: "Daftar tahun pelajaran yang berlaku di sekolah.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
-    goods: { title: "Data Barang", description: "Informasi barang, nilai, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
+    goods: { title: "Data Barang", description: "Informasi barang, kepemilikan, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["owner", "Milik"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["owner", "Milik", "select", true, ["Yayasan", "Sekolah", "Pribadi", "Lainnya"]], ["ownerOther", "Nama pemilik lainnya", "text"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengaju"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["applicant", "Nama Pengaju", "text", true], ["goodId", "Barang BHP", "select", true, "bhpGoods"], ["quantity", "Jumlah Barang", "number", true], ["date", "Tanggal", "date", true]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"]] },
@@ -139,6 +139,7 @@
     accounts: { title: "Pengaturan", description: "Kelola pengguna aplikasi dan izin akses.", singular: "Akun", cols: [["name", "Nama Pengguna"], ["email", "Email"], ["role", "Peran"], ["active", "Status"]], fields: [["name", "Nama Pengguna", "text", true], ["email", "Email", "email", true], ["role", "Peran", "select", true, ["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]], ["active", "Akun aktif", "checkbox"], ["edit", "Boleh mengubah data", "checkbox"], ["remove", "Boleh menghapus data", "checkbox"], ["password", "Kata sandi (min. 8 karakter)", "password"], ["passwordConfirm", "Konfirmasi kata sandi", "password"]] }
   };
   const statusPages = new Set(["usages", "loans", "procurements", "disposals"]);
+  const bulkDeletePages = new Set(["goods", "usages", "stocktakes", "loans", "procurements", "disposals", "depreciations"]);
   const statusOptions = {
     usages: ["Semua", "Pengajuan", "Disetujui", "Ditolak"],
     loans: ["Semua", "Pengajuan", "Diterima", "Ditolak", "Selesai"],
@@ -160,6 +161,19 @@
     $("#toastRoot").append(toast);
     if (window.lucide) lucide.createIcons({ nodes: [toast] });
     setTimeout(() => toast.remove(), 3300);
+  }
+
+  function isPendingLocalAccount(account) {
+    return Boolean(account?.id && localStorage.getItem(pendingAccountKey(account.id)) === "1");
+  }
+
+  function markPendingLocalAccount(account) {
+    try { localStorage.setItem(pendingAccountKey(account.id), "1"); }
+    catch (error) { showToast(`Status sinkronisasi akun gagal disimpan: ${error.message}`, true); }
+  }
+
+  function clearPendingLocalAccount(account) {
+    localStorage.removeItem(pendingAccountKey(account.id));
   }
 
   async function passwordCredentials(password) {
@@ -284,9 +298,32 @@
   }
 
   function ensureAcademicYearDefaults() {
-    if (Array.isArray(state.academicYears)) return false;
-    state.academicYears = structuredClone(seed.academicYears);
-    return true;
+    let changed = false;
+    if (!Array.isArray(state.academicYears)) {
+      state.academicYears = structuredClone(seed.academicYears);
+      changed = true;
+    }
+    const settings = state.settings || (state.settings = {});
+    if (!state.academicYears.some((year) => year.id === settings.selectedAcademicYearId)) {
+      settings.selectedAcademicYearId = (state.academicYears.find((year) => year.status === "Aktif") || state.academicYears[0])?.id || "";
+      changed = true;
+    }
+    return changed;
+  }
+
+  function renderHeaderAcademicYear() {
+    const select = $("#headerAcademicYear");
+    if (!select) return;
+    const years = state.academicYears || [];
+    if (years.length && !years.some((year) => year.id === state.settings?.selectedAcademicYearId)) {
+      state.settings.selectedAcademicYearId = (years.find((year) => year.status === "Aktif") || years[0]).id;
+      saveState();
+    }
+    select.innerHTML = years.length
+      ? years.map((year) => `<option value="${esc(year.id)}">${esc(year.name)}${year.status === "Arsip" ? " · Arsip" : ""}</option>`).join("")
+      : `<option value="">Belum ada tahun pelajaran</option>`;
+    select.value = state.settings?.selectedAcademicYearId || "";
+    select.disabled = !years.length;
   }
 
   function ensurePrintDesignDefaults() {
@@ -497,12 +534,12 @@
   }
 
   function renderMobileNav() {
-    const links = (state.settings?.mobileNav || seed.settings.mobileNav).filter(canViewPage);
+    const links = (state.settings?.mobileNav || seed.settings.mobileNav).filter((key) => key !== "items" && canViewPage(key));
     const visibleLinks = links.slice(0, 5);
     const shortLabels = {
       dashboard: "Beranda", school: "Sekolah", types: "Jenis", categories: "Kategori",
       units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana", academicYears: "Tahun",
-      goods: "Barang", checkGoods: "Cek", items: "Item", usages: "BHP", stocktakes: "Opname", barcode: "QR",
+      goods: "Barang", checkGoods: "Cek", usages: "BHP", stocktakes: "Opname", barcode: "QR",
       loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
       depreciations: "Susut", reports: "Laporan", accounts: "Akun", backup: "Backup"
     };
@@ -549,6 +586,7 @@
 
   function renderPage() {
     const root = $("#pageContent");
+    renderHeaderAcademicYear();
     root.classList.remove("page-enter");
     void root.offsetWidth;
     root.classList.add("page-enter");
@@ -682,6 +720,7 @@
       <div class="goods-check-facts">
         <div><small>Jenis</small><b>${esc(relatedName("types", good.typeId))}</b></div>
         <div><small>Kategori</small><b>${esc(relatedName("categories", good.categoryId))}</b></div>
+        <div><small>Milik</small><b>${esc(good.owner === "Lainnya" ? good.ownerOther || "Lainnya" : good.owner || "—")}</b></div>
         <div><small>Sumber dana</small><b>${esc(relatedName("funds", good.fundId))}</b></div>
         <div><small>Supplier</small><b>${esc(relatedName("suppliers", good.supplierId))}</b></div>
         <div><small>Harga satuan</small><b>${esc(rupiah(good.price))}</b></div>
@@ -808,7 +847,7 @@
   }
 
   function indicator(label, value, icon, tone, foot) {
-    return `<div class="indicator-card" data-nav="${label === "Item Rusak" ? "items" : "goods"}"><span class="indicator-icon ${tone}"><i data-lucide="${icon}"></i></span><div><small>${label}</small><b>${value}</b><small style="margin:3px 0 0">${foot}</small></div></div>`;
+    return `<div class="indicator-card" data-nav="goods"><span class="indicator-icon ${tone}"><i data-lucide="${icon}"></i></span><div><small>${label}</small><b>${value}</b><small style="margin:3px 0 0">${foot}</small></div></div>`;
   }
   function procurementDashboardRows(rows) {
     return rows.length ? rows.map((row) => `<tr data-priority="${esc(row.priority)}"><td><span class="table-title">${esc(row.title)}</span><div class="table-sub">${esc(niceDate(row.date))}</div></td><td>${row.priority === "Mendesak" ? `<span class="badge danger">Mendesak</span>` : `<span class="badge neutral">Normal</span>`}</td><td>${rupiah(row.quantity * row.unitPrice)}</td></tr>`).join("") : `<tr><td colspan="3" class="empty-state">Belum ada data pengadaan.</td></tr>`;
@@ -889,15 +928,23 @@
     const config = collectionConfig[key];
     const rows = state[key] || [];
     const hideExportControls = ["types", "categories", "units", "locations", "suppliers", "funds", "academicYears"].includes(key);
+    const bulkDeletable = bulkDeletePages.has(key) && canDeletePage(key);
     const actions = canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : "";
     const importControls = key === "goods"
       ? `<button class="btn-quiet" data-action="goods-template"><i data-lucide="download"></i>Template Excel</button>${canEditPage(key) ? `<label class="btn-quiet" for="goodsImport"><i data-lucide="upload"></i>Impor Barang</label><input type="file" id="goodsImport" accept=".xlsx,.xls,.csv" class="hidden">` : ""}`
       : "";
-    let toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div>${importControls || !hideExportControls ? `<div class="table-toolbar-right">${importControls}${hideExportControls ? "" : `<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel</button>`}</div>` : ""}</div>`;
+    const bulkControls = bulkDeletable ? `<button class="btn-quiet" data-action="select-visible"><i data-lucide="check-check"></i>Pilih semua</button><button class="btn-danger" id="deleteSelectedRecords" data-action="delete-selected" disabled><i data-lucide="trash-2"></i>Hapus terpilih <span id="selectedRecordCount"></span></button>` : "";
+    const exportControls = hideExportControls ? "" : `<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel</button>`;
+    const toolbarRight = importControls || bulkControls || exportControls ? `<div class="table-toolbar-right">${importControls}${bulkControls}${exportControls}</div>` : "";
+    const toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div>${toolbarRight}</div>`;
     const filtered = rows.filter((row) => matchesSearch(key, row, searchTerm) && (!statusPages.has(key) || selectedFilter === "Semua" || row.status === selectedFilter));
+    const selectHeader = bulkDeletable ? `<th><input id="selectAllRecords" type="checkbox" aria-label="Pilih semua data yang tampil"></th>` : "";
     const headers = config.cols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
-    const body = filtered.length ? filtered.map((row) => `<tr>${config.cols.map(([field]) => `<td>${formatCell(key, field, row)}</td>`).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`).join("") : `<tr><td colspan="${config.cols.length + 1}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
-    return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
+    const body = filtered.length ? filtered.map((row) => {
+      const selection = bulkDeletable ? `<td><input type="checkbox" class="record-select" value="${esc(row.id)}" aria-label="Pilih ${esc(row.name || row.title || row.borrower || row.applicant || row.date || config.singular)}"></td>` : "";
+      return `<tr>${selection}${config.cols.map(([field]) => `<td>${formatCell(key, field, row)}</td>`).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`;
+    }).join("") : `<tr><td colspan="${config.cols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
+    return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
 
   function matchesSearch(key, row, query) {
@@ -909,6 +956,7 @@
   function plainCell(key, field, row) {
     const relations = { fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations", itemId: "items" };
     if (relations[field]) return field === "itemId" ? getById("items", row[field])?.code || row[field] || "" : relatedName(relations[field], row[field]);
+    if (field === "owner") return row.owner === "Lainnya" ? [row.owner, row.ownerOther].filter(Boolean).join(" - ") : row.owner || "";
     if (field === "goodName") return titleOfGood(row.itemId && getById("items", row.itemId)?.goodId);
     if (field === "itemIds") return Array.isArray(row.itemIds) ? row.itemIds.map((itemId) => getById("items", itemId)?.code || itemId).join(", ") : row.itemIds || "";
     if (field === "image") return row.image || "";
@@ -919,6 +967,7 @@
   function formatCell(key, field, row) {
     const value = row[field];
     if (field === "fundId" || field === "typeId" || field === "categoryId" || field === "unitId" || field === "supplierId" || field === "goodId" || field === "locationId") return esc(relatedName(({ fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations" })[field], value));
+    if (field === "owner") return esc(row.owner === "Lainnya" ? [row.owner, row.ownerOther].filter(Boolean).join(" - ") : row.owner || "—");
     if (field === "itemId") return `<span class="table-title">${esc(getById("items", value)?.code || value || "—")}</span>`;
     if (field === "goodName") return esc(titleOfGood(getById("items", row.itemId)?.goodId));
     if (field === "itemIds") return esc((Array.isArray(value) ? value : String(value || "").split(",")).map((itemId) => getById("items", itemId.trim())?.code || itemId.trim()).filter(Boolean).join(", ") || "—");
@@ -981,7 +1030,7 @@
   }
 
   function renderAccounts() {
-    const available = ["dashboard", "goods", "checkGoods", "items", "loans", "procurements", "disposals", "reports", "backup"];
+    const available = ["dashboard", "goods", "checkGoods", "loans", "procurements", "disposals", "reports", "backup"];
     const mobile = state.settings.mobileNav || [];
     const labels = Object.fromEntries([...available, ...permissionPages, "accounts"].map((key) => [key, meta[key][0]]));
     const accessMenus = permissionPages.map((key) => `
@@ -1147,9 +1196,10 @@
       ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode item</b><small>Gunakan kamera atau masukkan kode QR/barcode item.</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="Contoh: E.1-T.1-L1-KS.1"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const fields = config.fields.map(([name, label, type, required, source]) => {
-      let value = record?.[name] ?? (type === "date" ? dateOffset(0) : "");
+      let value = record?.[name] ?? (key === "accounts" && name === "active" ? true : type === "date" ? dateOffset(0) : "");
       const idAttr = `${key}-${name}`;
       if (name === "itemIds" && ["loans", "disposals"].includes(key)) return `<div class="form-field full"><label>${esc(label)}${required ? " *" : ""}</label><div id="loanItemOptions" class="item-choice-list"></div><small class="form-help">${key === "loans" ? "Pilih unit berkondisi baik yang belum dipinjam." : "Pilih unit dengan kondisi rusak untuk diajukan."}</small></div>`;
+      if (key === "goods" && name === "ownerOther") return `<div id="goodsOwnerOtherField" class="form-field ${record?.owner === "Lainnya" ? "" : "hidden"}"><label for="${idAttr}">${esc(label)}${record?.owner === "Lainnya" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" ${record?.owner === "Lainnya" ? "required" : ""}></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
       if (type === "textarea") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><textarea id="${idAttr}" name="${name}" ${required ? "required" : ""}>${esc(value)}</textarea></div>`;
@@ -1171,6 +1221,7 @@
     if (window.lucide) lucide.createIcons({ nodes: [$("#modalRoot")] });
     const form = $("#recordForm");
     if (form) setupMoneyInputs(form);
+    if (form && form.dataset.collection === "goods") setupGoodsOwnershipForm(form);
     if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
     if (form && ["loans", "disposals"].includes(form.dataset.collection)) setupItemChoices(form);
     if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
@@ -1184,6 +1235,20 @@
     });
     $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
     $("#recordForm")?.addEventListener("submit", saveRecord);
+  }
+
+  function setupGoodsOwnershipForm(form) {
+    const owner = form.elements.owner;
+    const otherOwner = form.elements.ownerOther;
+    const otherField = $("#goodsOwnerOtherField", form);
+    const update = () => {
+      const needsOther = owner.value === "Lainnya";
+      otherField.classList.toggle("hidden", !needsOther);
+      otherOwner.required = needsOther;
+      if (!needsOther) otherOwner.value = "";
+    };
+    owner.addEventListener("change", update);
+    update();
   }
 
   function setupMoneyInputs(form) {
@@ -1446,6 +1511,11 @@
         }
       } else data[name] = name === "email" ? input.value.trim().toLowerCase() : input.value.trim();
     }
+    if (key === "goods") {
+      if (!data.owner) { showToast("Pilih kepemilikan barang.", true); return; }
+      if (data.owner === "Lainnya" && !data.ownerOther) { showToast("Isi nama pemilik lainnya.", true); return; }
+      if (data.owner !== "Lainnya") data.ownerOther = "";
+    }
     if (key === "accounts") {
       const emailTaken = state.accounts.some((account) => account.id !== old?.id && account.email.toLowerCase() === data.email.toLowerCase());
       if (emailTaken) { showToast("Email tersebut sudah digunakan akun lain.", true); return; }
@@ -1514,6 +1584,7 @@
         showToast(`Perubahan akun gagal disimpan: ${error.message}`, true);
         return;
       }
+      if (!old && !apiAvailable) markPendingLocalAccount(data);
       if (old?.id === activeUser?.id) {
         activeUser = old;
         syncProfile();
@@ -1522,6 +1593,21 @@
     closeModal();
     showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
     renderPage();
+  }
+
+  function updateBulkSelection() {
+    const checks = $$(".record-select", $("#pageContent"));
+    const selected = checks.filter((check) => check.checked);
+    const selectAll = $("#selectAllRecords");
+    if (selectAll) {
+      selectAll.checked = checks.length > 0 && selected.length === checks.length;
+      selectAll.indeterminate = selected.length > 0 && selected.length < checks.length;
+    }
+    const deleteButton = $("#deleteSelectedRecords");
+    if (deleteButton) {
+      deleteButton.disabled = selected.length === 0;
+      $("#selectedRecordCount").textContent = selected.length ? `(${selected.length})` : "";
+    }
   }
 
   function recordActions(event) {
@@ -1550,6 +1636,20 @@
       if (record && window.confirm(`Hapus data "${record.name || record.title || record.code || "ini"}"? Tindakan ini tidak dapat dibatalkan.`)) {
         state[page] = state[page].filter((row) => row.id !== record.id);
         saveState(); showToast("Data berhasil dihapus."); renderPage();
+      }
+    } else if (action === "select-visible") {
+      $$(".record-select", $("#pageContent")).forEach((check) => { check.checked = true; });
+      updateBulkSelection();
+    } else if (action === "delete-selected") {
+      if (!bulkDeletePages.has(page) || !canDeletePage()) return showToast("Akun Anda tidak memiliki izin menghapus data.", true);
+      const selectedIds = new Set($$(".record-select:checked", $("#pageContent")).map((check) => check.value));
+      const selectedRows = (state[page] || []).filter((row) => selectedIds.has(row.id));
+      if (!selectedRows.length) return showToast("Pilih minimal satu data untuk dihapus.", true);
+      if (window.confirm(`Hapus ${selectedRows.length} data terpilih dari ${collectionConfig[page].title}? Tindakan ini tidak dapat dibatalkan.`)) {
+        state[page] = state[page].filter((row) => !selectedIds.has(row.id));
+        saveState();
+        showToast(`${selectedRows.length} data berhasil dihapus.`);
+        renderPage();
       }
     } else if (action === "status") statusModal(button.dataset.id);
     else if (action === "print") window.print();
@@ -1606,6 +1706,11 @@
     if ($("#schoolForm") && !canEditPage("school")) $$("input,textarea", $("#schoolForm")).forEach((input) => { input.disabled = true; });
     if ($("#printDesignForm") && !canEditPage("printDesign")) $$("input,textarea", $("#printDesignForm")).forEach((input) => { input.disabled = true; });
     if ($("#appBrandingForm") && !canEditPage("school")) $$("input,button", $("#appBrandingForm")).forEach((input) => { input.disabled = true; });
+    $("#selectAllRecords")?.addEventListener("change", (event) => {
+      $$(".record-select", $("#pageContent")).forEach((check) => { check.checked = event.target.checked; });
+      updateBulkSelection();
+    });
+    $$(".record-select", $("#pageContent")).forEach((check) => check.addEventListener("change", updateBulkSelection));
     $("#tableSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#tableSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#statusFilter")?.addEventListener("change", (event) => { selectedFilter = event.target.value; renderPage(); });
     $("#chartPeriod")?.addEventListener("change", (event) => { chartPeriod = event.target.value; drawChart(); });
@@ -1818,6 +1923,8 @@
         const column = (...names) => headers.findIndex((header) => names.some((name) => header === normalize(name)));
         const columns = {
           name: column("Nama Barang"),
+          owner: column("Milik", "Kepemilikan"),
+          ownerOther: column("Nama Pemilik Lainnya", "Pemilik Lainnya"),
           fund: column("Sumber Dana"),
           type: column("Jenis Barang", "Jenis"),
           category: column("Kategori Barang", "Kategori"),
@@ -1860,6 +1967,8 @@
           const categoryName = valueAt(row, "category");
           const unitName = valueAt(row, "unit");
           const supplierName = valueAt(row, "supplier");
+          const owner = valueAt(row, "owner") || "Sekolah";
+          const ownerOther = valueAt(row, "ownerOther");
           const fund = findByName("funds", fundName);
           const type = findByName("types", typeName);
           const category = findByName("categories", categoryName);
@@ -1873,6 +1982,8 @@
           const yesValues = ["ya", "yes", "true", "1"];
           const noValues = ["tidak", "no", "false", "0"];
           const rowErrors = [];
+          if (!["yayasan", "sekolah", "pribadi", "lainnya"].includes(normalize(owner))) rowErrors.push(`kepemilikan "${owner}" tidak valid`);
+          if (normalize(owner) === "lainnya" && !ownerOther) rowErrors.push("nama pemilik lainnya wajib diisi");
           if (!fund) rowErrors.push(`Sumber dana "${fundName || "kosong"}" tidak ditemukan`);
           if (!type) rowErrors.push(`jenis barang "${typeName || "kosong"}" tidak ditemukan`);
           if (!category) rowErrors.push(`kategori "${categoryName || "kosong"}" tidak ditemukan`);
@@ -1889,6 +2000,8 @@
           imported.push({
             id: id(),
             name,
+            owner,
+            ownerOther: normalize(owner) === "lainnya" ? ownerOther : "",
             fundId: fund.id,
             typeId: type.id,
             categoryId: category.id,
@@ -2059,6 +2172,13 @@
       localStorage.setItem("sarprah-sidebar-collapsed", String(next));
     });
     $("#mobileMenuToggle").addEventListener("click", () => { $("#sidebar").classList.add("open"); $("#sidebarOverlay").classList.add("visible"); });
+    $("#headerAcademicYear").addEventListener("change", (event) => {
+      const year = state.academicYears.find((row) => row.id === event.target.value);
+      if (!year) return;
+      state.settings.selectedAcademicYearId = year.id;
+      saveState();
+      showToast(`Tahun Pelajaran ${year.name} dipilih.`);
+    });
     $("#closeSidebar").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });
     $("#sidebarOverlay").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });
     $("#searchTrigger").addEventListener("click", openTopbarSearch);
@@ -2114,17 +2234,41 @@
       event.preventDefault();
       const email = $("#loginEmail").value.trim().toLowerCase(), password = $("#loginPassword").value;
       $("#loginError").textContent = "";
+      const pendingLocalAccounts = state.accounts.filter(isPendingLocalAccount);
       let online = false;
+      let pendingLocalLogin = false;
       try {
         const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
         if (!response.ok) {
           const result = await response.json();
-          $("#loginError").textContent = result.error || "Email atau kata sandi tidak sesuai.";
-          return;
+          const localAccount = state.accounts.find((row) => row.email.toLowerCase() === email && row.active && isPendingLocalAccount(row));
+          if (!localAccount || !await verifyPassword(localAccount, password)) {
+            $("#loginError").textContent = result.error || "Email atau kata sandi tidak sesuai.";
+            return;
+          }
+          apiAvailable = false;
+          pendingLocalLogin = true;
+        } else {
+          const auth = await response.json();
+          online = true;
+          apiAvailable = true;
+          await loadState();
+          if (apiAvailable && auth.user?.role === "Administrator" && pendingLocalAccounts.length) {
+            const syncedIds = [];
+            pendingLocalAccounts.forEach((account) => {
+              const exists = state.accounts.some((row) => row.id === account.id || row.email.toLowerCase() === account.email.toLowerCase());
+              if (!exists) state.accounts.unshift(account);
+              syncedIds.push(account);
+            });
+            try {
+              await persistState();
+              syncedIds.forEach(clearPendingLocalAccount);
+            } catch (error) {
+              apiAvailable = false;
+              showToast(`Akun lokal belum tersinkron ke server: ${error.message}`, true);
+            }
+          }
         }
-        online = true;
-        apiAvailable = true;
-        await loadState();
       } catch {
         apiAvailable = false;
       }
@@ -2145,6 +2289,7 @@
       }
       sessionStorage.setItem("sarprah-user", JSON.stringify({ id: account.id }));
       enterApp();
+      if (pendingLocalLogin) showToast("Akun masuk dalam mode lokal dan menunggu sinkronisasi Administrator.");
     });
     document.addEventListener("keydown", (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); openTopbarSearch(); }
@@ -2190,6 +2335,7 @@
     applyAppBranding();
     syncProfile();
     $("#headerSchoolName").textContent = state.school.name;
+    renderHeaderAcademicYear();
     renderNavigation(); navigate(page);
   }
 
