@@ -346,7 +346,43 @@
   function backupView() {
     return `${intro("Backup & restore", "Cadangkan atau pulihkan konfigurasi SaaS, data tenant, dan audit logs.")}<div class="grid-2">
       ${panel("Backup platform", `<p class="help-text">Backup mencakup data sekolah, konfigurasi, tiket, paket, dan audit logs. Simpan file dengan aman.</p><button class="primary" data-action="download-backup">Unduh backup lengkap</button>`)}
-      ${panel("Restore platform", `<div class="danger-zone"><p class="help-text">Restore akan mengganti seluruh data platform dan mengakhiri sesi pengguna sekolah. Buat backup sebelum melanjutkan.</p><form id="restoreForm"><label class="field">File backup SaaS (.json)<input name="file" type="file" accept="application/json,.json" required></label><label class="check-option"><input name="confirmed" type="checkbox" required>Saya memahami restore akan mengganti seluruh data platform</label><div class="modal-actions"><button class="danger">Pulihkan backup</button></div></form></div>`)}</div>`;
+      ${panel("Restore platform", `<div class="danger-zone"><p class="help-text">Restore akan mengganti seluruh data platform dan mengakhiri sesi pengguna sekolah. Buat backup sebelum melanjutkan.</p><form id="restoreForm"><label class="field">File backup SaaS (.json)<input name="file" type="file" accept="application/json,.json" required></label><label class="check-option"><input name="confirmed" type="checkbox" required>Saya memahami restore akan mengganti seluruh data platform</label><div class="modal-actions"><button class="danger">Pulihkan backup</button></div></form></div>`)}</div>
+      ${panel("Auto backup Telegram", `<p class="help-text">Kirim backup lengkap seluruh platform dan sekolah secara otomatis setiap hari. Server harus tetap aktif pada waktu terjadwal.</p>
+        <form id="platformTelegramBackupForm"><div class="form-grid">
+          ${field("Chat ID atau username tujuan", "chatId", "", "text", "required placeholder=-1001234567890")}
+          ${field("Token Bot Telegram", "botToken", "", "password", "autocomplete=new-password placeholder=123456:token")}
+          ${field("Jam backup harian", "backupTime", "16:00", "time", "required")}
+          ${selectField("Zona waktu", "timezone", "Asia/Jakarta", [["Asia/Jakarta", "WIB — Asia/Jakarta"], ["Asia/Makassar", "WITA — Asia/Makassar"], ["Asia/Jayapura", "WIT — Asia/Jayapura"]])}
+        </div><label class="check-option"><input type="checkbox" name="enabled">Aktifkan auto backup Telegram Super Admin</label>
+        <p id="platformTelegramTokenStatus" class="help-text">Token bot disimpan terenkripsi dan tidak ditampilkan kembali.</p>
+        <p id="platformTelegramBackupStatus" class="help-text">Memuat status backup...</p>
+        <div class="modal-actions"><button type="button" class="secondary" data-action="test-platform-telegram">Uji koneksi</button><button class="primary">Simpan pengaturan backup</button></div></form>`)}`;
+  }
+
+  async function loadPlatformTelegramBackup() {
+    try {
+      const config = await api("/api/platform/telegram-backup");
+      const form = $("#platformTelegramBackupForm");
+      if (view !== "backup" || !form) return;
+      form.elements.chatId.value = config.chatId || "";
+      form.elements.backupTime.value = config.backupTime || "16:00";
+      form.elements.timezone.value = config.timezone || "Asia/Jakarta";
+      form.elements.enabled.checked = Boolean(config.enabled);
+      form.elements.botToken.placeholder = config.tokenConfigured
+        ? "Token tersimpan (kosongkan untuk mempertahankan)"
+        : "Token bot Telegram dari @BotFather";
+      $("#platformTelegramTokenStatus").textContent = config.tokenConfigured
+        ? "Token bot tersimpan terenkripsi. Isi hanya jika ingin menggantinya."
+        : "Token bot belum disimpan. Token tidak pernah ditampilkan kembali.";
+      $("#platformTelegramBackupStatus").textContent = config.enabled
+        ? `Backup otomatis aktif setiap hari pukul ${config.backupTime} (${config.timezone}).`
+        : "Backup otomatis nonaktif. Pengaturan jadwal akan tersimpan tanpa mengirim backup.";
+    } catch (error) {
+      if ($("#platformTelegramBackupStatus")) {
+        $("#platformTelegramBackupStatus").textContent = "Status backup tidak dapat dimuat.";
+        toast(error.message, true);
+      }
+    }
   }
   function renderView() {
     const entry = nav.find(([key]) => key === view);
@@ -361,6 +397,7 @@
     }[view]();
     $("#platformContent").innerHTML = content;
     bindViewForms();
+    if (view === "backup") loadPlatformTelegramBackup();
     if (view === "audit") {
       api("/api/platform/audit").then((result) => {
         data.auditLogs = result.logs || [];
@@ -456,6 +493,22 @@
       try { await api("/api/platform/whatsapp/send", "POST", { to: form.elements.to.value, text: form.elements.text.value }); toast("Pesan WhatsApp berhasil dikirim."); }
       catch (error) { toast(error.message, true); }
     });
+    $("#platformTelegramBackupForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      try {
+        const result = await api("/api/platform/telegram-backup", "PUT", {
+          chatId: form.elements.chatId.value.trim(),
+          botToken: form.elements.botToken.value.trim(),
+          backupTime: form.elements.backupTime.value,
+          timezone: form.elements.timezone.value,
+          enabled: form.elements.enabled.checked
+        });
+        form.elements.botToken.value = "";
+        await loadPlatformTelegramBackup();
+        toast(result.enabled ? "Auto backup Telegram Super Admin aktif." : "Pengaturan auto backup Telegram disimpan.");
+      } catch (error) { toast(error.message, true); }
+    });
     $("#restoreForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!window.confirm("Restore akan mengganti data platform. Lanjutkan?")) return;
@@ -511,6 +564,10 @@
     }
     if (button.matches("[data-action=add-announcement]")) announcementModal();
     if (button.matches("[data-action=add-manual]")) manualModal();
+    if (button.matches("[data-action=test-platform-telegram]")) {
+      try { await api("/api/platform/telegram-backup/test", "POST", {}); toast("Pesan uji berhasil dikirim ke Telegram Super Admin."); }
+      catch (error) { toast(error.message, true); }
+    }
     if (button.dataset.announcementToggle || button.dataset.announcementDelete) {
       const id = button.dataset.announcementToggle || button.dataset.announcementDelete;
       const announcements = (data.announcements || []).flatMap((a) => a.id !== id ? [a] : button.dataset.announcementDelete ? [] : [{ ...a, active: a.active === false }]);

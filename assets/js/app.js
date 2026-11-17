@@ -1287,6 +1287,7 @@
     if (window.lucide) lucide.createIcons({ nodes: [root] });
     if (page === "dashboard") drawChart();
     if (page === "barcode") drawBarcodes();
+    if (page === "publicPortal") drawPublicPortalQr();
     bindPageEvents();
     if (page === "backup") loadTelegramSettings();
     if (page === "publicPortal") bindPublicPortalSettings();
@@ -2420,15 +2421,59 @@
   function renderPublicPortal() {
     const enabled = tenantSchool?.publicPortalEnabled !== false;
     const schoolCode = tenantSchool?.code || "";
-    const portalUrl = schoolCode ? `/portal/${encodeURIComponent(schoolCode)}` : "";
+    const portalUrl = schoolCode ? new URL(`/portal/${encodeURIComponent(schoolCode)}`, location.origin).href : "";
     const editable = activeUser?.role === "Administrator" && Boolean(apiAvailable && schoolCode);
     return `${pageHeading()}<section class="settings-card public-portal-settings">
       <div class="backup-card-heading"><span class="backup-icon"><i data-lucide="globe-2"></i></span><div><h3>Portal Publik Inventaris</h3><p>Bagikan ketersediaan barang sekolah kepada warga sekolah tanpa memberikan akses ke akun pengelola.</p></div><span class="badge ${enabled ? "success" : "neutral"}">${enabled ? "Aktif" : "Nonaktif"}</span></div>
-      <div class="public-portal-share"><div><small>Alamat portal publik</small><strong>${portalUrl ? esc(`${location.origin}${portalUrl}`) : "Portal publik memerlukan akun sekolah online."}</strong></div>${portalUrl ? `<a class="btn-secondary" href="${esc(portalUrl)}" target="_blank" rel="noopener"><i data-lucide="external-link"></i>Buka portal</a>` : ""}</div>
+      <div class="public-portal-share"><div><small>Alamat portal publik</small><strong id="publicPortalUrl">${portalUrl ? esc(portalUrl) : "Portal publik memerlukan akun sekolah online."}</strong></div>${portalUrl ? `<div class="public-portal-actions"><button type="button" class="btn-secondary" data-action="copy-public-portal-link"><i data-lucide="copy"></i>Salin link</button><a class="btn-secondary" href="${esc(portalUrl)}" target="_blank" rel="noopener"><i data-lucide="external-link"></i>Buka portal</a></div>` : ""}</div>
+      ${portalUrl ? `<div class="public-portal-qr-card"><div class="public-portal-qr-copy"><span class="eyebrow">QR CODE PORTAL</span><h3>Scan untuk membuka portal sekolah</h3><p>QR Code ini mengarah otomatis ke halaman inventaris publik dengan kode sekolah ${esc(schoolCode)}.</p><button type="button" class="btn-primary" data-action="download-public-portal-qr"><i data-lucide="download"></i>Unduh QR Code</button><small id="publicPortalQrStatus" class="form-help" aria-live="polite"></small></div><div id="publicPortalQr" class="public-portal-qr" data-url="${esc(portalUrl)}" role="img" aria-label="QR Code untuk portal publik sekolah"></div></div>` : ""}
       <form id="publicPortalSettingsForm"><label class="form-check public-portal-toggle"><input id="publicPortalEnabled" name="enabled" type="checkbox" ${enabled ? "checked" : ""} ${editable ? "" : "disabled"}><span>Aktifkan portal publik dan pencarian inventaris</span></label>
       <p class="form-help">Pengunjung dapat mencari barang atau memindai kode QR item. Portal hanya menampilkan nama barang, kategori, dan ringkasan stok/kondisi; data akun, transaksi pribadi, dan informasi pemasok tidak ditampilkan.</p>
       <div class="modal-footer">${editable ? `<button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan pengaturan</button>` : `<small class="form-help">Pengaturan ini hanya dapat diubah Administrator pada akun sekolah yang terhubung ke server.</small>`}</div></form>
     </section>`;
+  }
+
+  function drawPublicPortalQr() {
+    const target = $("#publicPortalQr");
+    if (!target) return;
+    target.replaceChildren();
+    if (!window.QRCode) {
+      $("#publicPortalQrStatus").textContent = "Generator QR Code tidak dapat dimuat. Periksa koneksi internet lalu muat ulang halaman.";
+      return;
+    }
+    new QRCode(target, {
+      text: target.dataset.url,
+      width: 192,
+      height: 192,
+      colorDark: "#253044",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+    $("#publicPortalQrStatus").textContent = "QR Code siap dipindai atau diunduh.";
+  }
+
+  async function copyPublicPortalLink() {
+    const url = $("#publicPortalUrl")?.textContent.trim();
+    if (!url || !/^https?:\/\//.test(url)) return showToast("Link portal publik belum tersedia.", true);
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast("Link portal publik berhasil disalin.");
+    } catch (error) {
+      showToast(`Link tidak dapat disalin: ${error.message}`, true);
+    }
+  }
+
+  function downloadPublicPortalQr() {
+    const target = $("#publicPortalQr");
+    const canvas = target?.querySelector("canvas");
+    const image = target?.querySelector("img");
+    const dataUrl = canvas?.toDataURL("image/png") || image?.src;
+    if (!dataUrl) return showToast("QR Code belum siap diunduh.", true);
+    const code = tenantSchool?.code || "sekolah";
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `portal-publik-${code}.png`;
+    link.click();
   }
 
   function bindPublicPortalSettings() {
@@ -4290,6 +4335,8 @@
     else if (action === "download-backup") downloadBackup();
     else if (action === "telegram-test") testTelegram();
     else if (action === "whatsapp-test") testWhatsAppGateway();
+    else if (action === "copy-public-portal-link") copyPublicPortalLink();
+    else if (action === "download-public-portal-qr") downloadPublicPortalQr();
     else if (action === "edit-profile") showProfileEditor();
     else if (action === "logout") logout();
     else if (action === "confirm-logout") confirmLogout();

@@ -54,6 +54,15 @@ db.exec(`
     enabled INTEGER NOT NULL DEFAULT 0,
     last_run_date TEXT NOT NULL DEFAULT ''
   );
+  CREATE TABLE IF NOT EXISTS saas_platform_telegram_backup (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    chat_id TEXT NOT NULL DEFAULT '',
+    token_cipher TEXT NOT NULL DEFAULT '',
+    backup_time TEXT NOT NULL DEFAULT '16:00',
+    timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+    enabled INTEGER NOT NULL DEFAULT 0,
+    last_run_date TEXT NOT NULL DEFAULT ''
+  );
   CREATE TABLE IF NOT EXISTS saas_tenant_whatsapp_notifications (
     school_id TEXT PRIMARY KEY,
     token_cipher TEXT NOT NULL DEFAULT '',
@@ -111,6 +120,7 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
   INSERT OR IGNORE INTO telegram_backup (id) VALUES (1);
+  INSERT OR IGNORE INTO saas_platform_telegram_backup (id) VALUES (1);
 `);
 const getState = db.prepare("SELECT payload FROM app_state WHERE id = 1");
 const saveState = db.prepare(`
@@ -134,6 +144,14 @@ const saveTenantTelegramConfig = db.prepare(`
     last_run_date = excluded.last_run_date
 `);
 const getAllTenantTelegramConfigs = db.prepare("SELECT * FROM saas_tenant_telegram_backup");
+const getPlatformTelegramBackup = db.prepare("SELECT * FROM saas_platform_telegram_backup WHERE id = 1");
+const getEnabledPlatformTelegramBackup = db.prepare("SELECT * FROM saas_platform_telegram_backup WHERE id = 1 AND enabled = 1");
+const savePlatformTelegramBackup = db.prepare(`
+  UPDATE saas_platform_telegram_backup
+  SET chat_id = ?, token_cipher = ?, backup_time = ?, timezone = ?, enabled = ?, last_run_date = ?
+  WHERE id = 1
+`);
+const setPlatformTelegramLastRun = db.prepare("UPDATE saas_platform_telegram_backup SET last_run_date = ? WHERE id = 1");
 const getTenantWhatsAppConfig = db.prepare("SELECT * FROM saas_tenant_whatsapp_notifications WHERE school_id = ?");
 const getEnabledTenantWhatsAppConfigs = db.prepare("SELECT * FROM saas_tenant_whatsapp_notifications WHERE enabled = 1");
 const getAllTenantWhatsAppConfigs = db.prepare("SELECT * FROM saas_tenant_whatsapp_notifications");
@@ -472,6 +490,18 @@ async function sendTelegramBackup(config, schoolId) {
   await telegramRequest(token, "sendDocument", form);
 }
 
+async function sendPlatformTelegramBackup(config) {
+  const token = decryptToken(config.token_cipher);
+  if (!token || !config.chat_id) throw new Error("ID Telegram dan token bot Super Admin belum diisi.");
+  const backup = fullPlatformBackup();
+  const file = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const form = new FormData();
+  form.append("chat_id", config.chat_id);
+  form.append("document", file, `sarprah-saas-backup-${backup.createdAt.slice(0, 10)}.json`);
+  form.append("caption", `Backup platform Sarprah SaaS · ${backup.createdAt}`);
+  await telegramRequest(token, "sendDocument", form);
+}
+
 function normalizeWhatsAppNumber(value) {
   let number = String(value || "").replace(/[^\d+]/g, "");
   if (number.startsWith("+")) number = number.slice(1);
@@ -644,6 +674,7 @@ function fullPlatformBackup() {
     auditLogs: getAllAuditRows.all().map(({ payload }) => JSON.parse(payload)),
     telegramBackup: getTelegramConfig.get(),
     telegramBackups: getAllTenantTelegramConfigs.all(),
+    platformTelegramBackup: getPlatformTelegramBackup.get(),
     whatsappNotifications: getAllTenantWhatsAppConfigs.all(),
     superAdmins: db.prepare("SELECT id, username, email, name, password_salt, password_hash FROM saas_super_admins").all()
   };
@@ -972,6 +1003,65 @@ async function handlePlatformApi(req, res) {
     auditPlatform("Mengirim pesan WhatsApp", `Pesan terkirim ke ${to}`);
     return send(res, 200, JSON.stringify({ ok: true, messageId: result.messages?.[0]?.id || "" })), true;
   }
+  if (req.method === "GET" && pathname === "/api/platform/telegram-backup") {
+    const config = getPlatformTelegramBackup.get();
+    return send(res, 200, JSON.stringify({
+      chatId: config.chat_id,
+      backupTime: config.backup_time,
+      timezone: config.timezone,
+      enabled: Boolean(config.enabled),
+      tokenConfigured: Boolean(config.token_cipher)
+    })), true;
+  }
+  if (req.method === "PUT" && pathname === "/api/platform/telegram-backup") {
+    const input = await readJsonBody(req, 32_000);
+    const current = getPlatformTelegramBackup.get();
+    const chatId = String(input.chatId || "").trim();
+    const token = String(input.botToken || "").trim();
+    const backupTime = String(input.backupTime || "16:00");
+    const timezone = String(input.timezone || "Asia/Jakarta");
+    const enabled = Boolean(input.enabled);
+    if (chatId && !/^(?:-?\d{1,20}|@[A-Za-z0-9_]{5,32})$/.test(chatId)) {
+      return send(res, 400, JSON.stringify({ error: "ID atau username tujuan Telegram tidak valid." })), true;
+    }
+    if (token && !/^\d{6,20}:[A-Za-z0-9_-]{20,}$/.test(token)) {
+      return send(res, 400, JSON.stringify({ error: "Format token bot Telegram tidak valid." })), true;
+    }
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(backupTime)) {
+      return send(res, 400, JSON.stringify({ error: "Jam backup harus berformat HH:MM." })), true;
+    }
+    if (!timezones.has(timezone)) return send(res, 400, JSON.stringify({ error: "Zona waktu tidak didukung." })), true;
+    const tokenCipher = token ? encryptToken(token) : current.token_cipher;
+    if (enabled && (!chatId || !tokenCipher)) {
+      return send(res, 400, JSON.stringify({ error: "Isi ID Telegram dan token bot sebelum mengaktifkan auto backup." })), true;
+    }
+    savePlatformTelegramBackup.run(
+      chatId, tokenCipher, backupTime, timezone, enabled ? 1 : 0,
+      current.backup_time === backupTime && current.timezone === timezone ? current.last_run_date : ""
+    );
+    const updated = getPlatformTelegramBackup.get();
+    auditPlatform("Memperbarui auto backup Telegram Super Admin", `${enabled ? "Aktif" : "Nonaktif"} · ${backupTime} ${timezone}`);
+    return send(res, 200, JSON.stringify({
+      ok: true, enabled: Boolean(updated.enabled), backupTime: updated.backup_time,
+      timezone: updated.timezone, tokenConfigured: Boolean(updated.token_cipher)
+    })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/telegram-backup/test") {
+    const config = getPlatformTelegramBackup.get();
+    if (!config.chat_id || !config.token_cipher) {
+      return send(res, 400, JSON.stringify({ error: "Simpan ID Telegram dan token bot terlebih dahulu." })), true;
+    }
+    try {
+      await telegramRequest(decryptToken(config.token_cipher), "sendMessage", JSON.stringify({
+        chat_id: config.chat_id,
+        text: "Uji koneksi auto backup Telegram Sarprah SaaS berhasil."
+      }));
+    } catch (error) {
+      return send(res, 502, JSON.stringify({ error: error.message || "Uji koneksi Telegram gagal." })), true;
+    }
+    auditPlatform("Menguji auto backup Telegram Super Admin", config.chat_id);
+    return send(res, 200, JSON.stringify({ ok: true })), true;
+  }
   if (req.method === "GET" && pathname === "/api/platform/backup") {
     const backup = fullPlatformBackup();
     auditPlatform("Membuat backup platform", backup.createdAt);
@@ -1079,6 +1169,24 @@ async function handlePlatformApi(req, res) {
             !timezones.has(telegram.timezone)) throw new Error("Konfigurasi Telegram pada backup tidak valid.");
         saveTelegramConfig.run(telegram.chat_id, telegram.token_cipher, telegram.backup_time, telegram.timezone, telegram.enabled ? 1 : 0);
       }
+      const platformTelegram = backup.platformTelegramBackup || {
+        chat_id: "", token_cipher: "", backup_time: "16:00", timezone: "Asia/Jakarta", enabled: 0, last_run_date: ""
+      };
+      if (backup.platformTelegramBackup !== undefined &&
+          (typeof platformTelegram.chat_id !== "string" || typeof platformTelegram.token_cipher !== "string" ||
+           !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(platformTelegram.backup_time || "") ||
+           !timezones.has(platformTelegram.timezone) ||
+           ![0, 1, false, true].includes(platformTelegram.enabled))) {
+        throw new Error("Konfigurasi backup Telegram Super Admin pada backup tidak valid.");
+      }
+      savePlatformTelegramBackup.run(
+        platformTelegram.chat_id,
+        platformTelegram.token_cipher,
+        platformTelegram.backup_time,
+        platformTelegram.timezone,
+        platformTelegram.enabled ? 1 : 0,
+        String(platformTelegram.last_run_date || "")
+      );
       if (backup.superAdmins) {
         db.prepare("DELETE FROM saas_sessions").run();
         db.prepare("DELETE FROM saas_super_admins").run();
@@ -1441,6 +1549,21 @@ async function runTelegramBackupIfDue() {
       } catch (error) {
         setTenantLastRun.run("", config.school_id);
         console.error(`Backup Telegram sekolah ${config.school_id} gagal: ${error.message}`);
+      }
+    }
+    const platformConfig = getEnabledPlatformTelegramBackup.get();
+    if (platformConfig) {
+      const local = getLocalDateParts(platformConfig.timezone);
+      const date = `${local.year}-${local.month}-${local.day}`;
+      if (`${local.hour}:${local.minute}` === platformConfig.backup_time && platformConfig.last_run_date !== date) {
+        setPlatformTelegramLastRun.run(date);
+        try {
+          await sendPlatformTelegramBackup(platformConfig);
+          console.log(`Backup Telegram platform berhasil (${date}, ${platformConfig.timezone}).`);
+        } catch (error) {
+          setPlatformTelegramLastRun.run("");
+          console.error(`Backup Telegram platform gagal: ${error.message}`);
+        }
       }
     }
   } finally {
