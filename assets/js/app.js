@@ -2405,7 +2405,7 @@
     const editable = activeUser?.role === "Administrator";
     return `${pageHeading(`<button class="btn-secondary" data-action="download-backup"><i data-lucide="download"></i>Backup sekarang</button><label class="btn-primary ${editable ? "" : "disabled-button"}"><i data-lucide="upload"></i>Restore backup<input id="restoreFile" type="file" accept=".json,application/json" ${editable ? "" : "disabled"} hidden></label>`)}
       <section class="settings-card"><div class="backup-card-heading"><span class="backup-icon"><i data-lucide="hard-drive-download"></i></span><div><h3>Backup & Restore</h3><p>Buat file backup JSON atau pulihkan data aplikasi dari file backup Sarprah sebelumnya.</p></div></div>
-      <div class="backup-note"><i data-lucide="shield-check"></i><span>Restore akan mengganti seluruh data aplikasi saat ini. Buat backup terlebih dahulu sebelum memulihkan data.</span></div></section>
+      <div class="backup-note"><i data-lucide="shield-check"></i><span>Restore mengganti data aplikasi, tetapi tetap mempertahankan akun Administrator yang sedang masuk. Buat backup terlebih dahulu sebelum memulihkan data.</span></div></section>
       <form id="telegramSettingsForm" class="settings-card"><div class="backup-card-heading"><span class="backup-icon telegram"><i data-lucide="send"></i></span><div><h3>Backup Otomatis Telegram</h3><p>Jadwalkan pengiriman file backup JSON ke chat Telegram setiap hari.</p></div><span id="telegramStatus" class="badge neutral">Memuat pengaturan…</span></div>
       <div class="form-grid">
         <div class="form-field"><label for="telegramChatId">ID Telegram / Chat ID</label><input id="telegramChatId" name="chatId" inputmode="numeric" placeholder="Contoh: 123456789" required ${editable ? "" : "disabled"}></div>
@@ -2669,7 +2669,17 @@
       if (backupState.accounts.filter((account) => account.role === "Administrator").length !== 1) {
         throw new Error("Backup harus memiliki tepat satu akun Administrator.");
       }
-      if (!window.confirm("Restore akan mengganti seluruh data aplikasi. Lanjutkan?")) return;
+      const currentAdmin = state.accounts.find((account) =>
+        account.id === activeUser?.id && account.role === "Administrator" && account.active);
+      if (currentAdmin) {
+        backupState.accounts = backupState.accounts.filter((account) =>
+          account.role !== "Administrator" &&
+          account.id !== currentAdmin.id &&
+          String(account.email || "").toLowerCase() !== currentAdmin.email.toLowerCase()
+        );
+        backupState.accounts.push(currentAdmin);
+      }
+      if (!window.confirm("Restore akan mengganti data aplikasi, tetapi mempertahankan akun Administrator yang sedang masuk. Lanjutkan?")) return;
       if (apiAvailable) {
         const response = await fetch("/api/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(backup) });
         const result = await response.json();

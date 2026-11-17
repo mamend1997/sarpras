@@ -8,6 +8,7 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 - Halaman Super Admin: `http://localhost:3000/super-admin`. Pada penggunaan pertama, buat akun Super Admin khusus. Selanjutnya halaman ini meminta login.
 - Setiap tenant menyimpan inventaris, akun, dan tiket secara terpisah. Super Admin dapat mengatur sekolah, paket dan masa langganan, pembayaran, fitur, branding, QRIS, syarat/SLA, pengumuman, maintenance, panduan, tiket, WhatsApp, audit, serta backup/restore.
 - Pada **Super Admin → Backup & Restore**, jadwalkan backup harian seluruh platform ke Telegram menggunakan token bot dan Chat ID tujuan. Jadwal awal pukul 16.00 WIB; token disimpan terenkripsi dan file mencakup data semua tenant, sehingga chat tujuan harus dijaga kerahasiaannya.
+- Restore backup sekolah ke tenant baru memulihkan data sekolah sambil mempertahankan akun Administrator yang sedang login, agar kredensial pendaftaran tetap dapat digunakan.
 - Database lama dimigrasikan sebagai tenant awal dengan kode `0001`. Data baru disimpan di SQLite pada `DB_PATH`; jangan gunakan database lokal bersama untuk pengujian yang mengubah data.
 - Jika akun sekolah lama belum tercantum di platform SaaS, startup berikutnya akan memasukkannya ke **Daftar Sekolah** sebagai tenant pertama, memberi kode sekolah, dan mempertahankan akses Lifetime. Kode tenant lama seperti `0001` tetap berlaku; data migrasi yang belum lengkap akan dicoba dipulihkan saat startup.
 - Fitur maintenance dan masa aktif diperiksa pada autentikasi dan API, bukan hanya disembunyikan dari antarmuka. Backup SaaS berisi data semua tenant dan kredensial hash Super Admin; simpan file backup seperti rahasia dan lindungi kunci enkripsi bersama file database.
@@ -18,7 +19,9 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 2. Jalankan `npm start`.
 3. Buka `http://localhost:3000`.
 
-Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web service Railway. Secara lokal, berkas database `sarprah.sqlite` dibuat otomatis di folder proyek dan tidak perlu di-commit. Di Railway, hubungkan Volume persisten ke service; aplikasi otomatis menyimpan database `sarprah.sqlite` dan kunci enkripsinya di dalam direktori Volume. Jika `DB_PATH` menunjuk ke luar Volume, aplikasi memakai lokasi default di dalam Volume. Tanpa Volume, aplikasi tetap berjalan menggunakan filesystem lokal Railway dan memberi peringatan, tetapi data dapat hilang saat redeploy.
+Server membaca `PORT` dari environment, sehingga dapat dijalankan sebagai web service Railway. Secara lokal, berkas database `sarprah.sqlite` dibuat otomatis di folder proyek dan tidak perlu di-commit. Di Railway, buka pengaturan service → **Volumes**, tambahkan Volume dengan mount path `/data`; Railway akan menyediakan `RAILWAY_VOLUME_MOUNT_PATH` dan aplikasi menyimpan database serta kunci enkripsinya di sana. Jika `DB_PATH` menunjuk ke luar Volume, aplikasi memakai lokasi default di dalam Volume. Tanpa Volume, aplikasi tetap berjalan, tetapi login dan data dapat hilang saat redeploy; log akan meminta Volume dipasang.
+
+Perintah `npm start` menonaktifkan hanya peringatan bawaan Node `ExperimentalWarning` dari `node:sqlite`; peringatan tersebut tidak memengaruhi operasi database.
 
 Jika database sebelumnya tersimpan pada filesystem sementara Railway, salin database beserta `.sarprah-key` ke Volume atau pulihkan backup yang sesuai sebelum menghapus sumber lama. Database baru yang kosong tidak berisi akun Super Admin maupun sekolah lama.
 

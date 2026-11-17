@@ -27,7 +27,7 @@ if (railwayVolumePath) {
 } else {
   dbPath = configuredDbPath || path.join(root, "sarprah.sqlite");
   if (railwayDeployment) {
-    console.warn("Railway Volume tidak terdeteksi; database memakai filesystem lokal yang mungkin tidak bertahan setelah redeploy.");
+    console.warn("Railway Volume belum terpasang. Tambahkan Volume dengan mount path /data agar login dan data sekolah tidak hilang saat redeploy.");
   }
 }
 dbPath = path.resolve(dbPath);
@@ -1510,9 +1510,21 @@ async function handleApi(req, res) {
     });
   }
   if (req.method === "POST" && req.url === "/api/restore") {
-    const state = validateBackup(await readJsonBody(req));
-    saveTenantStateRow.run(session.schoolId, JSON.stringify(state));
-    return send(res, 200, JSON.stringify({ ok: true }));
+    const restoredState = validateBackup(await readJsonBody(req));
+    const currentTenant = tenantState(session.schoolId);
+    const currentAdmin = currentTenant?.accounts?.find((account) =>
+      account.id === session.account.id && account.role === "Administrator" && account.active);
+    if (!currentAdmin) return send(res, 409, JSON.stringify({ error: "Akun Administrator yang sedang masuk tidak ditemukan." }));
+    restoredState.accounts = validateAccounts(
+      restoredState.accounts.filter((account) =>
+        account.role !== "Administrator" &&
+        account.id !== currentAdmin.id &&
+        String(account.email || "").toLowerCase() !== currentAdmin.email.toLowerCase()
+      ).concat(currentAdmin),
+      currentAdmin.id
+    );
+    saveTenantStateRow.run(session.schoolId, JSON.stringify(restoredState));
+    return send(res, 200, JSON.stringify({ ok: true, adminCredentialsPreserved: true }));
   }
   if (req.method === "GET" && req.url === "/api/telegram/settings") {
     const config = getTenantTelegramConfig.get(session.schoolId) || {

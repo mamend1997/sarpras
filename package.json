@@ -4,7 +4,7 @@
   "private": true,
   "description": "Aplikasi manajemen sarana dan prasarana sekolah",
   "scripts": {
-    "start": "node server.js"
+    "start": "node --disable-warning=ExperimentalWarning server.js"
   },
   "engines": {
     "node": ">=22.5"
