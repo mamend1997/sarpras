@@ -22,6 +22,8 @@
     ["unitId", "Satuan", "units"],
     ["supplierId", "Supplier", "suppliers"]
   ];
+  const yearMasterCollections = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds"];
+  const yearScopedCollections = new Set([...yearMasterCollections, "goods"]);
   const formatThousands = (value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const parseThousands = (value) => Number(String(value ?? "").replace(/\D/g, "")) || 0;
   const parseGroupedInteger = (value) => {
@@ -48,7 +50,7 @@
     ownerships: [{ id: "ow1", name: "Milik" }, { id: "ow2", name: "Sewa" }, { id: "ow3", name: "Pinjam" }, { id: "ow4", name: "Bukan Milik" }],
     suppliers: [{ id: "sp1", name: "CV Sumber Teknologi", address: "Jl. Asia Afrika No. 18, Bandung", phone: "(022) 4201188", email: "info@sumberteknologi.id" }, { id: "sp2", name: "PT Maju Jaya Abadi", address: "Jl. Soekarno Hatta No. 210, Bandung", phone: "(022) 7302210", email: "kontak@majujaya.id" }, { id: "sp3", name: "Koperasi Sekolah", address: "Jl. Ir. H. Juanda No. 93, Bandung", phone: "(022) 4204152", email: "" }],
     funds: [{ id: "fd1", name: "BOS", description: "Bantuan Operasional Sekolah" }, { id: "fd2", name: "Komite Sekolah", description: "Dana partisipasi komite" }, { id: "fd3", name: "Kenang-kenangan Siswa", description: "Hibah dan kenang-kenangan" }],
-    academicYears: [{ id: "ay1", name: "2026/2027", status: "Aktif" }],
+    academicYears: [{ id: "ay1", name: "2026/2027", startDate: "2026-07-01", endDate: "2027-06-30", status: "Aktif" }],
     goods: [
       { id: "gd1", name: "Laptop Lenovo ThinkPad", ownershipId: "ow1", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo3", unitId: "un1", supplierId: "sp1", quantity: 24, price: 8750000, consumable: false },
       { id: "gd2", name: "Proyektor Epson EB-X06", ownershipId: "ow1", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo2", unitId: "un1", supplierId: "sp1", quantity: 8, price: 6200000, consumable: false },
@@ -145,7 +147,7 @@
     ownerships: { title: "Kepemilikan", description: "Daftar jenis kepemilikan yang dapat dipilih pada Data Barang.", singular: "Kepemilikan", cols: [["name", "Nama Kepemilikan"]], fields: [["name", "Nama Kepemilikan", "text", true]] },
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
-    academicYears: { title: "Tahun Pelajaran", description: "Daftar tahun pelajaran yang berlaku di sekolah.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
+    academicYears: { title: "Tahun Pelajaran", description: "Kelola periode tahun ajaran dan salin data master serta barang dari tahun sebelumnya.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["startDate", "Tanggal Mulai"], ["endDate", "Tanggal Selesai"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["startDate", "Tanggal Mulai", "date", true], ["endDate", "Tanggal Selesai", "date", true], ["copyPreviousData", "Salin data master dan barang beserta stok terakhir dari tahun sebelumnya", "checkbox"], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
     goods: { title: "Data Barang", description: "Informasi barang, spesifikasi, kepemilikan, lokasi, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
@@ -349,7 +351,7 @@
 
   function ensureAcademicYearDefaults() {
     let changed = false;
-    if (!Array.isArray(state.academicYears)) {
+    if (!Array.isArray(state.academicYears) || !state.academicYears.length) {
       state.academicYears = structuredClone(seed.academicYears);
       changed = true;
     }
@@ -358,7 +360,74 @@
       settings.selectedAcademicYearId = (state.academicYears.find((year) => year.status === "Aktif") || state.academicYears[0])?.id || "";
       changed = true;
     }
+    state.academicYears.forEach((year) => {
+      const bounds = academicYearBounds(year);
+      if (!year.startDate && bounds) { year.startDate = bounds.start; changed = true; }
+      if (!year.endDate && bounds) { year.endDate = bounds.end; changed = true; }
+    });
+    yearScopedCollections.forEach((collection) => {
+      (state[collection] || []).forEach((row) => {
+        if (!row.academicYearId) {
+          row.academicYearId = settings.selectedAcademicYearId;
+          changed = true;
+        }
+      });
+    });
     return changed;
+  }
+
+  function currentAcademicYearId() {
+    return state.settings?.selectedAcademicYearId || state.academicYears?.find((year) => year.status === "Aktif")?.id || state.academicYears?.[0]?.id || "";
+  }
+
+  function recordsForAcademicYear(collection, academicYearId = currentAcademicYearId()) {
+    const records = state[collection] || [];
+    if (!yearScopedCollections.has(collection) || !academicYearId) return records;
+    return records.filter((row) => !row.academicYearId || row.academicYearId === academicYearId);
+  }
+
+  function recordsForCurrentAcademicYear(collection) {
+    return recordsForAcademicYear(collection);
+  }
+
+  function previousAcademicYear(startDate) {
+    return (state.academicYears || [])
+      .filter((year) => year.endDate && year.endDate < startDate)
+      .sort((a, b) => String(b.endDate).localeCompare(String(a.endDate)))[0] || null;
+  }
+
+  function copyAcademicYearData(sourceYearId, targetYearId) {
+    const idMaps = Object.fromEntries(yearMasterCollections.map((collection) => [collection, new Map()]));
+    yearMasterCollections.forEach((collection) => {
+      if (!Array.isArray(state[collection])) state[collection] = [];
+      recordsForAcademicYear(collection, sourceYearId)
+        .filter((row) => row.academicYearId === sourceYearId)
+        .forEach((row) => {
+          const copy = structuredClone(row);
+          const oldId = copy.id;
+          copy.id = id();
+          copy.academicYearId = targetYearId;
+          idMaps[collection].set(oldId, copy.id);
+          if (collection === "categories") copy.typeId = idMaps.types.get(copy.typeId) || copy.typeId;
+          state[collection].unshift(copy);
+        });
+    });
+    if (!Array.isArray(state.goods)) state.goods = [];
+    const copiedGoods = recordsForAcademicYear("goods", sourceYearId)
+      .filter((good) => good.academicYearId === sourceYearId)
+      .map((good) => {
+        const copy = structuredClone(good);
+        copy.id = id();
+        copy.academicYearId = targetYearId;
+        ["ownershipId", "fundId", "typeId", "categoryId", "locationId", "unitId", "supplierId"].forEach((field) => {
+          const collection = ({ ownershipId: "ownerships", fundId: "funds", typeId: "types", categoryId: "categories", locationId: "locations", unitId: "units", supplierId: "suppliers" })[field];
+          copy[field] = idMaps[collection].get(copy[field]) || copy[field];
+        });
+        copy.quantity = Number(good.quantity) || 0;
+        return copy;
+      });
+    state.goods.unshift(...copiedGoods);
+    return { masters: yearMasterCollections.reduce((total, collection) => total + idMaps[collection].size, 0), goods: copiedGoods.length };
   }
 
   function ensureMobileNavigationDefaults() {
@@ -805,13 +874,16 @@
     const itemsTotal = state.items.length;
     const damaged = state.items.filter((row) => row.condition === "Rusak").length;
     const outstanding = state.loans.filter((row) => ["Diterima", "Pengajuan"].includes(row.status)).length;
-    const goodCount = state.goods.length;
-    const sarana = state.types.filter((row) => row.type === "sarana").map((row) => row.id);
-    const prasarana = state.types.filter((row) => row.type === "prasarana").map((row) => row.id);
-    const saranaGoods = state.items.filter((row) => sarana.includes(getById("goods", row.goodId)?.typeId)).length;
-    const prasaranaGoods = state.items.filter((row) => prasarana.includes(getById("goods", row.goodId)?.typeId)).length;
-    const saranaAvailable = state.items.filter((row) => row.condition === "Baik" && sarana.includes(getById("goods", row.goodId)?.typeId)).length;
-    const prasaranaAvailable = state.items.filter((row) => row.condition === "Baik" && prasarana.includes(getById("goods", row.goodId)?.typeId)).length;
+    const goods = recordsForAcademicYear("goods");
+    const goodsById = new Map(goods.map((good) => [good.id, good]));
+    const goodCount = goods.length;
+    const sarana = recordsForAcademicYear("types").filter((row) => row.type === "sarana").map((row) => row.id);
+    const prasarana = recordsForAcademicYear("types").filter((row) => row.type === "prasarana").map((row) => row.id);
+    const yearItems = state.items.filter((row) => goodsById.has(row.goodId));
+    const saranaGoods = yearItems.filter((row) => sarana.includes(goodsById.get(row.goodId)?.typeId)).length;
+    const prasaranaGoods = yearItems.filter((row) => prasarana.includes(goodsById.get(row.goodId)?.typeId)).length;
+    const saranaAvailable = yearItems.filter((row) => row.condition === "Baik" && sarana.includes(goodsById.get(row.goodId)?.typeId)).length;
+    const prasaranaAvailable = yearItems.filter((row) => row.condition === "Baik" && prasarana.includes(goodsById.get(row.goodId)?.typeId)).length;
     const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
     const lateRows = state.loans.filter((row) => ["Diterima", "Pengajuan"].includes(row.status) && row.dueDate < dateOffset(0)).slice(0, 4);
     const procurements = state.procurements.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
@@ -865,7 +937,7 @@
 
   function showGoodsCheckResult(goodId, itemId = "") {
     const good = getById("goods", goodId);
-    if (!good) {
+    if (!good || (good.academicYearId && good.academicYearId !== currentAcademicYearId())) {
       $("#goodsCheckStatus").textContent = "Barang tidak ditemukan.";
       $("#goodsCheckResult").innerHTML = `<div class="empty-state"><i data-lucide="search-x"></i>Barang tidak ditemukan. Periksa kembali kode atau nama yang dimasukkan.</div>`;
       return;
@@ -923,11 +995,12 @@
       $("#goodsCheckStatus").textContent = "Masukkan kode barcode atau nama barang terlebih dahulu.";
       return;
     }
-    const exactItem = state.items.find((item) => String(item.code || "").toLocaleLowerCase("id-ID") === normalized);
+    const currentGoodIds = new Set(recordsForAcademicYear("goods").map((good) => good.id));
+    const exactItem = state.items.find((item) => currentGoodIds.has(item.goodId) && String(item.code || "").toLocaleLowerCase("id-ID") === normalized);
     if (exactItem) return showGoodsCheckResult(exactItem.goodId, exactItem.id);
-    state.items.filter((item) => String(item.code || "").toLocaleLowerCase("id-ID").includes(normalized))
+    state.items.filter((item) => currentGoodIds.has(item.goodId) && String(item.code || "").toLocaleLowerCase("id-ID").includes(normalized))
       .forEach((item) => matches.push({ good: getById("goods", item.goodId), item }));
-    state.goods.filter((good) => String(good.name || "").toLocaleLowerCase("id-ID").includes(normalized))
+    recordsForAcademicYear("goods").filter((good) => String(good.name || "").toLocaleLowerCase("id-ID").includes(normalized))
       .forEach((good) => { if (!matches.some((match) => match.good?.id === good.id)) matches.push({ good, item: null }); });
     const validMatches = matches.filter((match) => match.good);
     if (!validMatches.length) {
@@ -1114,7 +1187,7 @@
     const displayCols = key === "goods"
       ? [["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "BHP"]]
       : config.cols;
-    const rows = state[key] || [];
+    const rows = recordsForCurrentAcademicYear(key);
     const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears"].includes(key);
     const bulkDeletable = bulkDeletePages.has(key) && canDeletePage(key);
     const actions = canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : "";
@@ -1176,7 +1249,7 @@
     if (field === "priority") return value === "Mendesak" ? `<span class="badge danger">Mendesak</span>` : `<span class="badge neutral">${esc(value || "Normal")}</span>`;
     if (field === "condition") return value === "Rusak" ? `<span class="badge danger">Rusak</span>` : value === "Dihapus" ? `<span class="badge neutral">Dihapus</span>` : `<span class="badge success">Baik</span>`;
     if (field === "type") return `<span class="badge ${value === "prasarana" ? "info" : "warning"}">${esc(value)}</span>`;
-    if (["date", "received", "startDate", "dueDate"].includes(field)) return esc(niceDate(value));
+    if (["date", "received", "startDate", "endDate", "dueDate"].includes(field)) return esc(niceDate(value));
     if (field === "late") {
       const late = row.dueDate < dateOffset(0) && ["Diterima", "Pengajuan"].includes(row.status);
       return late ? `<span class="badge danger">${Math.max(1, Math.floor((today - new Date(`${row.dueDate}T00:00:00`)) / 86400000))} hari</span>` : `<span class="badge success">Tepat waktu</span>`;
@@ -1209,8 +1282,9 @@
   }
 
   function renderReports() {
-    const goodsQty = state.goods.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
-    const value = state.goods.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.price || 0), 0);
+    const currentGoods = recordsForAcademicYear("goods");
+    const goodsQty = currentGoods.reduce((sum, row) => sum + Number(row.quantity || 0), 0);
+    const value = currentGoods.reduce((sum, row) => sum + Number(row.quantity || 0) * Number(row.price || 0), 0);
     const reportOptions = [["inventaris", "Rekapitulasi Inventaris"], ["loans", "Laporan Peminjaman"], ["usages", "Penggunaan BHP"], ["procurements", "Pengadaan Barang"], ["disposals", "Pemusnahan Barang"], ["depreciations", "Penyusutan Aset"]];
     return `${pageHeading(`<button class="btn-secondary" data-action="export-report"><i data-lucide="download"></i>Ekspor Excel</button><button class="btn-primary" data-action="print"><i data-lucide="printer"></i>Cetak laporan</button>`)}
       <section class="panel"><div class="report-heading">${state.school.logo ? `<img class="report-logo" src="${esc(state.school.logo)}" alt="Logo sekolah">` : `<div class="school-avatar">${esc((state.school.name || "S").slice(0, 1))}</div>`}<div><h2>${esc(state.school.name)}</h2><p>${esc(state.school.address)} · ${esc(state.school.phone)}</p><p>${esc(state.school.email)} · ${esc(state.school.website)}</p></div></div>
@@ -1218,7 +1292,8 @@
         <label class="report-filter-control"><span>Jenis laporan</span><select class="table-filter" id="reportType">${reportOptions.map(([val, label]) => `<option value="${val}">${label}</option>`).join("")}</select></label>
         <label class="report-filter-control" id="reportPeriodField"><span>Periode</span><select class="table-filter" id="reportPeriod"><option value="month">Bulanan</option><option value="academicYear">Tahun Pelajaran</option><option value="custom">Rentang tanggal</option></select></label>
         <label class="report-filter-control" id="reportMonthField"><span>Bulan</span><input id="reportMonth" class="table-filter" type="month" value="${currentMonth}"></label>
-        <label class="report-filter-control hidden" id="reportAcademicYearField"><span>Tahun Pelajaran</span><select class="table-filter" id="reportAcademicYear">${state.academicYears.map((year) => `<option value="${esc(year.id)}" ${year.status === "Aktif" ? "selected" : ""}>${esc(year.name)}</option>`).join("")}</select></label>
+        <label class="report-filter-control hidden" id="reportAcademicYearField"><span>Tahun Pelajaran</span><select class="table-filter" id="reportAcademicYear">${state.academicYears.map((year) => `<option value="${esc(year.id)}" ${year.id === state.settings.selectedAcademicYearId ? "selected" : ""}>${esc(year.name)}</option>`).join("")}</select></label>
+        <div class="report-filter-control hidden" id="reportInventoryDetailsField"><span>Rincian inventaris</span><label class="form-check report-detail-toggle"><input id="reportInventoryDetails" type="checkbox" ${state.settings.reportInventoryDetails === false ? "" : "checked"}><span>Tampilkan detail barang</span></label></div>
         <div class="report-date-range hidden" id="reportDateRange">
           <label class="report-filter-control"><span>Tanggal mulai</span><input id="reportStart" class="table-filter" type="date" value="${currentMonth}-01"></label>
           <label class="report-filter-control"><span>Tanggal akhir</span><input id="reportEnd" class="table-filter" type="date" value="${dateOffset(0)}"></label>
@@ -1229,7 +1304,11 @@
       ${reportSignatures(state.school)}
       <p class="muted" style="font-size:9px;text-align:center;margin:28px 0 0">${esc(state.school.footer)}</p></section>`;
   }
-  function academicYearBounds(name) {
+  function academicYearBounds(year) {
+    if (year && typeof year === "object" && year.startDate && year.endDate) {
+      return { start: year.startDate, end: year.endDate };
+    }
+    const name = typeof year === "object" ? year?.name : year;
     const match = String(name || "").match(/(\d{4})\s*[\/–-]\s*(\d{4})/);
     if (!match) return null;
     return { start: `${match[1]}-07-01`, end: `${match[2]}-06-30` };
@@ -1245,7 +1324,7 @@
     }
     if (period === "academicYear") {
       const year = state.academicYears.find((row) => row.id === $("#reportAcademicYear")?.value);
-      return year ? academicYearBounds(year.name) : null;
+      return year ? academicYearBounds(year) : null;
     }
     return { start: $("#reportStart")?.value || "", end: $("#reportEnd")?.value || "" };
   }
@@ -1279,12 +1358,27 @@
     const { title, period } = reportHeadingContent(type, range);
     return `<div><h3>${esc(title)}</h3><p>${esc(period)}</p></div>`;
   }
+  function inventoryReportData() {
+    const showDetails = state.settings.reportInventoryDetails !== false;
+    const goods = recordsForAcademicYear("goods");
+    const headers = showDetails
+      ? ["Nama Barang", "Kepemilikan", "Sumber Dana", "Jenis", "Kategori", "Lokasi", "Jumlah", "Satuan", "Harga Satuan", "Harga Total"]
+      : ["Nama Barang", "Jenis", "Kategori", "Jumlah", "Satuan", "Harga Total"];
+    const fields = showDetails
+      ? ["name", "ownership", "fund", "type", "category", "location", "quantity", "unit", "price", "totalPrice"]
+      : ["name", "type", "category", "quantity", "unit", "totalPrice"];
+    const rows = goods.map((good) => {
+      const totalPrice = Number(good.quantity || 0) * Number(good.price || 0);
+      return showDetails
+        ? [good.name, relatedName("ownerships", good.ownershipId), relatedName("funds", good.fundId), relatedName("types", good.typeId), relatedName("categories", good.categoryId), relatedName("locations", good.locationId), good.quantity, relatedName("units", good.unitId), Number(good.price || 0), totalPrice]
+        : [good.name, relatedName("types", good.typeId), relatedName("categories", good.categoryId), good.quantity, relatedName("units", good.unitId), totalPrice];
+    });
+    return { headers, fields, rows };
+  }
   function reportTable(type, startDate, endDate) {
     let cols, fields, rows;
     if (type === "inventaris") {
-      cols = ["Nama Barang", "Jenis", "Kategori", "Jumlah", "Satuan", "Nilai"];
-      fields = ["name", "type", "category", "quantity", "unit", "value"];
-      rows = state.goods.map((row) => [row.name, relatedName("types", row.typeId), relatedName("categories", row.categoryId), row.quantity, relatedName("units", row.unitId), Number(row.quantity || 0) * Number(row.price || 0)]);
+      ({ headers: cols, fields, rows } = inventoryReportData());
     } else {
       const config = collectionConfig[type];
       cols = config.cols.map((col) => col[1]);
@@ -1292,10 +1386,11 @@
       const dateField = ({ loans: "startDate", items: "received", stocktakes: "date", usages: "date", procurements: "date", disposals: "date", depreciations: "date" })[type];
       rows = (state[type] || []).filter((row) => !dateField || ((!startDate || row[dateField] >= startDate) && (!endDate || row[dateField] <= endDate))).map((row) => config.cols.map(([field]) => plainCell(type, field, row)));
     }
-    const currencyFields = new Set(["price", "unitPrice", "initialValue", "amount", "finalValue", "total", "value"]);
-    const total = type === "inventaris" ? state.goods.reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0) : 0;
+    const currencyFields = new Set(["price", "unitPrice", "initialValue", "amount", "finalValue", "total", "totalPrice", "value"]);
+    const total = type === "inventaris" ? recordsForAcademicYear("goods").reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0) : 0;
     const totalRow = type === "inventaris" ? `<tfoot><tr><th colspan="${cols.length - 1}">Grand Total Nilai Inventaris</th><th class="goods-price-cell">${currencyCell(total)}</th></tr></tfoot>` : "";
-    return `<div class="table-wrap"><table class="data-table"><thead><tr>${cols.map((col) => `<th>${esc(col.toUpperCase())}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((cell, index) => currencyFields.has(fields[index]) ? `<td class="goods-price-cell">${currencyCell(cell)}</td>` : `<td>${esc(cell)}</td>`).join("")}</tr>`).join("") : `<tr><td class="empty-state" colspan="${cols.length}">Tidak ada data.</td></tr>`}</tbody>${totalRow}</table></div>`;
+    const tableClass = type === "inventaris" ? `data-table inventory-report-table ${state.settings.reportInventoryDetails === false ? "inventory-report-compact" : "inventory-report-details"}` : "data-table";
+    return `<div class="table-wrap"><table class="${tableClass}"><thead><tr>${cols.map((col) => `<th>${esc(col.toUpperCase())}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((cell, index) => currencyFields.has(fields[index]) ? `<td class="goods-price-cell">${currencyCell(cell)}</td>` : `<td>${esc(cell)}</td>`).join("")}</tr>`).join("") : `<tr><td class="empty-state" colspan="${cols.length}">Tidak ada data.</td></tr>`}</tbody>${totalRow}</table></div>`;
   }
 
   function renderAccounts() {
@@ -1444,6 +1539,7 @@
       }
       Object.keys(state).forEach((key) => { if (!(key in backupState)) delete state[key]; });
       Object.assign(state, backupState);
+      ensureAcademicYearDefaults();
       ensureBrandingDefaults();
       ensurePermissionDefaults();
       await persistState();
@@ -1458,11 +1554,11 @@
     return `<div class="form-field"><label>${esc(label)}</label><input name="${esc(name)}" type="${type}" value="${esc(value)}" ${required ? "required" : ""}></div>`;
   }
 
-  function optionsFor(source) {
+  function optionsFor(source, academicYearId = currentAcademicYearId()) {
     if (Array.isArray(source)) return source.map((value) => `<option value="${esc(value)}">${esc(value)}</option>`).join("");
-    let rows = state[source] || [];
-    if (source === "bhpGoods") rows = state.goods.filter(isBhp);
-    if (source === "loanGoods") rows = state.goods.filter((good) => !isBhp(good));
+    let rows = yearScopedCollections.has(source) ? recordsForAcademicYear(source, academicYearId) : state[source] || [];
+    if (source === "bhpGoods") rows = recordsForAcademicYear("goods", academicYearId).filter(isBhp);
+    if (source === "loanGoods") rows = recordsForAcademicYear("goods", academicYearId).filter((good) => !isBhp(good));
     if (source === "items") rows = state.items;
     const text = source === "items" ? (row) => `${row.code} — ${titleOfGood(row.goodId)}` : (row) => row.name;
     return rows.map((row) => `<option value="${row.id}">${esc(text(row))}</option>`).join("");
@@ -1470,13 +1566,19 @@
 
   function modalForm(key, record = null) {
     const config = collectionConfig[key];
+    const recordYearId = record?.academicYearId
+      || getById("goods", record?.goodId)?.academicYearId
+      || getById("locations", record?.locationId)?.academicYearId
+      || currentAcademicYearId();
     const scanPanel = !record && ["usages", "stocktakes"].includes(key)
       ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "item"}</b><small>${key === "usages" ? "Pindai barcode BHP atau pilih barang secara manual dari daftar." : "Gunakan kamera atau masukkan kode QR/barcode item."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh: E.1-T.1-L1-KS.1"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const fields = config.fields.map(([name, label, type, required, source]) => {
+      if (key === "academicYears" && name === "copyPreviousData" && record) return "";
       let value = record?.[name] ?? (key === "goods" && name === "ownershipId"
-        ? (state.ownerships.find((ownership) => ownership.name.toLocaleLowerCase("id-ID") === "milik")?.id || state.ownerships[0]?.id || "")
-        : key === "accounts" && name === "active" ? true : type === "date" ? dateOffset(0) : "");
+        ? (recordsForAcademicYear("ownerships").find((ownership) => ownership.name.toLocaleLowerCase("id-ID") === "milik")?.id || recordsForAcademicYear("ownerships")[0]?.id || "")
+        : key === "academicYears" && name === "status" ? "Aktif"
+          : key === "accounts" && name === "active" ? true : type === "date" ? (key === "academicYears" ? "" : dateOffset(0)) : "");
       const idAttr = `${key}-${name}`;
       if (key === "usages" && name === "unitId") {
         const unitId = record?.unitId || getById("goods", record?.goodId)?.unitId || "";
@@ -1484,7 +1586,7 @@
         return `<div class="form-field"><label for="usages-unitName">Satuan</label><input id="usages-unitName" type="text" value="${esc(unitName === "—" ? "" : unitName)}" readonly><input type="hidden" name="unitId" value="${esc(unitId)}"></div>`;
       }
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
-      if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
+      if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source, recordYearId).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
       if (type === "textarea") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><textarea id="${idAttr}" name="${name}" ${required ? "required" : ""}>${esc(value)}</textarea></div>`;
       if (type === "password") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${key === "accounts" && !record && name === "password" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="password" autocomplete="new-password" ${key === "accounts" && !record && name === "password" ? "required minlength=\"8\"" : ""}></div>`;
       if (type === "file") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}</label><div class="file-drop"><i data-lucide="image-plus"></i><span>Pilih foto bukti</span><input id="${idAttr}" name="${name}" type="file" accept="image/*" class="form-file"><img class="file-preview ${record?.[name] ? "" : "hidden"}" src="${esc(record?.[name] || "")}" alt="Pratinjau bukti"></div><small class="form-help">Pratinjau 120 × 120 px · maksimal 2 MB.</small></div>`;
@@ -1520,6 +1622,14 @@
     });
     $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
     $("#recordForm")?.addEventListener("submit", saveRecord);
+  }
+
+  function showDeleteConfirmation(title, description, onConfirm) {
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal logout-confirm-modal delete-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="deleteConfirmTitle" aria-describedby="deleteConfirmDescription"><div class="delete-confirm-icon"><i data-lucide="trash-2"></i></div><h2 id="deleteConfirmTitle">${esc(title)}</h2><p id="deleteConfirmDescription">${esc(description)}</p><div class="logout-confirm-actions"><button class="btn-quiet" type="button" data-action="close">Batal</button><button class="btn-danger" type="button" id="confirmDeleteAction"><i data-lucide="trash-2"></i>Ya, hapus</button></div></section></div>`);
+    $("#confirmDeleteAction")?.addEventListener("click", () => {
+      closeModal();
+      onConfirm();
+    });
   }
 
   function setupMoneyInputs(form) {
@@ -1618,10 +1728,12 @@
 
     const applyCode = (value) => {
       const code = String(value || "").trim();
-      const item = state.items.find((row) => row.code.toLowerCase() === code.toLowerCase());
       const normalizedCode = code.toLowerCase();
+      const currentGoods = recordsForAcademicYear("goods");
+      const currentGoodIds = new Set(currentGoods.map((good) => good.id));
+      const item = state.items.find((row) => currentGoodIds.has(row.goodId) && row.code.toLowerCase() === normalizedCode);
       const scannedBhpGood = key === "usages"
-        ? state.goods.find((row) => isBhp(row) && [row.barcode, row.id, row.name].some((candidate) => String(candidate || "").trim().toLowerCase() === normalizedCode))
+        ? currentGoods.find((row) => isBhp(row) && [row.barcode, row.id, row.name].some((candidate) => String(candidate || "").trim().toLowerCase() === normalizedCode))
         : null;
       const good = key === "usages" ? (item ? getById("goods", item.goodId) : scannedBhpGood) : (item ? getById("goods", item.goodId) : null);
       if (!good) {
@@ -1755,6 +1867,7 @@
     const config = collectionConfig[key];
     const old = recordId ? getById(key, recordId) : null;
     const data = old ? { ...old } : { id: id() };
+    let copySourceYear = null;
     for (const [name, , type] of config.fields) {
       const input = form.elements[name];
       if (!input) continue;
@@ -1774,8 +1887,35 @@
         }
       } else data[name] = name === "email" ? input.value.trim().toLowerCase() : input.value.trim();
     }
+    if (key === "academicYears") {
+      if (!data.startDate || !data.endDate || data.startDate > data.endDate) {
+        showToast("Tanggal mulai dan tanggal selesai harus valid; tanggal mulai tidak boleh setelah tanggal selesai.", true);
+        return;
+      }
+      const normalizeYearName = (value) => String(value || "").trim().toLocaleLowerCase("id-ID");
+      if (state.academicYears.some((year) => year.id !== old?.id && normalizeYearName(year.name) === normalizeYearName(data.name))) {
+        showToast("Nama tahun pelajaran tersebut sudah digunakan.", true);
+        return;
+      }
+      const overlaps = state.academicYears.some((year) => year.id !== old?.id
+        && year.startDate && year.endDate
+        && data.startDate <= year.endDate && data.endDate >= year.startDate);
+      if (overlaps) {
+        showToast("Rentang tanggal bertumpang tindih dengan tahun pelajaran lain.", true);
+        return;
+      }
+      if (!old && data.copyPreviousData) {
+        copySourceYear = previousAcademicYear(data.startDate);
+        if (!copySourceYear) {
+          showToast("Tidak ditemukan tahun pelajaran sebelumnya dengan tanggal selesai sebelum tanggal mulai yang dipilih.", true);
+          return;
+        }
+      }
+      delete data.copyPreviousData;
+    }
+    if (!old && yearScopedCollections.has(key)) data.academicYearId = currentAcademicYearId();
     if (key === "goods") {
-      if (!getById("ownerships", data.ownershipId)) { showToast("Pilih kepemilikan barang yang valid.", true); return; }
+      if (!recordsForAcademicYear("ownerships").some((ownership) => ownership.id === data.ownershipId)) { showToast("Pilih kepemilikan barang yang valid.", true); return; }
     }
     if (key === "accounts") {
       const emailTaken = state.accounts.some((account) => account.id !== old?.id && account.email.toLowerCase() === data.email.toLowerCase());
@@ -1813,7 +1953,7 @@
       data.status = old?.status || "Pengajuan";
     }
     if (key === "items" && !old) {
-      const goodIndex = Math.max(0, state.goods.findIndex((good) => good.id === data.goodId)) + 1;
+      const goodIndex = Math.max(0, recordsForAcademicYear("goods").findIndex((good) => good.id === data.goodId)) + 1;
       const itemIndex = state.items.filter((item) => item.goodId === data.goodId).length + 1;
       data.code = `E.1-T.${goodIndex}-L1-KS.${itemIndex}`;
     }
@@ -1846,6 +1986,13 @@
     const previous = key === "accounts" && old ? { ...old } : null;
     if (old) Object.assign(old, data);
     else state[key].unshift(data);
+    if (key === "academicYears") {
+      if (data.status === "Aktif") {
+        state.academicYears.forEach((year) => { if (year.id !== data.id) year.status = "Arsip"; });
+        state.settings.selectedAcademicYearId = data.id;
+      }
+      if (!old && copySourceYear) copyAcademicYearData(copySourceYear.id, data.id);
+    }
     if (stocktakeGood) {
       stocktakeGood.quantity = data.newStock;
       syncGoodConditionCounts(stocktakeGood);
@@ -1872,7 +2019,11 @@
       }
     } else saveState();
     closeModal();
-    showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
+    if (key === "academicYears" && !old && copySourceYear) {
+      const yearMasters = yearMasterCollections.reduce((total, collection) => total + recordsForAcademicYear(collection, data.id).length, 0);
+      const yearGoods = recordsForAcademicYear("goods", data.id).length;
+      showToast(`${config.singular} berhasil ditambahkan dengan menyalin ${yearMasters} data master dan ${yearGoods} barang beserta stok terakhir.`);
+    } else showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
     renderPage();
   }
 
@@ -1917,9 +2068,20 @@
       if (page === "accounts" && record?.role === "Administrator" && state.accounts.filter((account) => account.role === "Administrator").length <= 1) {
         return showToast("Administrator terakhir tidak dapat dihapus.", true);
       }
-      if (record && window.confirm(`Hapus data "${record.name || record.title || record.code || "ini"}"? Tindakan ini tidak dapat dibatalkan.`)) {
-        state[page] = state[page].filter((row) => row.id !== record.id);
-        saveState(); showToast("Data berhasil dihapus."); renderPage();
+      if (page === "academicYears" && record && record.id === currentAcademicYearId()) {
+        return showToast("Tahun pelajaran yang sedang dipilih tidak dapat dihapus.", true);
+      }
+      if (page === "academicYears" && record
+        && [...yearScopedCollections].some((collection) => recordsForAcademicYear(collection, record.id).length > 0)) {
+        return showToast("Tahun pelajaran yang masih memiliki data master atau barang tidak dapat dihapus.", true);
+      }
+      if (record) {
+        const collection = page;
+        const recordName = record.name || record.title || record.code || "ini";
+        showDeleteConfirmation("Hapus data?", `Data "${recordName}" akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
+          state[collection] = state[collection].filter((row) => row.id !== record.id);
+          saveState(); showToast("Data berhasil dihapus."); renderPage();
+        });
       }
     } else if (action === "select-visible") {
       $$(".record-select", $("#pageContent")).forEach((check) => { check.checked = true; });
@@ -1929,12 +2091,13 @@
       const selectedIds = new Set($$(".record-select:checked", $("#pageContent")).map((check) => check.value));
       const selectedRows = (state[page] || []).filter((row) => selectedIds.has(row.id));
       if (!selectedRows.length) return showToast("Pilih minimal satu data untuk dihapus.", true);
-      if (window.confirm(`Hapus ${selectedRows.length} data terpilih dari ${collectionConfig[page].title}? Tindakan ini tidak dapat dibatalkan.`)) {
-        state[page] = state[page].filter((row) => !selectedIds.has(row.id));
+      const collection = page;
+      showDeleteConfirmation("Hapus data terpilih?", `${selectedRows.length} data dari ${collectionConfig[collection].title} akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`, () => {
+        state[collection] = state[collection].filter((row) => !selectedIds.has(row.id));
         saveState();
         showToast(`${selectedRows.length} data berhasil dihapus.`);
         renderPage();
-      }
+      });
     } else if (action === "restore-pending-state") {
       restorePendingServerState();
     } else if (action === "discard-pending-state") {
@@ -1973,7 +2136,7 @@
           ? `<button class="btn-primary" data-status-choice="Selesai"><i data-lucide="check"></i>Tandai selesai</button>`
           : `<span class="badge neutral">Tidak ada aksi lanjutan</span>`;
     const fundChoice = page === "procurements" && ["Pengajuan", "Pending"].includes(record.status)
-      ? `<div class="form-field" style="margin-top:14px"><label for="statusFund">Konfirmasi sumber dana</label><select id="statusFund">${optionsFor("funds").replace(`value="${esc(record.fundId)}"`, `value="${esc(record.fundId)}" selected`)}</select></div>` : "";
+      ? `<div class="form-field" style="margin-top:14px"><label for="statusFund">Konfirmasi sumber dana</label><select id="statusFund">${optionsFor("funds", getById("goods", record.goodId)?.academicYearId || currentAcademicYearId()).replace(`value="${esc(record.fundId)}"`, `value="${esc(record.fundId)}" selected`)}</select></div>` : "";
     showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal"><div class="modal-header"><div><h2>Perbarui status</h2><p>${esc(actionLabel)} · ${esc(record.borrower || record.title || record.applicant || titleOfGood(record.goodId))}</p></div><button class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#fafbfc;border-radius:8px"><span class="muted">Status saat ini</span>${statusBadge(record.status)}</div>${fundChoice}<div class="modal-footer">${buttons}</div></div></section></div>`);
     $$("[data-status-choice]", $("#modalRoot")).forEach((button) => button.addEventListener("click", () => {
       const next = button.dataset.statusChoice;
@@ -2133,6 +2296,7 @@
       $("#reportPeriodField")?.classList.toggle("hidden", inventory);
       $("#reportMonthField")?.classList.toggle("hidden", inventory || period !== "month");
       $("#reportAcademicYearField")?.classList.toggle("hidden", inventory || period !== "academicYear");
+      $("#reportInventoryDetailsField")?.classList.toggle("hidden", !inventory);
       $("#reportDateRange")?.classList.toggle("hidden", inventory || period !== "custom");
       $("#reportPeriodNotice")?.classList.toggle("hidden", !inventory);
       if (inventory) {
@@ -2153,6 +2317,11 @@
     $("#reportPeriod")?.addEventListener("change", updateReport);
     $("#reportMonth")?.addEventListener("change", updateReport);
     $("#reportAcademicYear")?.addEventListener("change", updateReport);
+    $("#reportInventoryDetails")?.addEventListener("change", (event) => {
+      state.settings.reportInventoryDetails = event.target.checked;
+      saveState();
+      updateReport();
+    });
     $("#reportStart")?.addEventListener("change", updateReport);
     $("#reportEnd")?.addEventListener("change", updateReport);
     updateReport();
@@ -2286,8 +2455,8 @@
         }
 
         const valueAt = (row, name) => String(row[columns[name]] || "").trim();
-        const findByName = (collection, name) => state[collection].find((record) => normalize(record.name) === normalize(name));
-        const existingNames = new Set(state.goods.map((good) => normalize(good.name)));
+        const findByName = (collection, name) => recordsForAcademicYear(collection).find((record) => normalize(record.name) === normalize(name));
+        const existingNames = new Set(recordsForAcademicYear("goods").map((good) => normalize(good.name)));
         const imported = [];
         const errors = [];
         let duplicates = 0;
@@ -2339,6 +2508,7 @@
           }
           imported.push({
             id: id(),
+            academicYearId: currentAcademicYearId(),
             name,
             specification: valueAt(row, "specification"),
             ownershipId: ownership.id,
@@ -2383,11 +2553,11 @@
   function exportRows(key) {
     const config = collectionConfig[key];
     if (!config) {
-      const rows = [["Kategori", "Jumlah"], ["Barang", state.goods.length], ["Item", state.items.length], ["Peminjaman", state.loans.length], ["Pengadaan", state.procurements.length]];
+      const rows = [["Kategori", "Jumlah"], ["Barang", recordsForAcademicYear("goods").length], ["Item", state.items.length], ["Peminjaman", state.loans.length], ["Pengadaan", state.procurements.length]];
       downloadExcel("ringkasan-sarprah.xlsx", rows);
       return;
     }
-    const rows = [config.cols.map(([, label]) => label), ...(state[key] || []).map((row) => config.cols.map(([field]) => plainCell(key, field, row)))];
+    const rows = [config.cols.map(([, label]) => label), recordsForCurrentAcademicYear(key).map((row) => config.cols.map(([field]) => plainCell(key, field, row)))];
     downloadExcel(`${key}-sarprah.xlsx`, rows);
   }
 
@@ -2405,10 +2575,11 @@
     const { title, period } = reportHeadingContent(type, range);
     const headingRows = [[state.school.name], [title], [period], []];
     if (type === "inventaris") {
-      const records = state.goods || [];
+      const records = recordsForAcademicYear("goods");
       const grandTotal = records.reduce((sum, row) => sum + (Number(row.quantity) || 0) * (Number(row.price) || 0), 0);
-      const rows = records.map((row) => [row.name, relatedName("types", row.typeId), relatedName("categories", row.categoryId), row.quantity, relatedName("units", row.unitId), (Number(row.quantity) || 0) * (Number(row.price) || 0)]);
-      downloadExcel("laporan-inventaris.xlsx", [...headingRows, ["Nama Barang", "Jenis", "Kategori", "Jumlah", "Satuan", "Nilai (Rp)"], ...rows, ["Grand Total Nilai Inventaris", "", "", "", "", grandTotal]]);
+      const { headers, rows } = inventoryReportData();
+      const exportHeaders = headers.map((header) => header === "Harga Satuan" || header === "Harga Total" ? `${header} (Rp)` : header);
+      downloadExcel("laporan-inventaris.xlsx", [...headingRows, exportHeaders, ...rows, ["Grand Total Nilai Inventaris", ...Array(headers.length - 2).fill(""), grandTotal]]);
       return;
     }
     const config = collectionConfig[type];
@@ -2578,8 +2749,10 @@
       const year = state.academicYears.find((row) => row.id === event.target.value);
       if (!year) return;
       state.settings.selectedAcademicYearId = year.id;
+      goodsFilters = {};
       saveState();
       showToast(`Tahun Pelajaran ${year.name} dipilih.`);
+      renderPage();
     });
     $("#closeSidebar").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });
     $("#sidebarOverlay").addEventListener("click", () => { $("#sidebar").classList.remove("open"); $("#sidebarOverlay").classList.remove("visible"); });

@@ -37,6 +37,8 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .print-school-signatures{display:none}
 .logout-confirm-modal{width:min(430px,100%);padding:27px 25px 22px;text-align:center}.logout-confirm-icon{width:52px;height:52px;margin:0 auto 14px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(135deg,#fff2e8,#ffe3d3);color:#eb6b20}.logout-confirm-icon i{width:23px;height:23px}.logout-confirm-modal h2{margin:0 0 8px;font-size:17px}.logout-confirm-modal p{max-width:330px;margin:0 auto;color:#7f8999;font-size:11px;line-height:1.65}.logout-confirm-actions{display:flex;justify-content:center;gap:9px;margin-top:22px}.logout-confirm-actions button{min-width:125px}
 @media(max-width:520px){.logout-confirm-modal{padding:23px 18px 18px}.logout-confirm-actions button{min-width:0;flex:1}}
+.delete-confirm-icon{width:52px;height:52px;margin:0 auto 14px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(135deg,#fff1f0,#ffe0dc);color:#d92d20}
+.delete-confirm-icon i{width:23px;height:23px}
 @media(max-width:800px){.mobile-nav-item.mobile-nav-center{width:48px;height:48px;min-width:48px;margin-top:-22px;border-radius:50%;background:linear-gradient(135deg,#fb9b40,#ed6718);color:#fff;box-shadow:0 7px 16px rgba(235,105,24,.28)}.mobile-nav-item.mobile-nav-center.active{color:#fff}.mobile-nav-item.mobile-nav-center i{width:23px;height:23px}}
 @media print{.bulk-select-column{display:none!important}}
 .goods-price-cell{text-align:right}
@@ -60,3 +62,27 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .goods-toolbar-actions>.btn-quiet,.goods-toolbar-actions>.btn-danger{min-height:28px;padding:5px 8px;font-size:9px;gap:5px;white-space:nowrap}
 .goods-toolbar-actions>.btn-quiet i,.goods-toolbar-actions>.btn-danger i{width:14px;height:14px}
 @media(max-width:520px){.goods-toolbar .goods-filter-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.goods-toolbar-actions>.btn-quiet,.goods-toolbar-actions>.btn-danger{padding:5px 6px;font-size:9px}}
+.report-detail-toggle{height:30px;font-weight:600;white-space:nowrap}
+#reportBody .inventory-report-table{min-width:1050px}
+@media print{
+  #reportBody .table-wrap{overflow:visible!important}
+  #reportBody .inventory-report-table{width:100%;min-width:0!important;table-layout:fixed;white-space:normal}
+  #reportBody .inventory-report-table th,#reportBody .inventory-report-table td{padding:3px 4px;font-size:7pt;line-height:1.15;white-space:normal;overflow-wrap:anywhere}
+  #reportBody .inventory-report-table .goods-price-value{min-width:0;gap:2px;font-size:6.5pt}
+  #reportBody .inventory-report-details th:nth-child(1),#reportBody .inventory-report-details td:nth-child(1){width:18%}
+  #reportBody .inventory-report-details th:nth-child(2),#reportBody .inventory-report-details td:nth-child(2){width:9%}
+  #reportBody .inventory-report-details th:nth-child(3),#reportBody .inventory-report-details td:nth-child(3){width:9%}
+  #reportBody .inventory-report-details th:nth-child(4),#reportBody .inventory-report-details td:nth-child(4){width:7%}
+  #reportBody .inventory-report-details th:nth-child(5),#reportBody .inventory-report-details td:nth-child(5){width:9%}
+  #reportBody .inventory-report-details th:nth-child(6),#reportBody .inventory-report-details td:nth-child(6){width:10%}
+  #reportBody .inventory-report-details th:nth-child(7),#reportBody .inventory-report-details td:nth-child(7){width:6%}
+  #reportBody .inventory-report-details th:nth-child(8),#reportBody .inventory-report-details td:nth-child(8){width:6%}
+  #reportBody .inventory-report-details th:nth-child(9),#reportBody .inventory-report-details td:nth-child(9){width:13%}
+  #reportBody .inventory-report-details th:nth-child(10),#reportBody .inventory-report-details td:nth-child(10){width:13%}
+  #reportBody .inventory-report-compact th:nth-child(1),#reportBody .inventory-report-compact td:nth-child(1){width:25%}
+  #reportBody .inventory-report-compact th:nth-child(2),#reportBody .inventory-report-compact td:nth-child(2){width:15%}
+  #reportBody .inventory-report-compact th:nth-child(3),#reportBody .inventory-report-compact td:nth-child(3){width:15%}
+  #reportBody .inventory-report-compact th:nth-child(4),#reportBody .inventory-report-compact td:nth-child(4){width:10%}
+  #reportBody .inventory-report-compact th:nth-child(5),#reportBody .inventory-report-compact td:nth-child(5){width:10%}
+  #reportBody .inventory-report-compact th:nth-child(6),#reportBody .inventory-report-compact td:nth-child(6){width:25%}
+}
