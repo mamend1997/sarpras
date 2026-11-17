@@ -1350,7 +1350,7 @@
   function renderCollection(key) {
     const config = collectionConfig[key];
     const displayCols = key === "goods"
-      ? [["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "Status BHP"]]
+      ? [["name", "Nama Barang"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "Status BHP"]]
       : config.cols;
     const rows = recordsForCurrentAcademicYear(key);
     const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears"].includes(key);
