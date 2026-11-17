@@ -12,7 +12,7 @@
   const rupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0);
   const integerId = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
   const moneyFields = new Set(["price", "unitPrice", "initialValue", "amount"]);
-  const goodsImportHeaders = ["Nama Barang", "Milik", "Nama Pemilik Lainnya", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Barang Habis Pakai (Ya/Tidak)"];
+  const goodsImportHeaders = ["Nama Barang", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Barang Habis Pakai (Ya/Tidak)"];
   const formatThousands = (value) => String(value ?? "").replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const parseThousands = (value) => Number(String(value ?? "").replace(/\D/g, "")) || 0;
   const parseGroupedInteger = (value) => {
@@ -22,7 +22,7 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "loans", "procurements", "disposals", "depreciations", "reports"];
   const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
@@ -36,16 +36,17 @@
     categories: [{ id: "ct1", name: "Peralatan TIK", typeId: "tp1", note: "Perangkat teknologi informasi" }, { id: "ct2", name: "Perabot Kelas", typeId: "tp2", note: "Perlengkapan ruang kelas" }, { id: "ct3", name: "Peralatan Olahraga", typeId: "tp4", note: "Alat olahraga dan kebugaran" }, { id: "ct4", name: "Gedung & Ruang", typeId: "tp3", note: "Bangunan dan ruang sekolah" }],
     units: [{ id: "un1", name: "unit" }, { id: "un2", name: "pcs" }, { id: "un3", name: "set" }, { id: "un4", name: "rim" }],
     locations: [{ id: "lo1", name: "Ruang Kepala Sekolah" }, { id: "lo2", name: "Ruang Kelas" }, { id: "lo3", name: "Laboratorium Komputer" }, { id: "lo4", name: "Ruang Olahraga" }, { id: "lo5", name: "Ruang Tata Usaha" }, { id: "lo6", name: "Aula" }],
+    ownerships: [{ id: "ow1", name: "Milik" }, { id: "ow2", name: "Sewa" }, { id: "ow3", name: "Pinjam" }, { id: "ow4", name: "Bukan Milik" }],
     suppliers: [{ id: "sp1", name: "CV Sumber Teknologi", address: "Jl. Asia Afrika No. 18, Bandung", phone: "(022) 4201188", email: "info@sumberteknologi.id" }, { id: "sp2", name: "PT Maju Jaya Abadi", address: "Jl. Soekarno Hatta No. 210, Bandung", phone: "(022) 7302210", email: "kontak@majujaya.id" }, { id: "sp3", name: "Koperasi Sekolah", address: "Jl. Ir. H. Juanda No. 93, Bandung", phone: "(022) 4204152", email: "" }],
     funds: [{ id: "fd1", name: "BOS", description: "Bantuan Operasional Sekolah" }, { id: "fd2", name: "Komite Sekolah", description: "Dana partisipasi komite" }, { id: "fd3", name: "Kenang-kenangan Siswa", description: "Hibah dan kenang-kenangan" }],
     academicYears: [{ id: "ay1", name: "2026/2027", status: "Aktif" }],
     goods: [
-      { id: "gd1", name: "Laptop Lenovo ThinkPad", owner: "Sekolah", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo3", unitId: "un1", supplierId: "sp1", quantity: 24, price: 8750000, consumable: false },
-      { id: "gd2", name: "Proyektor Epson EB-X06", owner: "Sekolah", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo2", unitId: "un1", supplierId: "sp1", quantity: 8, price: 6200000, consumable: false },
-      { id: "gd3", name: "Meja Siswa Kayu", owner: "Sekolah", fundId: "fd2", typeId: "tp2", categoryId: "ct2", locationId: "lo2", unitId: "un1", supplierId: "sp2", quantity: 120, price: 485000, consumable: false },
-      { id: "gd4", name: "Bola Basket Molten", owner: "Sekolah", fundId: "fd3", typeId: "tp4", categoryId: "ct3", locationId: "lo4", unitId: "un2", supplierId: "sp3", quantity: 18, price: 375000, consumable: false },
-      { id: "gd5", name: "Kertas A4 80gsm", owner: "Sekolah", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo5", unitId: "un4", supplierId: "sp3", quantity: 45, price: 58000, consumable: true },
-      { id: "gd6", name: "Ruang Kelas", owner: "Sekolah", fundId: "fd1", typeId: "tp3", categoryId: "ct4", locationId: "lo2", unitId: "un1", supplierId: "sp2", quantity: 12, price: 125000000, consumable: false }
+      { id: "gd1", name: "Laptop Lenovo ThinkPad", ownershipId: "ow1", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo3", unitId: "un1", supplierId: "sp1", quantity: 24, price: 8750000, consumable: false },
+      { id: "gd2", name: "Proyektor Epson EB-X06", ownershipId: "ow1", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo2", unitId: "un1", supplierId: "sp1", quantity: 8, price: 6200000, consumable: false },
+      { id: "gd3", name: "Meja Siswa Kayu", ownershipId: "ow1", fundId: "fd2", typeId: "tp2", categoryId: "ct2", locationId: "lo2", unitId: "un1", supplierId: "sp2", quantity: 120, price: 485000, consumable: false },
+      { id: "gd4", name: "Bola Basket Molten", ownershipId: "ow1", fundId: "fd3", typeId: "tp4", categoryId: "ct3", locationId: "lo4", unitId: "un2", supplierId: "sp3", quantity: 18, price: 375000, consumable: false },
+      { id: "gd5", name: "Kertas A4 80gsm", ownershipId: "ow1", fundId: "fd1", typeId: "tp1", categoryId: "ct1", locationId: "lo5", unitId: "un4", supplierId: "sp3", quantity: 45, price: 58000, consumable: true },
+      { id: "gd6", name: "Ruang Kelas", ownershipId: "ow1", fundId: "fd1", typeId: "tp3", categoryId: "ct4", locationId: "lo2", unitId: "un1", supplierId: "sp2", quantity: 12, price: 125000000, consumable: false }
     ],
     items: [
       { id: "it1", code: "E.1-T.1-L1-KS.1", goodId: "gd1", condition: "Baik", locationId: "lo3", received: dateOffset(-370) },
@@ -98,6 +99,7 @@
     categories: ["Kategori Barang", "Atur kategori agar pendataan aset lebih terstruktur.", "tags"],
     units: ["Satuan", "Kelola satuan untuk pencatatan barang dan stok.", "ruler"],
     locations: ["Ruang / Lokasi", "Daftar ruang dan lokasi penempatan inventaris.", "map-pin"],
+    ownerships: ["Kepemilikan", "Kelola pilihan kepemilikan barang.", "key-round"],
     suppliers: ["Penyedia / Supplier", "Kelola supplier sekolah beserta alamat dan informasi kontak.", "truck"],
     funds: ["Sumber Dana", "Kelola sumber pendanaan dan hibah aset.", "wallet"],
     academicYears: ["Tahun Pelajaran", "Kelola daftar tahun pelajaran sekolah.", "calendar-days"],
@@ -120,7 +122,7 @@
     { section: "PENGELOLAAN", groups: [
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] },
       { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"]] },
-      { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
+      { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["ownerships", "Kepemilikan"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
     ] },
     { links: [{ id: "reports", label: "Laporan", icon: "files" }, { id: "accounts", label: "Pengaturan", icon: "settings-2" }, { id: "backup", label: "Backup & Telegram", icon: "database-backup" }] }
   ];
@@ -130,10 +132,11 @@
     categories: { title: "Kategori Barang", description: "Kategori membantu mengelompokkan barang.", singular: "Kategori", cols: [["name", "Nama Kategori"], ["typeId", "Jenis Barang"], ["note", "Keterangan"]], fields: [["name", "Nama Kategori", "text", true], ["typeId", "Jenis Barang", "select", true, "types"], ["note", "Keterangan", "text"]] },
     units: { title: "Satuan", description: "Satuan untuk mencatat jumlah barang.", singular: "Satuan", cols: [["name", "Nama Satuan"]], fields: [["name", "Nama Satuan", "text", true]] },
     locations: { title: "Ruang / Lokasi", description: "Daftar ruang penyimpanan dan penggunaan barang.", singular: "Lokasi", cols: [["name", "Nama Ruang / Lokasi"]], fields: [["name", "Nama Ruang / Lokasi", "text", true]] },
+    ownerships: { title: "Kepemilikan", description: "Daftar jenis kepemilikan yang dapat dipilih pada Data Barang.", singular: "Kepemilikan", cols: [["name", "Nama Kepemilikan"]], fields: [["name", "Nama Kepemilikan", "text", true]] },
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     academicYears: { title: "Tahun Pelajaran", description: "Daftar tahun pelajaran yang berlaku di sekolah.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
-    goods: { title: "Data Barang", description: "Informasi barang, kepemilikan, lokasi, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["owner", "Milik"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["owner", "Milik", "select", true, ["Yayasan", "Sekolah", "Pribadi", "Lainnya"]], ["ownerOther", "Nama pemilik lainnya", "text"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
+    goods: { title: "Data Barang", description: "Informasi barang, spesifikasi, kepemilikan, lokasi, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "BHP"]], fields: [["name", "Nama Barang", "text", true], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Barang habis pakai (BHP)", "checkbox"]] },
     items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Persetujuan permintaan barang habis pakai.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["date", "Tanggal"], ["status", "Status"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true]] },
@@ -541,7 +544,7 @@
       const result = await response.json();
       apiAvailable = true;
       if (result.state) {
-        needsBootstrap = !Array.isArray(result.state.goods) || !Array.isArray(result.state.items) || !Array.isArray(result.state.accounts);
+        needsBootstrap = !Array.isArray(result.state.goods) || !Array.isArray(result.state.items) || !Array.isArray(result.state.accounts) || !Array.isArray(result.state.ownerships);
         Object.assign(state, result.state);
       }
       else {
@@ -556,6 +559,7 @@
         if (cached) Object.assign(state, JSON.parse(cached));
       } catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
     }
+    const ownershipsChanged = ensureOwnershipDefaults();
     const goodsOnlyTransactionsChanged = ensureGoodsOnlyTransactionDefaults();
     const rolesChanged = normalizeAccountRoles();
     const permissionsChanged = ensurePermissionDefaults();
@@ -566,7 +570,41 @@
         apiAvailable = false;
         showToast(`Data awal gagal disimpan ke SQLite: ${error.message}`, true);
       }
-    } else if (goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged) saveState();
+    } else if (ownershipsChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged) saveState();
+  }
+
+  function ownershipNameFromLegacy(value, legacyOther = "") {
+    const name = String(value || "").trim();
+    const normalized = name.toLocaleLowerCase("id-ID");
+    if (["sekolah", "yayasan", "pribadi"].includes(normalized)) return "Milik";
+    if (normalized === "lainnya") return String(legacyOther || "").trim() || "Bukan Milik";
+    return name;
+  }
+
+  function ensureOwnershipDefaults() {
+    let changed = false;
+    if (!Array.isArray(state.ownerships) || !state.ownerships.length) {
+      state.ownerships = structuredClone(seed.ownerships);
+      changed = true;
+    }
+    (state.goods || []).forEach((good) => {
+      if (good.ownershipId) {
+        if ("owner" in good) { delete good.owner; changed = true; }
+        if ("ownerOther" in good) { delete good.ownerOther; changed = true; }
+        return;
+      }
+      const name = ownershipNameFromLegacy(good.owner, good.ownerOther) || "Milik";
+      let ownership = state.ownerships.find((row) => String(row.name || "").toLocaleLowerCase("id-ID") === name.toLocaleLowerCase("id-ID"));
+      if (!ownership) {
+        ownership = { id: id(), name };
+        state.ownerships.push(ownership);
+      }
+      good.ownershipId = ownership.id;
+      delete good.owner;
+      delete good.ownerOther;
+      changed = true;
+    });
+    return changed;
   }
 
   function ensureGoodsOnlyTransactionDefaults() {
@@ -586,6 +624,10 @@
     ["loans", "procurements", "disposals"].forEach((collection) => {
       (state[collection] || []).forEach((record) => {
         if ("itemIds" in record) {
+          if (!record.goodId && Array.isArray(record.itemIds) && record.itemIds.length) {
+            const item = getById("items", record.itemIds[0]);
+            if (item) record.goodId = item.goodId;
+          }
           delete record.itemIds;
           changed = true;
         }
@@ -850,7 +892,7 @@
       <div class="goods-check-facts">
         <div><small>Jenis</small><b>${esc(relatedName("types", good.typeId))}</b></div>
         <div><small>Kategori</small><b>${esc(relatedName("categories", good.categoryId))}</b></div>
-        <div><small>Milik</small><b>${esc(good.owner === "Lainnya" ? good.ownerOther || "Lainnya" : good.owner || "—")}</b></div>
+        <div><small>Kepemilikan</small><b>${esc(relatedName("ownerships", good.ownershipId))}</b></div>
         <div><small>Sumber dana</small><b>${esc(relatedName("funds", good.fundId))}</b></div>
         <div><small>Supplier</small><b>${esc(relatedName("suppliers", good.supplierId))}</b></div>
         <div><small>Harga satuan</small><b>${esc(rupiah(good.price))}</b></div>
@@ -980,7 +1022,7 @@
     return `<div class="indicator-card" data-nav="goods"><span class="indicator-icon ${tone}"><i data-lucide="${icon}"></i></span><div><small>${label}</small><b>${value}</b><small style="margin:3px 0 0">${foot}</small></div></div>`;
   }
   function procurementDashboardRows(rows) {
-    return rows.length ? rows.map((row) => `<tr data-priority="${esc(row.priority)}"><td><span class="table-title">${esc(row.title)}</span><div class="table-sub">${esc(niceDate(row.date))}</div></td><td>${row.priority === "Mendesak" ? `<span class="badge danger">Mendesak</span>` : `<span class="badge neutral">Normal</span>`}</td><td>${rupiah(row.quantity * row.unitPrice)}</td></tr>`).join("") : `<tr><td colspan="3" class="empty-state">Belum ada data pengadaan.</td></tr>`;
+    return rows.length ? rows.map((row) => `<tr data-priority="${esc(row.priority)}"><td><span class="table-title">${esc(row.title)}</span><div class="table-sub">${esc(niceDate(row.date))}</div></td><td>${row.priority === "Mendesak" ? `<span class="badge danger">Mendesak</span>` : `<span class="badge neutral">Normal</span>`}</td><td class="goods-price-cell">${currencyCell(row.quantity * row.unitPrice)}</td></tr>`).join("") : `<tr><td colspan="3" class="empty-state">Belum ada data pengadaan.</td></tr>`;
   }
 
   function renderSchool() {
@@ -1062,7 +1104,7 @@
       ? [["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "BHP"]]
       : config.cols;
     const rows = state[key] || [];
-    const hideExportControls = ["types", "categories", "units", "locations", "suppliers", "funds", "academicYears"].includes(key);
+    const hideExportControls = ["types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears"].includes(key);
     const bulkDeletable = bulkDeletePages.has(key) && canDeletePage(key);
     const actions = canEditPage(key) ? `<button class="btn-primary" data-action="add"><i data-lucide="plus"></i>Tambah ${config.singular}</button>` : "";
     const importControls = key === "goods"
@@ -1080,7 +1122,7 @@
       return `<tr>${selection}${displayCols.map(([field]) => {
         const currency = ["price", "totalPrice", "unitPrice", "initialValue", "amount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
-      }).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`;
+      }).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
@@ -1092,9 +1134,8 @@
   }
 
   function plainCell(key, field, row) {
-    const relations = { fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations" };
+    const relations = { fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations", ownershipId: "ownerships" };
     if (relations[field]) return relatedName(relations[field], row[field]);
-    if (field === "owner") return row.owner === "Lainnya" ? [row.owner, row.ownerOther].filter(Boolean).join(" - ") : row.owner || "";
     if (field === "image") return row.image || "";
     if (field === "evidence") return row.evidence ? "Foto terlampir" : "—";
     if (field === "totalPrice") return (Number(row.quantity) || 0) * (Number(row.price) || 0);
@@ -1108,8 +1149,7 @@
 
   function formatCell(key, field, row) {
     const value = row[field];
-    if (field === "fundId" || field === "typeId" || field === "categoryId" || field === "unitId" || field === "supplierId" || field === "goodId" || field === "locationId") return esc(relatedName(({ fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations" })[field], value));
-    if (field === "owner") return esc(row.owner === "Lainnya" ? [row.owner, row.ownerOther].filter(Boolean).join(" - ") : row.owner || "—");
+    if (field === "fundId" || field === "typeId" || field === "categoryId" || field === "unitId" || field === "supplierId" || field === "goodId" || field === "locationId" || field === "ownershipId") return esc(relatedName(({ fundId: "funds", typeId: "types", categoryId: "categories", unitId: "units", supplierId: "suppliers", goodId: "goods", locationId: "locations", ownershipId: "ownerships" })[field], value));
     if (field === "image") return value ? `<img src="${esc(value)}" alt="Gambar supplier" style="width:34px;height:34px;object-fit:cover;border-radius:7px">` : `<span class="badge neutral">—</span>`;
     if (field === "evidence") return value ? `<a href="${esc(value)}" target="_blank" rel="noopener" class="badge info">Lihat foto</a>` : `<span class="badge neutral">—</span>`;
     if (field === "status") return statusBadge(value);
@@ -1414,14 +1454,15 @@
       ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "item"}</b><small>${key === "usages" ? "Pindai barcode BHP atau pilih barang secara manual dari daftar." : "Gunakan kamera atau masukkan kode QR/barcode item."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh: E.1-T.1-L1-KS.1"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const fields = config.fields.map(([name, label, type, required, source]) => {
-      let value = record?.[name] ?? (key === "accounts" && name === "active" ? true : type === "date" ? dateOffset(0) : "");
+      let value = record?.[name] ?? (key === "goods" && name === "ownershipId"
+        ? (state.ownerships.find((ownership) => ownership.name.toLocaleLowerCase("id-ID") === "milik")?.id || state.ownerships[0]?.id || "")
+        : key === "accounts" && name === "active" ? true : type === "date" ? dateOffset(0) : "");
       const idAttr = `${key}-${name}`;
       if (key === "usages" && name === "unitId") {
         const unitId = record?.unitId || getById("goods", record?.goodId)?.unitId || "";
         const unitName = relatedName("units", unitId);
         return `<div class="form-field"><label for="usages-unitName">Satuan</label><input id="usages-unitName" type="text" value="${esc(unitName === "—" ? "" : unitName)}" readonly><input type="hidden" name="unitId" value="${esc(unitId)}"></div>`;
       }
-      if (key === "goods" && name === "ownerOther") return `<div id="goodsOwnerOtherField" class="form-field ${record?.owner === "Lainnya" ? "" : "hidden"}"><label for="${idAttr}">${esc(label)}${record?.owner === "Lainnya" ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" ${record?.owner === "Lainnya" ? "required" : ""}></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
       if (type === "select") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><select id="${idAttr}" name="${name}" ${required ? "required" : ""}><option value="">Pilih ${esc(label.toLowerCase())}</option>${optionsFor(key === "loans" && name === "goodId" ? "loanGoods" : source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select></div>`;
       if (type === "textarea") return `<div class="form-field full"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><textarea id="${idAttr}" name="${name}" ${required ? "required" : ""}>${esc(value)}</textarea></div>`;
@@ -1446,7 +1487,6 @@
     if (window.lucide) lucide.createIcons({ nodes: [$("#modalRoot")] });
     const form = $("#recordForm");
     if (form) setupMoneyInputs(form);
-    if (form && form.dataset.collection === "goods") setupGoodsOwnershipForm(form);
     if (form && form.dataset.collection === "stocktakes") setupStocktakeForm(form);
     if (form && form.dataset.collection === "usages") setupUsageForm(form);
     if (form && $("#barcodeScanCode", form)) setupRecordBarcodeScanner(form);
@@ -1460,20 +1500,6 @@
     });
     $("#modalBackdrop")?.addEventListener("click", (event) => { if (event.target.id === "modalBackdrop") closeModal(); });
     $("#recordForm")?.addEventListener("submit", saveRecord);
-  }
-
-  function setupGoodsOwnershipForm(form) {
-    const owner = form.elements.owner;
-    const otherOwner = form.elements.ownerOther;
-    const otherField = $("#goodsOwnerOtherField", form);
-    const update = () => {
-      const needsOther = owner.value === "Lainnya";
-      otherField.classList.toggle("hidden", !needsOther);
-      otherOwner.required = needsOther;
-      if (!needsOther) otherOwner.value = "";
-    };
-    owner.addEventListener("change", update);
-    update();
   }
 
   function setupMoneyInputs(form) {
@@ -1491,6 +1517,42 @@
         }
         input.setSelectionRange(nextCursor, nextCursor);
       });
+    });
+  }
+
+  function syncGoodConditionCounts(good) {
+    if (!("goodConditionCount" in good) && !("damagedConditionCount" in good)) return;
+    const total = Math.max(0, Number(good.quantity) || 0);
+    const damaged = Math.min(total, Math.max(0, Number(good.damagedConditionCount) || 0));
+    good.damagedConditionCount = damaged;
+    good.goodConditionCount = total - damaged;
+  }
+
+  function showGoodsConditionModal(goodId) {
+    const good = getById("goods", goodId);
+    if (!good) return;
+    const total = Math.max(0, Number(good.quantity) || 0);
+    const damagedCount = Math.min(total, Math.max(0, Number(good.damagedConditionCount) || 0));
+    const goodCount = total - damagedCount;
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Kondisi Barang</h2><p>${esc(good.name)}</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="goodsConditionForm"><div class="form-grid">
+      <div class="form-field"><label for="conditionTotal">Total jumlah barang</label><input id="conditionTotal" type="number" value="${esc(total)}" readonly></div>
+      <div class="form-field"><label for="goodConditionCount">Jumlah kondisi barang baik</label><input id="goodConditionCount" name="goodConditionCount" type="number" min="0" max="${esc(total)}" step="any" value="${esc(goodCount)}" required></div>
+      <div class="form-field"><label for="damagedConditionCount">Jumlah kondisi barang rusak</label><input id="damagedConditionCount" name="damagedConditionCount" type="number" min="0" max="${esc(total)}" step="any" value="${esc(damagedCount)}" required></div>
+    </div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan kondisi</button></div></form></section></div>`);
+    $("#goodsConditionForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const goodCount = Number(event.currentTarget.elements.goodConditionCount.value);
+      const damaged = Number(event.currentTarget.elements.damagedConditionCount.value);
+      if (!Number.isFinite(goodCount) || !Number.isFinite(damaged) || goodCount < 0 || damaged < 0 || Math.abs(goodCount + damaged - total) > 1e-8) {
+        showToast(`Jumlah kondisi baik dan rusak harus sama dengan total barang (${total}).`, true);
+        return;
+      }
+      good.goodConditionCount = goodCount;
+      good.damagedConditionCount = damaged;
+      saveState();
+      closeModal();
+      showToast("Kondisi barang berhasil diperbarui.");
+      renderPage();
     });
   }
 
@@ -1693,9 +1755,7 @@
       } else data[name] = name === "email" ? input.value.trim().toLowerCase() : input.value.trim();
     }
     if (key === "goods") {
-      if (!data.owner) { showToast("Pilih kepemilikan barang.", true); return; }
-      if (data.owner === "Lainnya" && !data.ownerOther) { showToast("Isi nama pemilik lainnya.", true); return; }
-      if (data.owner !== "Lainnya") data.ownerOther = "";
+      if (!getById("ownerships", data.ownershipId)) { showToast("Pilih kepemilikan barang yang valid.", true); return; }
     }
     if (key === "accounts") {
       const emailTaken = state.accounts.some((account) => account.id !== old?.id && account.email.toLowerCase() === data.email.toLowerCase());
@@ -1762,10 +1822,14 @@
     if (key === "depreciations") {
       data.finalValue = Math.max(0, data.initialValue - data.amount);
     }
+    if (key === "goods") syncGoodConditionCounts(data);
     const previous = key === "accounts" && old ? { ...old } : null;
     if (old) Object.assign(old, data);
     else state[key].unshift(data);
-    if (stocktakeGood) stocktakeGood.quantity = data.newStock;
+    if (stocktakeGood) {
+      stocktakeGood.quantity = data.newStock;
+      syncGoodConditionCounts(stocktakeGood);
+    }
     if (key === "accounts") {
       try {
         await persistState();
@@ -1824,6 +1888,9 @@
       if (!canEditPage()) return showToast("Akun Anda tidak memiliki izin mengubah data.", true);
       const record = getById(page, button.dataset.id);
       if (record) showModal(modalForm(page, record));
+    } else if (action === "goods-condition") {
+      if (page !== "goods" || !canEditPage("goods")) return showToast("Akun Anda tidak memiliki izin mengubah kondisi barang.", true);
+      showGoodsConditionModal(button.dataset.id);
     } else if (action === "delete") {
       if (!canDeletePage()) return showToast("Akun Anda tidak memiliki izin menghapus data.", true);
       const record = getById(page, button.dataset.id);
@@ -1896,7 +1963,10 @@
       if (page === "usages" && next === "Disetujui") {
         const good = getById("goods", record.goodId);
         if (good && good.quantity < record.quantity) { showToast(`Stok tidak cukup. Maksimal stok adalah ${good.quantity}.`, true); return; }
-        if (good) good.quantity -= Number(record.quantity);
+        if (good) {
+          good.quantity -= Number(record.quantity);
+          syncGoodConditionCounts(good);
+        }
       }
       saveState(); closeModal(); showToast(`Status ${actionLabel} diperbarui menjadi ${next}.`); renderPage();
     }));
@@ -2165,7 +2235,8 @@
         const column = (...names) => headers.findIndex((header) => names.some((name) => header === normalize(name)));
         const columns = {
           name: column("Nama Barang"),
-          owner: column("Milik", "Kepemilikan"),
+          specification: column("Spesifikasi Barang (Opsional)", "Spesifikasi Barang", "Spesifikasi"),
+          ownership: column("Kepemilikan", "Milik"),
           ownerOther: column("Nama Pemilik Lainnya", "Pemilik Lainnya"),
           fund: column("Sumber Dana"),
           type: column("Jenis Barang", "Jenis"),
@@ -2177,9 +2248,9 @@
           price: column("Harga Barang (Rp)", "Harga Barang", "Tarif Barang"),
           consumable: column("Barang Habis Pakai (Ya/Tidak)", "Habis Pakai", "BHP")
         };
-        const requiredColumns = ["name", "fund", "type", "category", "location", "unit", "supplier", "quantity", "price", "consumable"];
+        const requiredColumns = ["name", "ownership", "fund", "type", "category", "location", "unit", "supplier", "quantity", "price", "consumable"];
         const columnLabels = {
-          name: "Nama Barang", fund: "Sumber Dana", type: "Jenis Barang", category: "Kategori Barang", location: "Ruang / Lokasi",
+          name: "Nama Barang", ownership: "Kepemilikan", fund: "Sumber Dana", type: "Jenis Barang", category: "Kategori Barang", location: "Ruang / Lokasi",
           unit: "Satuan", supplier: "Supplier", quantity: "Jumlah Barang", price: "Harga Barang (Rp)",
           consumable: "Barang Habis Pakai (Ya/Tidak)"
         };
@@ -2211,9 +2282,9 @@
           const locationName = valueAt(row, "location");
           const unitName = valueAt(row, "unit");
           const supplierName = valueAt(row, "supplier");
-          const owner = valueAt(row, "owner") || "Sekolah";
-          const ownerOther = valueAt(row, "ownerOther");
+          const ownershipValue = ownershipNameFromLegacy(valueAt(row, "ownership"), valueAt(row, "ownerOther")) || "Milik";
           const fund = findByName("funds", fundName);
+          const ownership = findByName("ownerships", ownershipValue);
           const type = findByName("types", typeName);
           const category = findByName("categories", categoryName);
           const location = findByName("locations", locationName);
@@ -2227,8 +2298,7 @@
           const yesValues = ["ya", "yes", "true", "1"];
           const noValues = ["tidak", "no", "false", "0"];
           const rowErrors = [];
-          if (!["yayasan", "sekolah", "pribadi", "lainnya"].includes(normalize(owner))) rowErrors.push(`kepemilikan "${owner}" tidak valid`);
-          if (normalize(owner) === "lainnya" && !ownerOther) rowErrors.push("nama pemilik lainnya wajib diisi");
+          if (!ownership) rowErrors.push(`kepemilikan "${ownershipValue || "kosong"}" tidak ditemukan`);
           if (!fund) rowErrors.push(`Sumber dana "${fundName || "kosong"}" tidak ditemukan`);
           if (!type) rowErrors.push(`jenis barang "${typeName || "kosong"}" tidak ditemukan`);
           if (!category) rowErrors.push(`kategori "${categoryName || "kosong"}" tidak ditemukan`);
@@ -2246,8 +2316,8 @@
           imported.push({
             id: id(),
             name,
-            owner,
-            ownerOther: normalize(owner) === "lainnya" ? ownerOther : "",
+            specification: valueAt(row, "specification"),
+            ownershipId: ownership.id,
             fundId: fund.id,
             typeId: type.id,
             categoryId: category.id,
