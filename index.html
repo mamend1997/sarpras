@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f97316">
+  <title>Sarprah — Manajemen Sarana & Prasarana</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] } } } }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <div id="loginScreen" class="login-screen hidden">
+    <div class="login-art">
+      <div class="brand-mark brand-mark-lg"><i data-lucide="boxes"></i></div>
+      <div class="login-illustration"><div class="illustration-building"><i data-lucide="school"></i></div><span class="float-dot dot-a"></span><span class="float-dot dot-b"></span><span class="float-dot dot-c"></span></div>
+      <div><p class="eyebrow text-orange-100">PENGELOLAAN ASET SEKOLAH</p><h1>Semua aset,<br>lebih <span>terkendali.</span></h1><p class="login-art-copy">Satu ruang kerja untuk merawat, memantau, dan mengembangkan sarana prasarana sekolah.</p></div>
+      <span class="login-art-foot">© 2025 Sarprah · Dibuat untuk sekolah Indonesia</span>
+    </div>
+    <div class="login-form-wrap"><form id="loginForm" class="login-form">
+      <div class="mobile-login-brand"><span class="brand-mark"><i data-lucide="boxes"></i></span><b>Sarprah</b></div>
+      <p class="eyebrow text-orange-600">SELAMAT DATANG KEMBALI</p><h2>Masuk ke akun Anda</h2><p class="muted mb-8">Kelola inventaris sekolah dengan lebih mudah.</p>
+      <label class="field-label">Alamat email<input id="loginEmail" type="email" value="admin@sarprah.id" autocomplete="username" required></label>
+      <label class="field-label mt-5">Kata sandi<input id="loginPassword" type="password" value="sarprah123" autocomplete="current-password" required></label>
+      <div class="login-hint"><i data-lucide="info"></i> Demo: admin@sarprah.id · sarprah123</div>
+      <button class="btn-primary w-full mt-7" type="submit"><span>Masuk ke dashboard</span><i data-lucide="arrow-right"></i></button>
+      <p id="loginError" class="login-error"></p>
+    </form></div>
+  </div>
+  <div id="appShell" class="app-shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark"><i data-lucide="boxes"></i></div><div><b>Sarprah</b><small>School asset manager</small></div>
+        <button id="closeSidebar" class="icon-btn sidebar-close" aria-label="Tutup menu"><i data-lucide="x"></i></button>
+      </div>
+      <div class="school-switch"><div class="school-avatar">S</div><div><b id="sidebarSchool">SMA Negeri 1 Bandung</b><small>Tahun ajaran 2025/2026</small></div><i data-lucide="chevrons-up-down"></i></div>
+      <nav id="sideNav" class="side-nav"></nav>
+      <div class="sidebar-bottom"><div class="help-card"><span class="help-icon"><i data-lucide="life-buoy"></i></span><div><b>Butuh bantuan?</b><small>Jelajahi panduan Sarprah</small></div><i data-lucide="arrow-up-right"></i></div>
+        <button id="profileButton" class="profile-button"><span class="avatar">AD</span><span class="profile-info"><b id="profileName">Admin Sekolah</b><small>Administrator</small></span><i data-lucide="ellipsis"></i></button>
+      </div>
+    </aside>
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+    <main class="main-area">
+      <header class="topbar"><div class="topbar-left"><button id="menuToggle" class="icon-btn menu-toggle" aria-label="Buka menu"><i data-lucide="panel-left"></i></button><div class="breadcrumb"><span>Menu</span><i data-lucide="chevron-right"></i><b id="breadcrumbCurrent">Dashboard</b></div></div>
+        <div class="topbar-actions"><button class="search-trigger" id="searchTrigger"><i data-lucide="search"></i><span>Cari apa saja...</span><kbd>⌘ K</kbd></button><button class="icon-btn notification-btn" aria-label="Notifikasi"><i data-lucide="bell"></i><span></span></button><div class="topbar-divider"></div><button class="topbar-user" id="topbarUser"><span class="avatar">AD</span><i data-lucide="chevron-down"></i></button></div>
+      </header>
+      <section id="pageContent" class="page-content"></section>
+    </main>
+    <nav id="mobileNav" class="mobile-nav"></nav>
+  </div>
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toast-root"></div>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
