@@ -200,6 +200,38 @@ async function readJsonBody(req, maxBytes = 5_000_000) {
   catch { throw new Error("Data JSON tidak valid."); }
 }
 
+function validateAccounts(accounts, currentAdminId) {
+  const allowedRoles = new Set(["Administrator", "Kepala Sekolah", "Wakasek Sarpras", "Guru"]);
+  if (!Array.isArray(accounts) || accounts.length > 200) throw new Error("Daftar akun tidak valid.");
+  const ids = new Set();
+  const emails = new Set();
+  let adminCount = 0;
+  for (const account of accounts) {
+    if (!account || typeof account !== "object" || Array.isArray(account)) throw new Error("Data akun tidak valid.");
+    const id = String(account.id || "").trim();
+    const name = String(account.name || "").trim();
+    const email = String(account.email || "").trim().toLowerCase();
+    if (!id || id.length > 128 || !name || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error("ID, nama, atau email akun tidak valid.");
+    }
+    if (ids.has(id) || emails.has(email)) throw new Error("ID dan email akun harus unik.");
+    if (!allowedRoles.has(account.role) || typeof account.active !== "boolean") throw new Error("Peran atau status akun tidak valid.");
+    const hasSalt = typeof account.passwordSalt === "string" && account.passwordSalt.length > 0;
+    const hasHash = typeof account.passwordHash === "string" && account.passwordHash.length > 0;
+    if (hasSalt !== hasHash || (hasSalt && (!/^[\da-f]{32}$/i.test(account.passwordSalt) || !/^[\da-f]{64}$/i.test(account.passwordHash)))) {
+      throw new Error("Kredensial akun tidak valid.");
+    }
+    if (account.role === "Administrator") {
+      adminCount += 1;
+      if (id !== currentAdminId || !account.active) throw new Error("Administrator aktif yang sedang masuk tidak boleh diganti atau dinonaktifkan.");
+    }
+    ids.add(id);
+    emails.add(email);
+  }
+  if (adminCount !== 1) throw new Error("Daftar akun harus mempertahankan satu Administrator yang sedang masuk.");
+  return accounts;
+}
+
 async function handleApi(req, res) {
   if (req.method !== "GET" && !verifyOrigin(req)) return send(res, 403, JSON.stringify({ error: "Origin permintaan tidak diizinkan." }));
   if (req.method === "GET" && req.url === "/api/auth/session") {
@@ -261,6 +293,15 @@ async function handleApi(req, res) {
   if (!verifyOrigin(req)) return send(res, 403, JSON.stringify({ error: "Origin permintaan tidak diizinkan." }));
   if (req.url.startsWith("/api/telegram/") && session.account.role !== "Administrator") {
     return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengelola backup Telegram." }));
+  }
+  if (req.method === "PUT" && req.url === "/api/accounts") {
+    if (session.account.role !== "Administrator") return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengelola akun." }));
+    const input = await readJsonBody(req, 500_000);
+    const state = currentState();
+    if (!state || typeof state !== "object") return send(res, 409, JSON.stringify({ error: "Data aplikasi belum tersedia." }));
+    state.accounts = validateAccounts(input.accounts, session.account.id);
+    saveState.run(JSON.stringify(state));
+    return send(res, 200, JSON.stringify({ ok: true }));
   }
   if (["GET /api/backup", "POST /api/restore"].includes(`${req.method} ${req.url}`) && session.account.role !== "Administrator") {
     return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat melakukan backup dan restore." }));

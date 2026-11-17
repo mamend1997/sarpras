@@ -102,6 +102,7 @@
   let searchTerm = "";
   let selectedFilter = "Semua";
   let goodsFilters = {};
+  let goodsFiltersOpen = false;
   let chartPeriod = "12";
 
   const meta = {
@@ -609,6 +610,30 @@
     return true;
   }
 
+  async function persistAccounts() {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    if (!apiAvailable) {
+      if (localStorage.getItem(PENDING_STATE_KEY)) cachePendingServerState();
+      return true;
+    }
+    try {
+      const response = await fetch("/api/accounts", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accounts: state.accounts })
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        handleStateSyncFailure(response.status, error.error || "");
+        return false;
+      }
+    } catch (error) {
+      handleStateSyncFailure(0, error.message);
+      return false;
+    }
+    return true;
+  }
+
   function saveState() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
     catch (error) { showToast(`Penyimpanan lokal gagal: ${error.message}`, true); }
@@ -688,7 +713,7 @@
     });
     if (accountsAdded) {
       try {
-        const synced = await persistState();
+        const synced = await persistAccounts();
         if (synced && apiAvailable) accountsToClear.forEach(clearPendingLocalAccount);
         else showToast("Akun lokal belum berhasil disinkronkan ke server. Akun tetap tersimpan di perangkat ini dan akan dicoba kembali saat Administrator masuk.", true);
       } catch (error) {
@@ -854,7 +879,10 @@
       mobileNavHighlightDraft = null;
     }
     if (page === "checkGoods" && next !== "checkGoods") stopGoodsCheckCamera();
-    if (page === "goods" && next !== "goods") goodsFilters = {};
+    if (page === "goods" && next !== "goods") {
+      goodsFilters = {};
+      goodsFiltersOpen = false;
+    }
     page = next;
     selectedFilter = "Semua";
     searchTerm = "";
@@ -1246,8 +1274,9 @@
     const bulkControls = bulkDeletable ? `<button class="btn-quiet" data-action="select-visible"><i data-lucide="check-check"></i>Pilih semua</button><button class="btn-danger" id="deleteSelectedRecords" data-action="delete-selected" disabled><i data-lucide="trash-2"></i>Hapus terpilih <span id="selectedRecordCount"></span></button>` : "";
     const exportControls = hideExportControls ? "" : `<button class="btn-quiet" data-action="print"><i data-lucide="printer"></i>Print</button><button class="btn-quiet" data-action="export"><i data-lucide="file-spreadsheet"></i>Excel</button>`;
     const toolbarRight = importControls || bulkControls || exportControls ? `<div class="table-toolbar-right${key === "goods" ? " goods-toolbar-actions" : ""}">${importControls}${bulkControls}${exportControls}</div>` : "";
+    const activeGoodsFilterCount = Object.values(goodsFilters).filter(Boolean).length;
     const goodsFilterControls = key === "goods"
-      ? `${goodsFilterFields.map(([field, label, source]) => `<select class="table-filter goods-filter" data-goods-filter="${field}" aria-label="Filter ${esc(label)}" title="Filter ${esc(label)}"><option value="">Semua ${esc(label.toLowerCase())}</option>${(state[source] || []).map((option) => `<option value="${esc(option.id)}" ${goodsFilters[field] === option.id ? "selected" : ""}>${esc(option.name)}</option>`).join("")}</select>`).join("")}<select class="table-filter goods-filter" data-goods-filter="consumable" aria-label="Filter Status BHP" title="Filter Status BHP"><option value="">Semua status BHP</option><option value="true" ${goodsFilters.consumable === "true" ? "selected" : ""}>Barang Habis Pakai (BHP)</option><option value="false" ${goodsFilters.consumable === "false" ? "selected" : ""}>Barang Modal</option></select>`
+      ? `<details id="goodsFilterDetails" class="goods-filter-dropdown" ${goodsFiltersOpen ? "open" : ""}><summary class="btn-quiet goods-filter-trigger" aria-label="Tampilkan filter barang"><i data-lucide="filter"></i>Filter${activeGoodsFilterCount ? `<span class="goods-filter-count">${activeGoodsFilterCount}</span>` : ""}</summary><div class="goods-filter-panel"><div class="goods-filter-options">${goodsFilterFields.map(([field, label, source]) => `<label class="goods-filter-field"><span>${esc(label)}</span><select class="table-filter goods-filter" data-goods-filter="${field}" aria-label="Filter ${esc(label)}" title="Filter ${esc(label)}"><option value="">Semua ${esc(label.toLowerCase())}</option>${(state[source] || []).map((option) => `<option value="${esc(option.id)}" ${goodsFilters[field] === option.id ? "selected" : ""}>${esc(option.name)}</option>`).join("")}</select></label>`).join("")}<label class="goods-filter-field"><span>Status BHP</span><select class="table-filter goods-filter" data-goods-filter="consumable" aria-label="Filter Status BHP" title="Filter Status BHP"><option value="">Semua status BHP</option><option value="true" ${goodsFilters.consumable === "true" ? "selected" : ""}>Barang Habis Pakai (BHP)</option><option value="false" ${goodsFilters.consumable === "false" ? "selected" : ""}>Barang Modal</option></select></label></div><div class="goods-filter-footer"><span>${activeGoodsFilterCount ? `${activeGoodsFilterCount} filter aktif` : "Pilih satu atau beberapa filter"}</span><button id="clearGoodsFilters" class="btn-quiet" type="button" ${activeGoodsFilterCount ? "" : "disabled"}>Reset filter</button></div></div></details>`
       : "";
     const toolbar = `<div class="table-toolbar${key === "goods" ? " goods-toolbar" : ""}"><div class="table-toolbar-left${key === "goods" ? " goods-filter-controls" : ""}"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}${goodsFilterControls}</div>${toolbarRight}</div>`;
     const filtered = rows.filter((row) => {
@@ -2057,7 +2086,7 @@
     }
     if (key === "accounts") {
       try {
-        const synced = await persistState();
+        const synced = await persistAccounts();
         accountSyncPending = !synced || !apiAvailable;
       } catch (error) {
         if (old && previous) Object.assign(old, previous);
@@ -2083,7 +2112,7 @@
       const yearGoods = recordsForAcademicYear("goods", data.id).length;
       showToast(`${config.singular} berhasil ditambahkan dengan menyalin ${yearMasters} data master dan ${yearGoods} barang beserta stok terakhir.`);
     } else if (key === "accounts" && accountSyncPending) {
-      showToast("Perubahan akun tersimpan lokal, tetapi belum tersinkron ke server. Akun baru akan disinkronkan saat Administrator masuk kembali.", true);
+      showToast("Server belum tersambung atau menolak sinkronisasi. Perubahan akun hanya tersimpan di perangkat ini; pastikan server aktif lalu buka kembali aplikasi sebagai Administrator.", true);
     } else showToast(`${config.singular} berhasil ${old ? "diperbarui" : "ditambahkan"}.`);
     renderPage();
   }
@@ -2229,6 +2258,13 @@
     $$(".record-select", $("#pageContent")).forEach((check) => check.addEventListener("change", updateBulkSelection));
     $("#tableSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#tableSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#statusFilter")?.addEventListener("change", (event) => { selectedFilter = event.target.value; renderPage(); });
+    $("#goodsFilterDetails")?.addEventListener("toggle", (event) => { goodsFiltersOpen = event.currentTarget.open; });
+    $("#clearGoodsFilters")?.addEventListener("click", () => {
+      goodsFilters = {};
+      goodsFiltersOpen = true;
+      renderPage();
+      $("#goodsFilterDetails summary")?.focus();
+    });
     $$(".goods-filter", $("#pageContent")).forEach((filter) => filter.addEventListener("change", (event) => {
       goodsFilters[event.target.dataset.goodsFilter] = event.target.value;
       renderPage();
