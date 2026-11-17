@@ -28,7 +28,7 @@
   const niceDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
   const seed = {
-    school: { name: "SMA Negeri 1 Bandung", npsn: "20219327", phone: "(022) 4204152", email: "info@sman1bdg.sch.id", website: "www.sman1bdg.sch.id", address: "Jl. Ir. H. Juanda No. 93, Bandung", city: "Bandung", principalName: "", sarprasVicePrincipalName: "", footer: "SMA Negeri 1 Bandung · Berkarakter, Berprestasi", logo: "" },
+    school: { name: "SMA Negeri 1 Bandung", npsn: "20219327", phone: "(022) 4204152", email: "info@sman1bdg.sch.id", website: "www.sman1bdg.sch.id", address: "Jl. Ir. H. Juanda No. 93, Bandung", city: "Bandung", principalName: "", principalNip: "", sarprasVicePrincipalName: "", sarprasVicePrincipalNip: "", letterheadLogo: "", footer: "SMA Negeri 1 Bandung · Berkarakter, Berprestasi", logo: "" },
     types: [{ id: "tp1", name: "Elektronik", type: "sarana" }, { id: "tp2", name: "Mebel", type: "sarana" }, { id: "tp3", name: "Bangunan", type: "prasarana" }, { id: "tp4", name: "Olahraga", type: "sarana" }],
     categories: [{ id: "ct1", name: "Peralatan TIK", typeId: "tp1", note: "Perangkat teknologi informasi" }, { id: "ct2", name: "Perabot Kelas", typeId: "tp2", note: "Perlengkapan ruang kelas" }, { id: "ct3", name: "Peralatan Olahraga", typeId: "tp4", note: "Alat olahraga dan kebugaran" }, { id: "ct4", name: "Gedung & Ruang", typeId: "tp3", note: "Bangunan dan ruang sekolah" }],
     units: [{ id: "un1", name: "unit" }, { id: "un2", name: "pcs" }, { id: "un3", name: "set" }, { id: "un4", name: "rim" }],
@@ -69,7 +69,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", itemIds: ["it3"], reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), itemId: "it1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), itemId: "it4", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true }, mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: createDefaultPermissions() },
+    settings: { appName: "Sarprah", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, headerBold: true, headerItalic: false }, mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: createDefaultPermissions() },
     months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
   };
 
@@ -87,7 +87,7 @@
   const meta = {
     dashboard: ["Dashboard", "Ringkasan kondisi sarana dan prasarana sekolah hari ini.", "layout-dashboard"],
     school: ["Data Sekolah", "Kelola profil sekolah untuk kop laporan dan identitas aplikasi.", "school"],
-    printDesign: ["Desain Kop & Tanda Tangan", "Atur tampilan kop laporan dan nama pejabat penandatangan.", "pen-tool"],
+    printDesign: ["Desain Kop & Tanda Tangan", "Atur teks, logo, tipografi kop, dan informasi penandatangan.", "pen-tool"],
     types: ["Jenis Barang", "Kelompokkan aset berdasarkan jenis sarana atau prasarana.", "shapes"],
     categories: ["Kategori Barang", "Atur kategori agar pendataan aset lebih terstruktur.", "tags"],
     units: ["Satuan", "Kelola satuan untuk pencatatan barang dan stok.", "ruler"],
@@ -296,7 +296,12 @@
     const next = {
       showLogo: typeof current.showLogo === "boolean" ? current.showLogo : defaults.showLogo,
       showNpsn: typeof current.showNpsn === "boolean" ? current.showNpsn : defaults.showNpsn,
-      showContact: typeof current.showContact === "boolean" ? current.showContact : defaults.showContact
+      showContact: typeof current.showContact === "boolean" ? current.showContact : defaults.showContact,
+      headerMode: current.headerMode === "custom" ? "custom" : "school",
+      customHeaderText: typeof current.customHeaderText === "string" ? current.customHeaderText : defaults.customHeaderText,
+      headerFontSize: Number.isFinite(Number(current.headerFontSize)) ? Math.max(10, Math.min(48, Math.round(Number(current.headerFontSize)))) : defaults.headerFontSize,
+      headerBold: typeof current.headerBold === "boolean" ? current.headerBold : defaults.headerBold,
+      headerItalic: typeof current.headerItalic === "boolean" ? current.headerItalic : defaults.headerItalic
     };
     const changed = JSON.stringify(current) !== JSON.stringify(next);
     settings.printDesign = next;
@@ -825,33 +830,49 @@
   }
 
   function printSchoolHeaderMarkup(school, design) {
+    const fontSize = Number.isFinite(Number(design.headerFontSize)) ? Math.max(10, Math.min(48, Math.round(Number(design.headerFontSize)))) : 16;
+    const titleStyle = `font-size:${fontSize}px;font-weight:${design.headerBold ? 800 : 500};font-style:${design.headerItalic ? "italic" : "normal"}`;
     const contact = [
       design.showNpsn && school.npsn && `NPSN ${school.npsn}`,
       design.showContact && school.phone,
       design.showContact && school.email,
       design.showContact && school.website
     ].filter(Boolean).join(" · ");
-    const logo = design.showLogo && school.logo
-      ? `<img class="print-school-logo" src="${esc(school.logo)}" alt="">`
-      : `<span class="print-school-initial">${esc((school.name || "S").slice(0, 1))}</span>`;
-    return `${logo}<div class="print-school-copy"><h1>${esc(school.name)}</h1><p>${esc(school.address)}</p>${contact ? `<p>${esc(contact)}</p>` : ""}</div>`;
+    const logo = design.showLogo && school.letterheadLogo
+      ? `<img class="print-school-logo" src="${esc(school.letterheadLogo)}" alt="">`
+      : design.headerMode === "custom" ? "" : `<span class="print-school-initial">${esc((school.name || "S").slice(0, 1))}</span>`;
+    if (design.headerMode === "custom") {
+      const customText = esc(design.customHeaderText || "").replace(/\r?\n/g, "<br>");
+      return `${logo}<div class="print-school-copy"><h1 class="print-custom-header-text" style="${titleStyle}">${customText}</h1></div>`;
+    }
+    return `${logo}<div class="print-school-copy"><h1 style="${titleStyle}">${esc(school.name)}</h1><p>${esc(school.address)}</p>${contact ? `<p>${esc(contact)}</p>` : ""}</div>`;
   }
 
   function reportSignatures(school) {
-    return `<div class="report-signatures"><div><span>Mengetahui,</span><p>Kepala Sekolah</p><b>${esc(school.principalName || "( _________________________ )")}</b></div><div><span>${esc(school.city || "................")}, ${niceDate(dateOffset(0))}</span><p>Wakasek Sarpras</p><b>${esc(school.sarprasVicePrincipalName || "( _________________________ )")}</b></div></div>`;
+    return `<div class="report-signatures"><div><span>Mengetahui,</span><p>Kepala Sekolah</p><b>${esc(school.principalName || "( _________________________ )")}</b>${school.principalNip ? `<small>NIP. ${esc(school.principalNip)}</small>` : ""}</div><div><span>${esc(school.city || "................")}, ${niceDate(dateOffset(0))}</span><p>Wakasek Sarpras</p><b>${esc(school.sarprasVicePrincipalName || "( _________________________ )")}</b>${school.sarprasVicePrincipalNip ? `<small>NIP. ${esc(school.sarprasVicePrincipalNip)}</small>` : ""}</div></div>`;
   }
 
   function renderPrintDesign() {
     const school = state.school || seed.school;
     const design = state.settings.printDesign || seed.settings.printDesign;
     return `${pageHeading(canEditPage("printDesign") ? `<button class="btn-primary" type="submit" form="printDesignForm"><i data-lucide="save"></i>Simpan desain</button>` : "")}
-      <form id="printDesignForm" class="settings-card"><h3>Informasi penandatangan</h3><p>Kop cetak menggunakan identitas sekolah pada menu Data Sekolah.</p><div class="form-grid">
-        ${formInput("city", "Tempat tanda tangan", school.city, "text")}
-        ${formInput("principalName", "Nama Kepala Sekolah", school.principalName, "text")}
-        ${formInput("sarprasVicePrincipalName", "Nama Wakasek Sarpras", school.sarprasVicePrincipalName, "text")}
-        <div class="form-field full"><label class="form-check"><input name="showLogo" type="checkbox" ${design.showLogo ? "checked" : ""}><span>Tampilkan logo sekolah pada kop</span></label></div>
-        <div class="form-field full"><label class="form-check"><input name="showNpsn" type="checkbox" ${design.showNpsn ? "checked" : ""}><span>Tampilkan NPSN</span></label></div>
-        <div class="form-field full"><label class="form-check"><input name="showContact" type="checkbox" ${design.showContact ? "checked" : ""}><span>Tampilkan telepon, email, dan website</span></label></div>
+      <form id="printDesignForm" class="settings-card"><h3>Desain kop dan informasi penandatangan</h3><p>Pilih identitas sekolah atau isi sendiri bagian atas kop surat.</p><div class="form-grid">
+        <div class="form-field full"><label for="printHeaderMode">Sumber bagian atas kop</label><select id="printHeaderMode" name="headerMode"><option value="school" ${design.headerMode !== "custom" ? "selected" : ""}>Gunakan identitas sekolah</option><option value="custom" ${design.headerMode === "custom" ? "selected" : ""}>Ketik sendiri</option></select></div>
+        <div id="printCustomHeaderOptions" class="form-field full ${design.headerMode === "custom" ? "" : "hidden"}"><label for="customHeaderText">Teks bagian atas kop</label><textarea id="customHeaderText" name="customHeaderText" rows="4" placeholder="Ketik teks kop surat">${esc(design.customHeaderText || "")}</textarea><small class="form-help">Teks ini menggantikan nama, alamat, dan kontak dari identitas sekolah. Gunakan baris baru untuk beberapa baris.</small></div>
+        <div id="printSchoolHeaderOptions" class="print-school-header-options ${design.headerMode === "custom" ? "hidden" : ""}">
+          <label class="form-check"><input name="showNpsn" type="checkbox" ${design.showNpsn ? "checked" : ""}><span>Tampilkan NPSN</span></label>
+          <label class="form-check"><input name="showContact" type="checkbox" ${design.showContact ? "checked" : ""}><span>Tampilkan telepon, email, dan website</span></label>
+        </div>
+        <div class="form-field"><label for="headerFontSize">Ukuran font bagian atas (px)</label><input id="headerFontSize" name="headerFontSize" type="number" min="10" max="48" step="1" required value="${esc(design.headerFontSize)}"></div>
+        <div class="form-field"><label class="form-check"><input name="headerBold" type="checkbox" ${design.headerBold ? "checked" : ""}><span>Tebal</span></label></div>
+        <div class="form-field"><label class="form-check"><input name="headerItalic" type="checkbox" ${design.headerItalic ? "checked" : ""}><span>Miring</span></label></div>
+        <div class="form-field full"><label>Tempat tanda tangan</label><input name="city" type="text" value="${esc(school.city)}"></div>
+        <div class="print-signatories-grid">
+          <div class="print-signatory-column">${formInput("principalName", "Nama Kepala Sekolah", school.principalName, "text")}${formInput("principalNip", "NIP Kepala Sekolah", school.principalNip, "text")}</div>
+          <div class="print-signatory-column">${formInput("sarprasVicePrincipalName", "Nama Wakasek Sarpras", school.sarprasVicePrincipalName, "text")}${formInput("sarprasVicePrincipalNip", "NIP Wakasek Sarpras", school.sarprasVicePrincipalNip, "text")}</div>
+        </div>
+        <div class="form-field full print-letterhead-upload"><label>Logo khusus kop surat</label><div class="print-letterhead-upload-row"><div id="letterheadLogoPreview" class="print-letterhead-logo-preview">${school.letterheadLogo ? `<img src="${esc(school.letterheadLogo)}" alt="Logo khusus kop surat">` : `<i data-lucide="image-plus"></i>`}</div><div class="print-letterhead-upload-fields"><input name="letterheadLogoFile" type="file" accept="image/*"><label class="form-check"><input name="removeLetterheadLogo" type="checkbox"><span>Hapus logo khusus kop surat</span></label><small class="form-help">Logo ini terpisah dari logo sekolah utama. Format gambar, maksimal 2 MB.</small></div></div></div>
+        <div class="form-field full"><label class="form-check"><input name="showLogo" type="checkbox" ${design.showLogo ? "checked" : ""}><span>Tampilkan logo khusus pada kop</span></label></div>
       </div></form>
       <section class="settings-card"><h3>Pratinjau kop dan tanda tangan</h3><div class="print-design-preview"><div class="print-school-header print-design-header-preview">${printSchoolHeaderMarkup(school, design)}</div>${reportSignatures(school)}</div></section>`;
   }
@@ -1540,6 +1561,7 @@
     else if (action === "telegram-test") testTelegram();
     else if (action === "edit-profile") showProfileEditor();
     else if (action === "logout") logout();
+    else if (action === "confirm-logout") confirmLogout();
     else if (action === "select-all") $$(".barcode-check").forEach((check) => { check.checked = true; });
     else if (action === "save-mobile") saveMobileNavigation();
   }
@@ -1591,6 +1613,11 @@
       const filter = event.target.value;
       $$("#dashboardProcRows tr[data-priority]").forEach((row) => { row.hidden = filter !== "Semua" && row.dataset.priority !== filter; });
     });
+    $("#printHeaderMode")?.addEventListener("change", (event) => {
+      const custom = event.target.value === "custom";
+      $("#printCustomHeaderOptions")?.classList.toggle("hidden", !custom);
+      $("#printSchoolHeaderOptions")?.classList.toggle("hidden", custom);
+    });
     $("#schoolForm")?.addEventListener("submit", (event) => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -1615,17 +1642,41 @@
       event.preventDefault();
       if (!canEditPage("printDesign")) return showToast("Akun Anda tidak memiliki izin mengubah desain kop.", true);
       const form = event.currentTarget;
-      state.school.city = form.elements.city.value.trim();
-      state.school.principalName = form.elements.principalName.value.trim();
-      state.school.sarprasVicePrincipalName = form.elements.sarprasVicePrincipalName.value.trim();
-      state.settings.printDesign = {
-        showLogo: form.elements.showLogo.checked,
-        showNpsn: form.elements.showNpsn.checked,
-        showContact: form.elements.showContact.checked
+      const headerMode = form.elements.headerMode.value === "custom" ? "custom" : "school";
+      const customHeaderText = form.elements.customHeaderText.value.trim();
+      const headerFontSize = Number(form.elements.headerFontSize.value);
+      if (headerMode === "custom" && !customHeaderText) return showToast("Teks bagian atas kop wajib diisi saat menggunakan mode ketik sendiri.", true);
+      if (!Number.isInteger(headerFontSize) || headerFontSize < 10 || headerFontSize > 48) return showToast("Ukuran font kop harus antara 10 sampai 48 px.", true);
+      const file = form.elements.letterheadLogoFile.files?.[0];
+      if (file && file.size > 2_000_000) return showToast("Ukuran logo kop surat maksimal 2 MB.", true);
+      let letterheadLogoData = "";
+      const commit = () => {
+        state.school.city = form.elements.city.value.trim();
+        state.school.principalName = form.elements.principalName.value.trim();
+        state.school.principalNip = form.elements.principalNip.value.trim();
+        state.school.sarprasVicePrincipalName = form.elements.sarprasVicePrincipalName.value.trim();
+        state.school.sarprasVicePrincipalNip = form.elements.sarprasVicePrincipalNip.value.trim();
+        if (file) state.school.letterheadLogo = letterheadLogoData;
+        else if (form.elements.removeLetterheadLogo.checked) state.school.letterheadLogo = "";
+        state.settings.printDesign = {
+          showLogo: form.elements.showLogo.checked,
+          showNpsn: form.elements.showNpsn.checked,
+          showContact: form.elements.showContact.checked,
+          headerMode,
+          customHeaderText,
+          headerFontSize,
+          headerBold: form.elements.headerBold.checked,
+          headerItalic: form.elements.headerItalic.checked
+        };
+        saveState();
+        showToast("Desain kop dan tanda tangan berhasil disimpan.");
+        renderPage();
       };
-      saveState();
-      showToast("Desain kop dan tanda tangan berhasil disimpan.");
-      renderPage();
+      if (!file) return commit();
+      const reader = new FileReader();
+      reader.onload = () => { letterheadLogoData = String(reader.result || ""); commit(); };
+      reader.onerror = () => showToast("File logo kop surat tidak dapat dibaca.", true);
+      reader.readAsDataURL(file);
     });
     $("#appBrandingForm")?.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -2104,6 +2155,16 @@
       const school = state.school || seed.school;
       const printHeader = $("#printSchoolHeader");
       if (printHeader) printHeader.innerHTML = printSchoolHeaderMarkup(school, state.settings.printDesign || seed.settings.printDesign);
+      const printSignatures = $("#printSchoolSignatures");
+      document.body.classList.toggle("print-goods-mode", page === "goods");
+      if (printSignatures) printSignatures.innerHTML = page === "goods" ? reportSignatures(school) : "";
+      if (page === "goods") {
+        let style = $("#goodsPrintPageStyle");
+        if (!style) { style = document.createElement("style"); style.id = "goodsPrintPageStyle"; document.head.append(style); }
+        style.textContent = "@page{size:A4 landscape;margin:10mm}";
+      } else {
+        $("#goodsPrintPageStyle")?.remove();
+      }
       if (page !== "barcode") return;
       $$(".barcode-card").forEach((card) => { card.dataset.previousDisplay = card.style.display; card.style.display = card.querySelector(".barcode-check").checked ? "" : "none"; });
       const grid = $(".barcode-grid");
@@ -2114,7 +2175,13 @@
         style.textContent = `@media print{.barcode-card:nth-child(${total}n){break-after:page}}`;
       }
     });
-    window.addEventListener("afterprint", () => $$(".barcode-card").forEach((card) => { card.style.display = card.dataset.previousDisplay || ""; }));
+    window.addEventListener("afterprint", () => {
+      $$(".barcode-card").forEach((card) => { card.style.display = card.dataset.previousDisplay || ""; });
+      document.body.classList.remove("print-goods-mode");
+      $("#goodsPrintPageStyle")?.remove();
+      const printSignatures = $("#printSchoolSignatures");
+      if (printSignatures) printSignatures.innerHTML = "";
+    });
   }
 
   function enterApp() {
@@ -2126,8 +2193,12 @@
     renderNavigation(); navigate(page);
   }
 
-  async function logout() {
-    if (!window.confirm(`Keluar dari aplikasi ${state.settings.appName}?`)) return;
+  function logout() {
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal logout-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" aria-describedby="logoutConfirmDescription"><div class="logout-confirm-icon"><i data-lucide="log-out"></i></div><h2 id="logoutConfirmTitle">Keluar dari akun?</h2><p id="logoutConfirmDescription">Anda akan keluar dari ${esc(state.settings.appName)}. Masuk kembali untuk melanjutkan menggunakan aplikasi.</p><div class="logout-confirm-actions"><button id="cancelLogout" class="btn-quiet" type="button" data-action="close">Tetap di sini</button><button class="btn-danger" type="button" data-action="confirm-logout"><i data-lucide="log-out"></i>Ya, keluar</button></div></section></div>`);
+    $("#cancelLogout")?.focus();
+  }
+
+  async function confirmLogout() {
     closeModal();
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* Local mode has no server session. */ }
     sessionStorage.removeItem("sarprah-user"); activeUser = null;
