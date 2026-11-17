@@ -1017,6 +1017,9 @@
 
   function renderCollection(key) {
     const config = collectionConfig[key];
+    const displayCols = key === "goods"
+      ? [["typeId", "Jenis"], ["categoryId", "Kategori"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["price", "Harga Satuan"], ["totalPrice", "Harga Total"], ["consumable", "BHP"]]
+      : config.cols;
     const rows = state[key] || [];
     const hideExportControls = ["types", "categories", "units", "locations", "suppliers", "funds", "academicYears"].includes(key);
     const bulkDeletable = bulkDeletePages.has(key) && canDeletePage(key);
@@ -1030,11 +1033,11 @@
     const toolbar = `<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari ${config.title.toLowerCase()}..." value="${esc(searchTerm)}"></label>${statusPages.has(key) ? `<select class="table-filter" id="statusFilter">${statusOptions[key].map((opt) => `<option ${selectedFilter === opt ? "selected" : ""}>${opt}</option>`).join("")}</select>` : ""}</div>${toolbarRight}</div>`;
     const filtered = rows.filter((row) => matchesSearch(key, row, searchTerm) && (!statusPages.has(key) || selectedFilter === "Semua" || row.status === selectedFilter));
     const selectHeader = bulkDeletable ? `<th class="bulk-select-column"><input id="selectAllRecords" type="checkbox" aria-label="Pilih semua data yang tampil"></th>` : "";
-    const headers = config.cols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
+    const headers = displayCols.map(([, title]) => `<th>${esc(title.toUpperCase())}</th>`).join("");
     const body = filtered.length ? filtered.map((row) => {
       const selection = bulkDeletable ? `<td class="bulk-select-column"><input type="checkbox" class="record-select" value="${esc(row.id)}" aria-label="Pilih ${esc(row.name || row.title || row.borrower || row.applicant || row.date || config.singular)}"></td>` : "";
-      return `<tr>${selection}${config.cols.map(([field]) => `<td>${formatCell(key, field, row)}</td>`).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`;
-    }).join("") : `<tr><td colspan="${config.cols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
+      return `<tr>${selection}${displayCols.map(([field]) => `<td>${formatCell(key, field, row)}</td>`).join("")}<td><div class="action-buttons">${canEditPage(key) && (row.status === "Pengajuan" || (["loans", "disposals"].includes(key) && row.status === "Diterima")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${canEditPage(key) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}</div></td></tr>`;
+    }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>`;
   }
 
@@ -1052,6 +1055,7 @@
     if (field === "itemIds") return Array.isArray(row.itemIds) ? row.itemIds.map((itemId) => getById("items", itemId)?.code || itemId).join(", ") : row.itemIds || "";
     if (field === "image") return row.image || "";
     if (field === "evidence") return row.evidence ? "Foto terlampir" : "—";
+    if (field === "totalPrice") return (Number(row.quantity) || 0) * (Number(row.price) || 0);
     return row[field] ?? "";
   }
 
@@ -1074,6 +1078,7 @@
       return late ? `<span class="badge danger">${Math.max(1, Math.floor((today - new Date(`${row.dueDate}T00:00:00`)) / 86400000))} hari</span>` : `<span class="badge success">Tepat waktu</span>`;
     }
     if (field === "total") return key === "procurements" ? rupiah(row.quantity * row.unitPrice) : esc(value ?? "—");
+    if (field === "totalPrice") return rupiah((Number(row.quantity) || 0) * (Number(row.price) || 0));
     if (["price", "unitPrice", "initialValue", "amount", "finalValue"].includes(field)) return rupiah(value);
     if (field === "consumable" || field === "active") return `<span class="badge ${value ? "success" : "neutral"}">${value ? (field === "active" ? "Aktif" : "Ya") : (field === "active" ? "Nonaktif" : "Tidak")}</span>`;
     if (field === "name" && key === "accounts") return `<span class="table-title">${esc(value)}</span>`;
