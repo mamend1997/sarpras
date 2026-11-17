@@ -111,8 +111,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), goodId: "gd1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), goodId: "gd2", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() },
-    months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
+    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() }
   };
 
   const state = structuredClone(seed);
@@ -1053,11 +1052,10 @@
       <div class="stats-row">${stat("Total Peminjaman Bulan Ini", loansMonth, "arrow-left-right", "orange", "+12%")}${stat("Total Pengadaan Bulan Ini", procMonth, "shopping-bag", "blue", "+8%")}${stat("Total Pemusnahan Bulan Ini", disposalMonth, "archive-x", "green", `${disposalMonth} item`)}</div>
       <div class="indicator-grid">
         ${indicator("Total Barang", goodCount, "package", "coral", "Master barang terdaftar")}
-        ${indicator("Total Item", itemsTotal, "boxes", "violet", "Unit inventaris terdata")}
         ${indicator("Item Rusak", damaged, "triangle-alert", "blue", `${itemsTotal ? Math.round(damaged / itemsTotal * 100) : 0}% dari item terdata`)}
         ${indicator("Item Belum Kembali", outstanding, "clock-3", "amber", "Peminjaman aktif")}
       </div>
-      <div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h3>Statistik Jumlah Sarana dan Prasarana</h3><p>Tren inventaris barang per bulan</p></div><div><select class="chart-select" id="chartPeriod"><option value="12" ${chartPeriod === "12" ? "selected" : ""}>12 bulan terakhir</option><option value="6" ${chartPeriod === "6" ? "selected" : ""}>6 bulan terakhir</option></select></div></div><div class="chart-legend"><span><i class="legend-dot"></i>Sarana</span><span><i class="legend-dot blue"></i>Prasarana</span></div><div class="chart-wrap"><canvas id="inventoryChart"></canvas></div></section>
+      <div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h3>Statistik Jumlah Sarana dan Prasarana</h3><p>Jumlah kumulatif item inventaris berdasarkan tanggal diterima</p></div><div><select class="chart-select" id="chartPeriod"><option value="12" ${chartPeriod === "12" ? "selected" : ""}>12 bulan terakhir</option><option value="6" ${chartPeriod === "6" ? "selected" : ""}>6 bulan terakhir</option></select></div></div><div class="chart-legend"><span><i class="legend-dot"></i>Sarana</span><span><i class="legend-dot blue"></i>Prasarana</span></div><div class="chart-wrap"><canvas id="inventoryChart"></canvas></div></section>
       <section class="panel"><div class="panel-heading"><div><h3>Ketersediaan Item</h3><p>Kondisi item baik dan siap digunakan</p></div><i data-lucide="chart-no-axes-combined" class="muted"></i></div>
         <div class="availability-row"><div class="availability-label"><b>Prasarana tersedia</b><span>${prasaranaAvailable} / ${prasaranaGoods} item · ${pct(prasaranaAvailable, prasaranaGoods)}%</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct(prasaranaAvailable, prasaranaGoods)}%"></div></div></div>
         <div class="availability-row"><div class="availability-label"><b>Sarana tersedia</b><span>${saranaAvailable} / ${saranaGoods} item · ${pct(saranaAvailable, saranaGoods)}%</span></div><div class="progress-track"><div class="progress-fill blue" style="width:${pct(saranaAvailable, saranaGoods)}%"></div></div></div>
@@ -2021,7 +2019,10 @@
       context.stroke();
       storedSignature.value = canvas.toDataURL("image/png");
     });
-    const stopDrawing = () => { drawing = false; };
+    const stopDrawing = () => {
+      if (drawing) storedSignature.value = canvas.toDataURL("image/png");
+      drawing = false;
+    };
     canvas.addEventListener("pointerup", stopDrawing);
     canvas.addEventListener("pointercancel", stopDrawing);
     $("#clearLoanSignature", form)?.addEventListener("click", () => {
@@ -2623,7 +2624,7 @@
     if (printLoanAfterSave) printLoanReceipt(data);
   }
 
-  function printLoanReceipt(loan) {
+  async function printLoanReceipt(loan) {
     let receipt = $("#loanReceiptPrint");
     if (!receipt) {
       receipt = document.createElement("section");
@@ -2636,7 +2637,7 @@
       : `<div class="loan-receipt-signature-space"></div>`;
     const school = state.school || seed.school;
     receipt.innerHTML = `<div class="loan-receipt">
-      <div class="report-heading">${printSchoolHeaderMarkup(school, state.settings.printDesign || seed.settings.printDesign)}</div>
+      <div class="loan-receipt-header">${printSchoolHeaderMarkup(school, state.settings.printDesign || seed.settings.printDesign)}</div>
       <h1>Bukti Peminjaman Barang</h1>
       <p class="loan-receipt-number">Nomor: ${esc(loan.transactionNo || loan.id)}</p>
       <table><tbody>
@@ -2662,6 +2663,22 @@
         </div>
       </div>
     </div>`;
+    const signatureImage = receipt.querySelector(".loan-receipt-signature-image");
+    if (signatureImage) {
+      try {
+        if (!signatureImage.complete) {
+          await new Promise((resolve, reject) => {
+            signatureImage.addEventListener("load", resolve, { once: true });
+            signatureImage.addEventListener("error", () => reject(new Error("Gambar tanda tangan tidak dapat dimuat.")), { once: true });
+          });
+        }
+        if (!signatureImage.naturalWidth) throw new Error("Gambar tanda tangan tidak dapat dimuat.");
+        if (typeof signatureImage.decode === "function") await signatureImage.decode();
+      } catch (error) {
+        showToast(`Tanda tangan peminjam tidak dapat disiapkan untuk dicetak: ${error.message}`, true);
+        return;
+      }
+    }
     document.body.classList.add("print-loan-receipt");
     window.print();
   }
@@ -3360,20 +3377,57 @@
     const ctx = canvas.getContext("2d");
     ctx.scale(scale, scale);
     const width = rect.width, height = rect.height;
-    const count = Number(chartPeriod);
-    const months = state.months.slice(-count);
-    const sarana = months.map((n) => Math.round(n * .72));
-    const prasarana = months.map((n) => Math.round(n * .42));
+    const count = chartPeriod === "6" ? 6 : 12;
+    const firstMonth = new Date(today.getFullYear(), today.getMonth() - count + 1, 1);
+    const months = Array.from({ length: count }, (_, index) => {
+      const date = new Date(firstMonth.getFullYear(), firstMonth.getMonth() + index, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      return { key, label: date.toLocaleDateString("id-ID", { month: "short" }) };
+    });
+    const monthIndex = new Map(months.map((month, index) => [month.key, index]));
+    const goodsById = new Map(recordsForAcademicYear("goods").map((good) => [good.id, good]));
+    const typeById = new Map(recordsForAcademicYear("types").map((type) => [type.id, type.type]));
+    const saranaAdded = Array(count).fill(0);
+    const prasaranaAdded = Array(count).fill(0);
+    let saranaBeforePeriod = 0;
+    let prasaranaBeforePeriod = 0;
+    const firstMonthStart = `${months[0].key}-01`;
+    const asOfDate = dateOffset(0);
+    state.items.forEach((item) => {
+      const type = typeById.get(goodsById.get(item.goodId)?.typeId);
+      if (!["sarana", "prasarana"].includes(type)) return;
+      const received = String(item.received || "").slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(received)) {
+        if (type === "sarana") saranaBeforePeriod++;
+        else prasaranaBeforePeriod++;
+        return;
+      }
+      if (received > asOfDate) return;
+      if (received < firstMonthStart) {
+        if (type === "sarana") saranaBeforePeriod++;
+        else prasaranaBeforePeriod++;
+        return;
+      }
+      const index = monthIndex.get(received.slice(0, 7));
+      if (index === undefined) return;
+      if (type === "sarana") saranaAdded[index]++;
+      else prasaranaAdded[index]++;
+    });
+    let saranaTotal = saranaBeforePeriod;
+    let prasaranaTotal = prasaranaBeforePeriod;
+    const sarana = saranaAdded.map((added) => { saranaTotal += added; return saranaTotal; });
+    const prasarana = prasaranaAdded.map((added) => { prasaranaTotal += added; return prasaranaTotal; });
     const pad = { top: 13, right: 12, bottom: 24, left: 28 };
     const plotWidth = width - pad.left - pad.right, plotHeight = height - pad.top - pad.bottom;
-    const max = Math.ceil(Math.max(...months) / 20) * 20;
+    const maxValue = Math.max(0, ...sarana, ...prasarana);
+    const max = Math.max(4, Math.ceil(maxValue / 4) * 4);
     ctx.font = "9px DM Sans"; ctx.fillStyle = "#a0a8b5"; ctx.textAlign = "right";
-    for (let tick = 0; tick <= max; tick += Math.max(10, Math.ceil(max / 4 / 10) * 10)) {
-      const y = pad.top + plotHeight - tick / max * plotHeight;
+    for (let index = 0; index <= 4; index++) {
+      const tick = Math.round(max * (4 - index) / 4);
+      const y = pad.top + plotHeight * index / 4;
       ctx.strokeStyle = "#f0f2f5"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(width - pad.right, y); ctx.stroke();
       ctx.fillText(String(tick), pad.left - 7, y + 3);
     }
-    const labels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"].slice(-count);
     const makePoints = (values) => values.map((value, i) => ({ x: pad.left + (values.length < 2 ? .5 : i / (values.length - 1)) * plotWidth, y: pad.top + plotHeight - value / max * plotHeight }));
     [[sarana, "#f58232", "rgba(245,130,50,.09)"], [prasarana, "#7a91e8", "rgba(122,145,232,.03)"]].forEach(([values, color, fill]) => {
       const points = makePoints(values);
@@ -3383,10 +3437,10 @@
       points.forEach((point) => { ctx.beginPath(); ctx.arc(point.x, point.y, 3, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke(); });
     });
     ctx.fillStyle = "#9ba3b0"; ctx.textAlign = "center";
-    labels.forEach((label, index) => {
-      if (labels.length > 6 && index % 2 !== 0) return;
-      const x = pad.left + (labels.length < 2 ? .5 : index / (labels.length - 1)) * plotWidth;
-      ctx.fillText(label, x, height - 5);
+    months.forEach((month, index) => {
+      if (months.length > 6 && index % 2 !== 0) return;
+      const x = pad.left + (months.length < 2 ? .5 : index / (months.length - 1)) * plotWidth;
+      ctx.fillText(month.label, x, height - 5);
     });
   }
 

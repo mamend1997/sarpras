@@ -130,7 +130,9 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
   #reportBody .inventory-report-compact th:nth-child(6),#reportBody .inventory-report-compact td:nth-child(6){width:25%}
 }
 .password-input-wrap{position:relative;display:block;width:100%}.password-input-wrap input{padding-right:44px}.password-visibility-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:34px;height:34px;border:0;border-radius:7px;background:transparent;color:#8993a3;display:grid;place-items:center;transition:background .18s,color .18s}.password-visibility-toggle:hover{background:#fff1e7;color:#e96817}.password-visibility-toggle:focus-visible{outline:2px solid #f6a266;outline-offset:1px}.password-visibility-toggle i{width:17px;height:17px}
+.loan-receipt-header{display:flex;align-items:center;gap:14px;padding:0 0 14px;margin:0 0 18px;border-bottom:2px solid #2f3848}
 .sidebar-brand-copy{min-width:0;flex:1}
 .sidebar-brand .brand-mark{width:48px;height:48px;border-radius:15px;flex:none}
 .sidebar-brand .brand-mark i{width:27px;height:27px}
 .sidebar-brand .menu-toggle{margin-left:auto;margin-right:0;flex:none}
+@media(min-width:801px){.indicator-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
