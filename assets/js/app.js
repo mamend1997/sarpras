@@ -51,7 +51,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", itemIds: ["it3"], reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), itemId: "it1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), itemId: "it4", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: { dashboard: "view", goods: "edit", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" } },
+    settings: { appName: "Sarprah", appLogo: "", mobileNav: ["dashboard", "goods", "loans", "procurements", "reports"], permissions: { dashboard: "view", goods: "edit", items: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view" } },
     months: [34, 41, 38, 48, 46, 57, 55, 62, 59, 69, 73, 82]
   };
 
@@ -171,6 +171,40 @@
     sessionStorage.setItem("sarprah-user", JSON.stringify({ id: activeUser.id }));
   }
 
+  function ensureBrandingDefaults() {
+    if (!state.settings || typeof state.settings !== "object") state.settings = {};
+    let changed = false;
+    if (typeof state.settings.appName !== "string" || !state.settings.appName.trim()) {
+      state.settings.appName = "Sarprah";
+      changed = true;
+    }
+    if (typeof state.settings.appLogo !== "string") {
+      state.settings.appLogo = "";
+      changed = true;
+    }
+    return changed;
+  }
+
+  function applyAppBranding() {
+    ensureBrandingDefaults();
+    const appName = state.settings.appName.trim() || "Sarprah";
+    const appLogo = state.settings.appLogo;
+    document.title = `${appName} — Manajemen Sarana & Prasarana`;
+    $$("[data-app-name]").forEach((node) => { node.textContent = appName; });
+    $$("[data-app-brand]").forEach((node) => {
+      node.innerHTML = appLogo ? `<img class="app-brand-logo" src="${esc(appLogo)}" alt="${esc(appName)}">` : `<i data-lucide="boxes"></i>`;
+    });
+    const favicon = $("#appFavicon");
+    if (appLogo) {
+      favicon.href = appLogo;
+      favicon.type = appLogo.match(/^data:(image\/(?:png|jpeg|webp));/)?.[1] || "image/png";
+    } else {
+      favicon.href = favicon.dataset.defaultHref || favicon.href;
+      favicon.type = "image/svg+xml";
+    }
+    if (window.lucide) lucide.createIcons({ nodes: $$("[data-app-brand]") });
+  }
+
   function showAccountPreview() {
     if (!activeUser) return;
     const avatar = activeUser.avatar
@@ -266,7 +300,9 @@
         if (cached) Object.assign(state, JSON.parse(cached));
       } catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
     }
-    if (normalizeAccountRoles()) saveState();
+    const rolesChanged = normalizeAccountRoles();
+    const brandingChanged = ensureBrandingDefaults();
+    if (rolesChanged || brandingChanged) saveState();
   }
 
   function normalizeAccountRoles() {
@@ -423,6 +459,11 @@
         <div class="form-field full"><label>Alamat</label><textarea name="address" ${canEditPage("school") ? "" : "disabled"}>${esc(school.address)}</textarea></div>
         <div class="form-field full"><label>Unggah Logo Sekolah</label><input name="logoFile" type="file" accept="image/*">${school.logo ? `<img src="${esc(school.logo)}" alt="Logo sekolah" style="max-width:90px;max-height:70px;object-fit:contain;margin-top:8px">` : ""}<small class="form-help">Format gambar, maksimal 2 MB.</small></div>
         <div class="form-field full"><label>Footer Laporan</label><input name="footer" value="${esc(school.footer)}"></div>
+        </div></form>
+      <form id="appBrandingForm" class="settings-card"><h3>Identitas Aplikasi</h3><p>Atur nama dan logo yang tampil di aplikasi, judul tab browser, dan favicon.</p><div class="form-grid">
+        ${formInput("appName", "Nama Aplikasi", state.settings.appName, "text", true)}
+        <div class="form-field full"><label for="appLogoFile">Logo Aplikasi</label><div class="app-branding-upload"><div id="appLogoPreview" class="app-logo-preview">${state.settings.appLogo ? `<img src="${esc(state.settings.appLogo)}" alt="Logo aplikasi">` : `<i data-lucide="boxes"></i>`}</div><div><input id="appLogoFile" name="appLogoFile" type="file" accept="image/png,image/jpeg,image/webp"><small class="form-help">PNG, JPG, atau WEBP · maksimal 2 MB. Logo juga digunakan sebagai favicon.</small><label class="app-logo-remove"><input name="removeAppLogo" type="checkbox"> Gunakan ikon bawaan</label></div></div></div>
+        <div class="form-field full"><button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan identitas aplikasi</button></div>
         </div></form>`;
   }
 
@@ -637,8 +678,10 @@
       }
       Object.keys(state).forEach((key) => { if (!(key in backupState)) delete state[key]; });
       Object.assign(state, backupState);
+      ensureBrandingDefaults();
       await persistState();
       activeUser = getById("accounts", activeUser.id) || activeUser;
+      applyAppBranding();
       showToast("Data berhasil dipulihkan dari backup.");
       renderNavigation(); navigate("dashboard");
     } catch (error) { showToast(`Restore gagal: ${error.message}`, true); }
@@ -887,6 +930,7 @@
     $("#pageContent").onclick = recordActions;
     $("#pageContent").querySelectorAll("[data-nav]").forEach((el) => el.addEventListener("click", () => navigate(el.dataset.nav)));
     if ($("#schoolForm") && !canEditPage("school")) $$("input,textarea", $("#schoolForm")).forEach((input) => { input.disabled = true; });
+    if ($("#appBrandingForm") && !canEditPage("school")) $$("input,button", $("#appBrandingForm")).forEach((input) => { input.disabled = true; });
     $("#tableSearch")?.addEventListener("input", (event) => { searchTerm = event.target.value; renderPage(); const input = $("#tableSearch"); input?.focus(); input?.setSelectionRange(searchTerm.length, searchTerm.length); });
     $("#statusFilter")?.addEventListener("change", (event) => { selectedFilter = event.target.value; renderPage(); });
     $("#chartPeriod")?.addEventListener("change", (event) => { chartPeriod = event.target.value; drawChart(); });
@@ -909,6 +953,34 @@
       const reader = new FileReader();
       reader.onload = () => { data.logo = reader.result; commit(); };
       reader.onerror = () => showToast("File logo tidak dapat dibaca.", true);
+      reader.readAsDataURL(file);
+    });
+    $("#appBrandingForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (!canEditPage("school")) return showToast("Akun Anda tidak memiliki izin mengubah identitas aplikasi.", true);
+      const form = event.currentTarget;
+      const appName = form.elements.appName.value.trim();
+      const file = form.elements.appLogoFile.files?.[0];
+      if (!appName) return showToast("Nama aplikasi wajib diisi.", true);
+      if (file && (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 2_000_000)) {
+        return showToast("Pilih logo PNG, JPG, atau WEBP dengan ukuran maksimal 2 MB.", true);
+      }
+      const commit = (appLogo) => {
+        state.settings.appName = appName;
+        if (appLogo !== undefined) state.settings.appLogo = appLogo;
+        else if (form.elements.removeAppLogo.checked) state.settings.appLogo = "";
+        saveState();
+        applyAppBranding();
+        showToast("Identitas aplikasi berhasil disimpan.");
+        renderPage();
+      };
+      if (!file) return commit();
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result !== "string") return showToast("Logo aplikasi tidak dapat dibaca.", true);
+        commit(reader.result);
+      };
+      reader.onerror = () => showToast("File logo aplikasi tidak dapat dibaca.", true);
       reader.readAsDataURL(file);
     });
     $("#telegramSettingsForm")?.addEventListener("submit", saveTelegramSettings);
@@ -1153,13 +1225,14 @@
   function enterApp() {
     $("#loginScreen").classList.add("hidden"); $("#appShell").classList.remove("hidden");
     activeUser = getById("accounts", activeUser?.id) || activeUser;
+    applyAppBranding();
     syncProfile();
     $("#sidebarSchool").textContent = state.school.name;
     renderNavigation(); navigate(page);
   }
 
   async function logout() {
-    if (!window.confirm("Keluar dari aplikasi Sarprah?")) return;
+    if (!window.confirm(`Keluar dari aplikasi ${state.settings.appName}?`)) return;
     try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* Local mode has no server session. */ }
     sessionStorage.removeItem("sarprah-user"); activeUser = null;
     $("#appShell").classList.add("hidden"); $("#loginScreen").classList.remove("hidden");
@@ -1170,6 +1243,8 @@
     setup();
     let sessionUser = null;
     try {
+      const brandingResponse = await fetch("/api/branding");
+      if (brandingResponse.ok) Object.assign(state.settings, await brandingResponse.json());
       const response = await fetch("/api/auth/session");
       if (response.ok) sessionUser = (await response.json()).user;
       if (sessionUser) {
@@ -1185,6 +1260,8 @@
       apiAvailable = false;
       await loadState();
     }
+    if (ensureBrandingDefaults()) saveState();
+    applyAppBranding();
     if (activeUser) enterApp();
     else {
       $("#loginScreen").classList.remove("hidden");

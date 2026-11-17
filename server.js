@@ -207,6 +207,13 @@ async function handleApi(req, res) {
     if (!session) return send(res, 200, JSON.stringify({ user: null }));
     return send(res, 200, JSON.stringify({ user: { id: session.account.id, name: session.account.name, role: session.account.role } }));
   }
+  if (req.method === "GET" && req.url === "/api/branding") {
+    const settings = currentState()?.settings || {};
+    return send(res, 200, JSON.stringify({
+      appName: typeof settings.appName === "string" && settings.appName.trim() ? settings.appName : "Sarprah",
+      appLogo: typeof settings.appLogo === "string" ? settings.appLogo : ""
+    }));
+  }
   if (req.method === "POST" && req.url === "/api/auth/login") {
     const input = await readJsonBody(req, 32_000);
     const email = String(input.email || "").trim().toLowerCase();

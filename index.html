@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f97316">
   <title>Sarprah — Manajemen Sarana & Prasarana</title>
+  <link id="appFavicon" rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23f97316'/%3E%3Cpath d='M18 20h12v12H18zm16 0h12v12H34zM18 36h12v12H18zm16 0h12v12H34z' fill='white'/%3E%3C/svg%3E" data-default-href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23f97316'/%3E%3Cpath d='M18 20h12v12H18zm16 0h12v12H34zM18 36h12v12H18zm16 0h12v12H34z' fill='white'/%3E%3C/svg%3E">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { theme: { extend: { fontFamily: { sans: ["Inter", "ui-sans-serif", "system-ui"] } } } }
@@ -19,13 +20,13 @@
 <body>
   <div id="loginScreen" class="login-screen hidden">
     <div class="login-art">
-      <div class="brand-mark brand-mark-lg"><i data-lucide="boxes"></i></div>
+      <div class="brand-mark brand-mark-lg" data-app-brand><i data-lucide="boxes"></i></div>
       <div class="login-illustration"><div class="illustration-building"><i data-lucide="school"></i></div><span class="float-dot dot-a"></span><span class="float-dot dot-b"></span><span class="float-dot dot-c"></span></div>
       <div><p class="eyebrow text-orange-100">PENGELOLAAN ASET SEKOLAH</p><h1>Semua aset,<br>lebih <span>terkendali.</span></h1><p class="login-art-copy">Satu ruang kerja untuk merawat, memantau, dan mengembangkan sarana prasarana sekolah.</p></div>
-      <span class="login-art-foot">© 2025 Sarprah · Dibuat untuk sekolah Indonesia</span>
+      <span class="login-art-foot">© 2025 <span data-app-name>Sarprah</span> · Dibuat untuk sekolah Indonesia</span>
     </div>
     <div class="login-form-wrap"><form id="loginForm" class="login-form">
-      <div class="mobile-login-brand"><span class="brand-mark"><i data-lucide="boxes"></i></span><b>Sarprah</b></div>
+      <div class="mobile-login-brand"><span class="brand-mark" data-app-brand><i data-lucide="boxes"></i></span><b data-app-name>Sarprah</b></div>
       <p class="eyebrow text-orange-600">SELAMAT DATANG KEMBALI</p><h2>Masuk ke akun Anda</h2><p class="muted mb-8">Kelola inventaris sekolah dengan lebih mudah.</p>
       <label class="field-label">Alamat email<input id="loginEmail" type="email" value="admin@sarprah.id" autocomplete="username" required></label>
       <label class="field-label mt-5">Kata sandi<input id="loginPassword" type="password" value="sarprah123" autocomplete="current-password" required></label>
@@ -38,7 +39,7 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-brand">
         <button id="menuToggle" class="icon-btn menu-toggle" aria-label="Ciutkan sidebar" title="Ciutkan sidebar"><i data-lucide="panel-left-close"></i></button>
-        <div class="brand-mark"><i data-lucide="boxes"></i></div><div><b>Sarprah</b><small>School asset manager</small></div>
+        <div class="brand-mark" data-app-brand><i data-lucide="boxes"></i></div><div><b data-app-name>Sarprah</b><small>School asset manager</small></div>
         <button id="closeSidebar" class="icon-btn sidebar-close" aria-label="Tutup menu"><i data-lucide="x"></i></button>
       </div>
       <div class="school-switch"><div class="school-avatar">S</div><div><b id="sidebarSchool">SMA Negeri 1 Bandung</b><small>Tahun ajaran 2025/2026</small></div><i data-lucide="chevrons-up-down"></i></div>
