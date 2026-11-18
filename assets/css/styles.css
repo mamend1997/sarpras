@@ -308,4 +308,7 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .registration-warning{border-color:#f1d28c;background:#fff8e6;color:#815500}
 .registration-error{border-color:#f1b8b8;background:#fff1f1;color:#b42323}
 .registration-info{border-color:#c8d8f6;background:#f2f6ff;color:#3e5f9e}
+.goods-name-duplicate-warning{display:block;margin-top:5px;color:#c73e3e;font-size:11px;line-height:1.45}
+.goods-name-duplicate-warning[hidden]{display:none}
+.goods-name-duplicate-field input[aria-invalid="true"]{border-color:#d94b4b!important;box-shadow:0 0 0 2px rgba(217,75,75,.12)}
 @media(max-width:520px){.login-form-wrap #schoolRegistrationPanel{width:100%;padding-right:2px;padding-left:2px}.registration-warning,.registration-error,.registration-info{font-size:12px;padding:9px 10px}}

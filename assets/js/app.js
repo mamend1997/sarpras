@@ -2784,6 +2784,7 @@
   }
   function inventoryReportData(type, startDate = "", endDate = "") {
     const showDetails = state.settings.reportInventoryDetails !== false;
+    const filters = reportFilters();
     const goods = filteredReportGoods(type, startDate, endDate);
     const headers = showDetails
       ? ["Nama Barang", "Kepemilikan", "Sumber Dana", "Jenis", "Kategori", "Lokasi", "Jumlah", "Satuan", "Harga Satuan", "Harga Total"]
@@ -3584,6 +3585,7 @@
       if (key === "depreciations" && name === "method" && value === "Garis Lurus") value = depreciationMethods.straightLine;
       const idAttr = `${key}-${name}`;
       if (key === "locations" && name === "code") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" required readonly><small class="form-help">Kode unik terisi otomatis.</small></div>`;
+      if (key === "goods" && name === "name") return `<div class="form-field goods-name-duplicate-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" required aria-describedby="goodsNameDuplicateWarning"><small id="goodsNameDuplicateWarning" class="goods-name-duplicate-warning" aria-live="polite" hidden></small></div>`;
       if (key === "goods" && name === "receivedDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${record ? "" : " *"}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${record ? "" : "required"}>${record ? `<small class="form-help">Tanggal masuk boleh dikosongkan saat mengubah barang lama.</small>` : ""}</div>`;
       if (key === "locations" && name === "area") return `<div class="form-field"><label for="${idAttr}">${esc(label)}</label><input id="${idAttr}" name="${name}" type="number" value="${esc(value)}" readonly><small class="form-help" id="locationAreaHelp" aria-live="polite">Luas dihitung otomatis dari panjang × lebar.</small></div>`;
       if (key === "usages" && name === "unitId") {
@@ -3591,6 +3593,8 @@
         const unitName = relatedName("units", unitId);
         return `<div class="form-field"><label for="usages-unitName">Satuan</label><input id="usages-unitName" type="text" value="${esc(unitName === "—" ? "" : unitName)}" readonly><input type="hidden" name="unitId" value="${esc(unitId)}"></div>`;
       }
+      if (key === "usages" && name === "locationId") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><select id="${idAttr}" name="${name}" data-selected-location="${esc(value)}" required><option value="">Pilih barang terlebih dahulu</option></select><small class="form-help" id="usageLocationHelp" aria-live="polite">Lokasi yang ditampilkan hanya lokasi dengan stok barang terpilih.</small></div>`;
+      if (key === "usages" && name === "quantity") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" inputmode="decimal" pattern="[0-9]+([.][0-9]+)?" value="${esc(value)}" required autocomplete="off"><small class="form-help" id="usageAvailableQuantity" aria-live="polite"></small></div>`;
       if (key === "loans" && name === "signature") return `<div class="form-field full"><label for="loanSignatureCanvas">${esc(label)}</label><div class="loan-signature-field"><canvas id="loanSignatureCanvas" class="loan-signature-pad" aria-label="Area tanda tangan peminjam"></canvas><input type="hidden" name="signature" value="${esc(value)}"><button id="clearLoanSignature" class="btn-quiet" type="button"><i data-lucide="eraser"></i>Hapus tanda tangan</button></div><small class="form-help">Tanda tangan dapat diisi dengan mouse atau layar sentuh; biarkan kosong jika tidak diperlukan.</small></div>`;
       if (key === "loans" && name === "whatsapp") return `<div class="form-field"><label for="${idAttr}">${esc(label)}</label><input id="${idAttr}" name="${name}" type="tel" inputmode="tel" autocomplete="tel" value="${esc(value)}" placeholder="08... atau +628..."><small class="form-help">Opsional, tetapi diperlukan agar peminjam menerima pengingat WhatsApp.</small></div>`;
       if (key === "loans" && name === "dueDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${required ? "required" : ""} readonly><small class="form-help">Dihitung otomatis dari tanggal sewa dan jumlah hari.</small></div>`;
@@ -3632,6 +3636,30 @@
     return `<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>${record ? "Edit" : "Tambah"} ${config.singular}</h2><p>Lengkapi informasi berikut dengan benar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><form class="modal-form" id="recordForm" data-collection="${key}" data-record="${record?.id || ""}"><div class="form-grid">${scanPanel}${fields}</div>${footer}</form></section></div>`;
   }
 
+  function findDuplicateGoodName(name, excludeId = "", academicYearId = currentAcademicYearId()) {
+    const normalizedName = String(name || "").trim().toLocaleLowerCase("id-ID");
+    if (!normalizedName) return null;
+    return recordsForAcademicYear("goods", academicYearId).find((good) =>
+      good.id !== excludeId && String(good.name || "").trim().toLocaleLowerCase("id-ID") === normalizedName
+    ) || null;
+  }
+
+  function setupGoodsNameValidation(form) {
+    const input = form.elements.name;
+    const warning = $("#goodsNameDuplicateWarning", form);
+    const existing = form.dataset.record ? getById("goods", form.dataset.record) : null;
+    if (!input || !warning || existing) return;
+    const updateWarning = () => {
+      const duplicate = findDuplicateGoodName(input.value);
+      warning.hidden = !duplicate;
+      warning.textContent = duplicate ? `Barang dengan nama "${duplicate.name}" sudah ada.` : "";
+      input.setAttribute("aria-invalid", String(Boolean(duplicate)));
+    };
+    input.addEventListener("input", updateWarning);
+    input.addEventListener("blur", updateWarning);
+    updateWarning();
+  }
+
   function showModal(content, wide = false) {
     stopBarcodeScanner();
     $("#modalRoot").innerHTML = content;
@@ -3640,6 +3668,7 @@
     if (window.lucide) lucide.createIcons({ nodes: [$("#modalRoot")] });
     const form = $("#recordForm");
     if (form) setupMoneyInputs(form);
+    if (form && form.dataset.collection === "goods") setupGoodsNameValidation(form);
     if (form && form.dataset.collection === "loans") setupLoanForm(form);
     if (form && form.dataset.collection === "disposals") setupDisposalForm(form);
     if (form && form.dataset.collection === "depreciations") setupDepreciationForm(form);
@@ -4462,16 +4491,35 @@
     const unitIdInput = form.elements.unitId;
     const unitNameInput = $("#usages-unitName", form);
     const availability = $("#usageAvailableQuantity", form);
-    let selectedGoodId = "";
+    const locationHelp = $("#usageLocationHelp", form);
+    const updateUsageLocations = (preferredLocationId = locationSelect?.value || "") => {
+      if (!locationSelect) return;
+      const good = getById("goods", goodSelect.value);
+      const old = form.dataset.record ? getById("usages", form.dataset.record) : null;
+      const oldLocationId = old?.locationId || getById("goods", old?.goodId)?.locationId || "";
+      const restoredQuantity = (old?.stockAdjusted === true || old?.status === "Disetujui")
+        && old.goodId === good?.id ? Number(old.quantity) || 0 : 0;
+      const balances = getGoodLocationStocks(good).map((entry) => ({ ...entry }));
+      if (restoredQuantity > 0) {
+        const oldBalance = balances.find((entry) => entry.locationId === oldLocationId);
+        if (oldBalance) oldBalance.quantity += restoredQuantity;
+        else balances.push({ locationId: oldLocationId, quantity: restoredQuantity });
+      }
+      const locations = balances.filter((entry) => entry.quantity > 0
+        && recordsForAcademicYear("locations").some((location) => location.id === entry.locationId));
+      const selectedLocationId = locations.some((entry) => entry.locationId === preferredLocationId)
+        ? preferredLocationId
+        : locations.find((entry) => entry.locationId === good?.locationId)?.locationId || locations[0]?.locationId || "";
+      locationSelect.innerHTML = `<option value="">${good ? "Tidak ada stok di lokasi mana pun" : "Pilih barang terlebih dahulu"}</option>${locations.map((entry) => `<option value="${esc(entry.locationId)}">${esc(relatedName("locations", entry.locationId))} · stok ${quantityId.format(entry.quantity)}</option>`).join("")}`;
+      locationSelect.value = selectedLocationId;
+      locationSelect.disabled = !locations.length;
+      if (locationHelp) locationHelp.textContent = locations.length
+        ? "Lokasi yang ditampilkan hanya lokasi dengan stok barang terpilih."
+        : good ? "Barang ini tidak memiliki stok tersedia di lokasi mana pun." : "Lokasi yang ditampilkan hanya lokasi dengan stok barang terpilih.";
+    };
     const updateUsageDetails = () => {
       const good = getById("goods", goodSelect.value);
-      if (!form.dataset.record && good && locationSelect && selectedGoodId !== good.id) {
-        const balances = getGoodLocationStocks(good);
-        locationSelect.value = balances.find((entry) => entry.locationId === good.locationId)?.locationId
-          || balances[0]?.locationId
-          || "";
-      }
-      selectedGoodId = good?.id || "";
+      updateUsageLocations();
       const unitId = good?.unitId || "";
       unitIdInput.value = unitId;
       unitNameInput.value = unitId ? relatedName("units", unitId) : "";
@@ -4482,10 +4530,25 @@
         && old.goodId === good?.id && oldLocationId === locationId ? Number(old.quantity) || 0 : 0;
       const available = good ? Math.max(0, goodLocationStock(good, locationId) + restored) : 0;
       quantityInput.max = String(available);
+      quantityInput.disabled = available <= 0;
+      const enteredQuantity = Number(quantityInput.value);
+      if (available > 0 && Number.isFinite(enteredQuantity) && enteredQuantity > available) {
+        quantityInput.value = String(available);
+      }
       if (availability) availability.textContent = goodSelect.value ? `Stok tersedia untuk digunakan: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
     };
-    goodSelect.addEventListener("change", updateUsageDetails);
+    goodSelect.addEventListener("change", () => {
+      updateUsageLocations("");
+      updateUsageDetails();
+    });
     locationSelect?.addEventListener("change", updateUsageDetails);
+    quantityInput.addEventListener("input", () => {
+      const parts = quantityInput.value.replace(/,/g, ".").replace(/[^0-9.]/g, "").split(".");
+      const cleaned = parts.length > 1 ? `${parts[0] || "0"}.${parts.slice(1).join("")}` : parts[0];
+      if (cleaned !== quantityInput.value) quantityInput.value = cleaned;
+      updateUsageDetails();
+    });
+    updateUsageLocations(locationSelect?.dataset.selectedLocation || "");
     updateUsageDetails();
   }
 
@@ -4777,6 +4840,19 @@
     }
     if (!old && yearScopedCollections.has(key)) data.academicYearId = currentAcademicYearId();
     if (key === "goods") {
+      const duplicate = !old ? findDuplicateGoodName(data.name, "", data.academicYearId || currentAcademicYearId()) : null;
+      if (duplicate) {
+        const nameInput = form.elements.name;
+        const warning = $("#goodsNameDuplicateWarning", form);
+        nameInput?.setAttribute("aria-invalid", "true");
+        if (warning) {
+          warning.textContent = `Barang dengan nama "${duplicate.name}" sudah ada.`;
+          warning.hidden = false;
+        }
+        nameInput?.focus();
+        showToast(`Barang dengan nama "${duplicate.name}" sudah ada. Gunakan nama yang berbeda.`, true);
+        return;
+      }
       if (!recordsForAcademicYear("ownerships").some((ownership) => ownership.id === data.ownershipId)) { showToast("Pilih kepemilikan barang yang valid.", true); return; }
       const previousQuantity = Math.max(0, Number(old?.quantity) || 0);
       const previousInitial = Math.max(0, Number(old?.initialQuantity ?? old?.quantity) || 0);
@@ -4852,8 +4928,8 @@
         showToast("Atur satuan barang terlebih dahulu pada Data Barang.", true);
         return;
       }
-      if (data.quantity <= 0) {
-        showToast("Jumlah barang harus lebih dari 0.", true);
+      if (!Number.isFinite(data.quantity) || data.quantity <= 0) {
+        showToast("Jumlah barang harus berupa angka lebih dari 0.", true);
         return;
       }
       data.unitId = good.unitId;
@@ -6125,7 +6201,7 @@
       <td><select data-import-row="${index}" data-import-field="consumable" aria-label="Status BHP"><option value="">Pilih status</option><option value="true" ${row.consumable === "true" ? "selected" : ""}>BHP</option><option value="false" ${row.consumable === "false" ? "selected" : ""}>Barang Modal</option></select></td>
       <td><span class="goods-import-row-error" id="goodsImportRowError${index}"></span></td>
     </tr>`).join("");
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal modal-wide" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Pratinjau dan Lengkapi Barang</h2><p>Isi tanggal barang masuk pada setiap baris; kode barang KIB otomatis mengikuti kategori.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div id="goodsImportValidation" class="goods-import-validation" aria-live="polite"></div><div class="goods-import-preview-wrap"><table class="goods-import-table"><thead><tr><th>No.</th><th>Nama Barang *</th><th>Spesifikasi</th><th>Tanggal Masuk *</th><th>Kepemilikan *</th><th>Sumber Dana *</th><th>Jenis *</th><th>Kategori *</th><th>Ruang / Lokasi *</th><th>Satuan *</th><th>Supplier *</th><th>Jumlah *</th><th>Harga *</th><th>Status BHP *</th><th>Validasi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="button" class="btn-primary" id="saveGoodsImport"><i data-lucide="save"></i>Simpan barang</button></div></div></section></div>`, true);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal modal-wide" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Pratinjau dan Lengkapi Barang</h2><p>Isi tanggal barang masuk pada setiap baris; kode barang KIB otomatis mengikuti kategori.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div id="goodsImportValidation" class="goods-import-validation" aria-live="polite"></div><div class="goods-import-preview-wrap"><table class="goods-import-table"><thead><tr><th>No.</th><th>Nama Barang *</th><th>Tanggal Masuk *</th><th>Spesifikasi</th><th>Kepemilikan *</th><th>Sumber Dana *</th><th>Jenis *</th><th>Kategori *</th><th>Ruang / Lokasi *</th><th>Satuan *</th><th>Supplier *</th><th>Jumlah *</th><th>Harga *</th><th>Status BHP *</th><th>Validasi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="button" class="btn-primary" id="saveGoodsImport"><i data-lucide="save"></i>Simpan barang</button></div></div></section></div>`, true);
     if ($("#modalRoot")) {
       $("#modalRoot").oninput = updateGoodsImportFromPreview;
       $("#modalRoot").onchange = updateGoodsImportFromPreview;
