@@ -6310,7 +6310,7 @@
         $("#registrationResult").textContent = error.message || "Pendaftaran sekolah gagal.";
         $("#registrationResult").classList.remove("login-success");
       } finally {
-        submit.disabled = false;
+        updateRegistrationSubmitAvailability();
       }
     });
     $("#loginForm").addEventListener("submit", async (event) => {
