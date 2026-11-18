@@ -2007,7 +2007,7 @@ async function handleApi(req, res) {
   }
   if (req.method === "PUT" && req.url === "/api/accounts") {
     if (session.account.role !== "Administrator") return send(res, 403, JSON.stringify({ error: "Hanya Administrator yang dapat mengelola akun." }));
-    const input = await readJsonBody(req, 500_000);
+    const input = await readJsonBody(req, 50_000_000);
     const state = tenantState(session.schoolId);
     if (!state || typeof state !== "object") return send(res, 409, JSON.stringify({ error: "Data aplikasi belum tersedia." }));
     state.accounts = validateAccounts(input.accounts, session.account.id);
