@@ -110,7 +110,16 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .kib-report-section{margin:0 0 18px}
 .kib-report-section h4{margin:0 0 7px;padding:7px 9px;border-left:3px solid var(--primary);background:#f7f8fa;color:var(--ink);font-size:11px}
 .kib-report-table{width:100%;min-width:1100px;table-layout:fixed}
-.kib-report-table th,.kib-report-table td{overflow-wrap:anywhere;vertical-align:top}
+.kib-report-table th,.kib-report-table td{white-space:normal;overflow-wrap:anywhere;word-break:normal;vertical-align:top}
+.kib-report-table th:nth-child(1),.kib-report-table td:nth-child(1){width:4%;text-align:center}
+.kib-report-table th:nth-child(2),.kib-report-table td:nth-child(2){width:16%}
+.kib-report-table th:nth-child(3),.kib-report-table td:nth-child(3){width:10%}
+.kib-report-table th:nth-child(4),.kib-report-table td:nth-child(4){width:16%}
+.kib-report-table th:nth-child(5),.kib-report-table td:nth-child(5){width:9%}
+.kib-report-table th:nth-child(6),.kib-report-table td:nth-child(6){width:8%}
+.kib-report-table th:nth-child(7),.kib-report-table td:nth-child(7){width:7%}
+.kib-report-table th:nth-child(8),.kib-report-table td:nth-child(8){width:12%}
+.kib-report-table th:nth-child(9),.kib-report-table td:nth-child(9){width:18%}
 @page kibLandscape{size:A4 landscape;margin:12mm}
 @media print{
   body.print-kib-report{page:kibLandscape}
