@@ -591,7 +591,8 @@ function getLocalDateParts(timeZone) {
 }
 
 async function telegramRequest(token, method, body) {
-  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", body });
+  const headers = typeof body === "string" ? { "Content-Type": "application/json" } : undefined;
+  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", headers, body });
   let result;
   try { result = await response.json(); } catch { throw new Error(`Telegram API mengirim respons tidak valid (HTTP ${response.status}).`); }
   if (!response.ok || !result.ok) throw new Error(result.description || `Telegram API gagal (HTTP ${response.status}).`);
