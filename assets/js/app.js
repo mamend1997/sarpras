@@ -3127,6 +3127,7 @@
         <div class="form-field"><label for="telegramBotToken">Token Bot Telegram</label><input id="telegramBotToken" name="botToken" type="password" autocomplete="new-password" placeholder="Token disimpan terenkripsi di server" ${editable ? "" : "disabled"}><small id="telegramTokenStatus" class="form-help">Token tidak pernah ditampilkan kembali.</small></div>
         <div class="form-field"><label for="telegramBackupTime">Waktu backup</label><input id="telegramBackupTime" name="backupTime" type="time" value="16:00" required ${editable ? "" : "disabled"}></div>
         <div class="form-field"><label for="telegramTimezone">Zona waktu</label><select id="telegramTimezone" name="timezone" ${editable ? "" : "disabled"}><option value="Asia/Jakarta">WIB — Asia/Jakarta</option><option value="Asia/Makassar">WITA — Asia/Makassar</option><option value="Asia/Jayapura">WIT — Asia/Jayapura</option></select></div>
+        <div class="form-field full"><label for="telegramTestMessage">Teks pesan uji koneksi</label><textarea id="telegramTestMessage" name="testMessage" rows="3" maxlength="4000" required ${editable ? "" : "disabled"}>Uji koneksi Telegram sekolah berhasil.</textarea><small class="form-help">Pesan ini hanya dikirim saat tombol Uji koneksi digunakan dan tidak mengubah pesan backup otomatis.</small></div>
         <div class="form-field full"><label class="form-check"><input id="telegramEnabled" name="enabled" type="checkbox" ${editable ? "" : "disabled"}><span>Aktifkan backup otomatis harian</span></label><small class="form-help">Jadwal awal pukul 16.00 WIB. Server harus tetap aktif agar backup terjadwal dapat dikirim.</small></div>
       </div>
       <div class="modal-footer" style="justify-content:space-between"><span class="form-help">Buat bot melalui @BotFather, lalu mulai chat bot dan masukkan chat ID tujuan.</span><div style="display:flex;gap:8px"><button type="button" class="btn-secondary" data-action="telegram-test" ${editable ? "" : "disabled"}><i data-lucide="send"></i>Uji koneksi</button>${editable ? `<button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan jadwal</button>` : ""}</div></div>
@@ -3344,7 +3345,13 @@
 
   async function testTelegram() {
     try {
-      const response = await fetch("/api/telegram/test", { method: "POST" });
+      const text = $("#telegramSettingsForm").elements.testMessage.value.trim();
+      if (!text) return showToast("Isi teks pesan uji koneksi terlebih dahulu.", true);
+      const response = await fetch("/api/telegram/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
       showToast("Pesan uji berhasil dikirim ke Telegram.");

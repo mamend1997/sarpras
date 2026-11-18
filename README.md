@@ -68,7 +68,7 @@ Data contoh lama tetap tersedia setelah database dimigrasikan. Sekolah baru dapa
 - Data supplier mencakup nama, alamat, nomor telepon, serta email opsional.
 - Grup navigasi sidebar bekerja sebagai accordion: hanya satu grup submenu yang terbuka pada satu waktu.
 - Buat bot melalui `@BotFather`, mulai percakapan dengan bot, lalu masukkan chat ID serta token bot di pengaturan. Token disimpan terenkripsi di server dan tidak dikirim balik ke browser.
-- Jadwal awal adalah setiap hari pukul **16.00 WIB**. Pilih zona WIB/WITA/WIT, simpan pengaturan, lalu gunakan **Uji koneksi**. Scheduler hanya berjalan saat service Node aktif.
+- Jadwal awal adalah setiap hari pukul **16.00 WIB**. Pilih zona WIB/WITA/WIT, isi teks pesan uji yang akan dikirim melalui **Uji koneksi**, lalu simpan pengaturan. Pengaturan pesan uji tersedia di menu sekolah dan Super Admin; pesan tersebut tidak mengubah isi backup otomatis. Scheduler hanya berjalan saat service Node aktif.
 - Secara default server membuat kunci enkripsi `.sarprah-key` di direktori database. Untuk Railway, letakkan database dan kunci pada Volume persisten yang sama. Alternatifnya, set `SARPRAH_ENCRYPTION_KEY` berisi 64 karakter hexadecimal; simpan nilainya sebagai secret Railway dan jangan menggantinya setelah token Telegram atau Fonnte disimpan.
 
 ## Notifikasi WhatsApp

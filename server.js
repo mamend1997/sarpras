@@ -1512,6 +1512,11 @@ async function handlePlatformApi(req, res) {
     })), true;
   }
   if (req.method === "POST" && pathname === "/api/platform/telegram-backup/test") {
+    const input = await readJsonBody(req, 32_000);
+    const text = typeof input.text === "string" ? input.text.trim() : "";
+    if (!text || text.length > 4000) {
+      return send(res, 400, JSON.stringify({ error: "Teks pesan uji wajib diisi dan maksimal 4.000 karakter." })), true;
+    }
     const config = getPlatformTelegramBackup.get();
     if (!config.chat_id || !config.token_cipher) {
       return send(res, 400, JSON.stringify({ error: "Simpan ID Telegram dan token bot terlebih dahulu." })), true;
@@ -1519,7 +1524,7 @@ async function handlePlatformApi(req, res) {
     try {
       await telegramRequest(decryptToken(config.token_cipher), "sendMessage", JSON.stringify({
         chat_id: config.chat_id,
-        text: "Uji koneksi auto backup Telegram Sarprah SaaS berhasil."
+        text
       }));
     } catch (error) {
       return send(res, 502, JSON.stringify({ error: error.message || "Uji koneksi Telegram gagal." })), true;
@@ -2111,13 +2116,18 @@ async function handleApi(req, res) {
     }));
   }
   if (req.method === "POST" && req.url === "/api/telegram/test") {
+    const input = await readJsonBody(req, 32_000);
+    const text = typeof input.text === "string" ? input.text.trim() : "";
+    if (!text || text.length > 4000) {
+      return send(res, 400, JSON.stringify({ error: "Teks pesan uji wajib diisi dan maksimal 4.000 karakter." }));
+    }
     const config = getTenantTelegramConfig.get(session.schoolId);
     if (!config) throw new Error("Simpan pengaturan Telegram sekolah terlebih dahulu.");
     const token = decryptToken(config.token_cipher);
     if (!config.chat_id || !token) throw new Error("Simpan ID Telegram dan token bot terlebih dahulu.");
     const result = await telegramRequest(token, "sendMessage", JSON.stringify({
       chat_id: config.chat_id,
-      text: "Koneksi Telegram Sarprah berhasil. Backup otomatis siap dijalankan."
+      text
     }));
     return send(res, 200, JSON.stringify({ ok: true, messageId: result.result.message_id }));
   }

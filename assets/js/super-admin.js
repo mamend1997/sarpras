@@ -417,9 +417,11 @@
           ${field("Token Bot Telegram", "botToken", "", "password", "autocomplete=new-password placeholder=123456:token")}
           ${field("Jam backup harian", "backupTime", "16:00", "time", "required")}
           ${selectField("Zona waktu", "timezone", "Asia/Jakarta", [["Asia/Jakarta", "WIB — Asia/Jakarta"], ["Asia/Makassar", "WITA — Asia/Makassar"], ["Asia/Jayapura", "WIT — Asia/Jayapura"]])}
+          ${textarea("Teks pesan uji koneksi", "testMessage", "Uji koneksi auto backup Telegram Sarprah SaaS berhasil.", "rows=3 maxlength=4000 required")}
         </div><label class="check-option"><input type="checkbox" name="enabled">Aktifkan auto backup Telegram Super Admin</label>
         <p id="platformTelegramTokenStatus" class="help-text">Token bot disimpan terenkripsi dan tidak ditampilkan kembali.</p>
         <p id="platformTelegramBackupStatus" class="help-text">Memuat status backup...</p>
+        <p class="help-text">Pesan ini hanya dikirim saat Uji koneksi digunakan dan tidak mengubah pesan backup otomatis.</p>
         <div class="modal-actions"><button type="button" class="secondary" data-action="test-platform-telegram">Uji koneksi</button><button class="primary">Simpan pengaturan backup</button></div></form>`)}`;
   }
 
@@ -657,7 +659,9 @@
     if (button.matches("[data-action=add-announcement]")) announcementModal();
     if (button.matches("[data-action=add-manual]")) manualModal();
     if (button.matches("[data-action=test-platform-telegram]")) {
-      try { await api("/api/platform/telegram-backup/test", "POST", {}); toast("Pesan uji berhasil dikirim ke Telegram Super Admin."); }
+      const text = $("#platformTelegramBackupForm").elements.testMessage.value.trim();
+      if (!text) return toast("Isi teks pesan uji koneksi terlebih dahulu.", true);
+      try { await api("/api/platform/telegram-backup/test", "POST", { text }); toast("Pesan uji berhasil dikirim ke Telegram Super Admin."); }
       catch (error) { toast(error.message, true); }
     }
     if (button.dataset.announcementToggle || button.dataset.announcementDelete) {
