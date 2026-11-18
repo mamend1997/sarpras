@@ -38,8 +38,16 @@ button, input { font: inherit; }
 .public-search-card { position: relative; z-index: 1; margin: -20px 24px 28px; padding: 22px 24px; border: 1px solid #f0f0f2; border-radius: 18px; background: white; box-shadow: 0 12px 35px #1f29370d; }
 .public-search-form label { display: block; margin-bottom: 9px; font-size: 13px; font-weight: 700; }
 .public-search-control { display: flex; gap: 10px; }
-.public-search-control input { min-width: 0; flex: 1; height: 46px; padding: 0 14px; border: 1px solid var(--public-line); border-radius: 11px; outline: 0; }
+.public-search-input-wrap { position: relative; min-width: 0; flex: 1; }
+.public-search-control input { width: 100%; min-width: 0; height: 46px; padding: 0 14px; border: 1px solid var(--public-line); border-radius: 11px; outline: 0; }
 .public-search-control input:focus { border-color: #fb923c; box-shadow: 0 0 0 3px #fb923c22; }
+.public-search-suggestions { position: absolute; z-index: 5; top: calc(100% + 5px); right: 0; left: 0; display: grid; max-height: 280px; overflow-y: auto; padding: 5px; border: 1px solid var(--public-line); border-radius: 11px; background: white; box-shadow: 0 12px 28px #1f29371c; }
+.public-search-suggestions[hidden] { display: none; }
+.public-search-suggestion { display: grid; gap: 4px; width: 100%; padding: 10px 11px; border: 0; border-radius: 7px; color: var(--public-ink); background: white; text-align: left; cursor: pointer; }
+.public-search-suggestion:hover, .public-search-suggestion:focus { outline: 0; background: #fff7ed; }
+.public-search-suggestion b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.public-search-suggestion small, .public-search-suggestion-empty { color: var(--public-muted); font-size: 11px; }
+.public-search-suggestion-empty { padding: 10px; }
 .public-button { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 17px; border: 0; border-radius: 10px; color: white; background: linear-gradient(135deg, #fb923c, #ea580c); font-size: 13px; font-weight: 700; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease; }
 .public-button:hover { transform: translateY(-1px); box-shadow: 0 8px 18px #f9731630; }
 .public-button-soft { color: #c2410c; border: 1px solid #fed7aa; background: #fff7ed; box-shadow: none; }

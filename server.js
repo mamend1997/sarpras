@@ -1812,6 +1812,37 @@ async function handleApi(req, res) {
           .some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(query)));
     const publicGoods = selectedGoods.slice(0, 500).map((good) => {
       const total = Math.max(0, Number(good.quantity) || 0);
+      const locationBalances = new Map();
+      const savedLocationStocks = Array.isArray(good.locationStocks)
+        ? good.locationStocks
+        : [{ locationId: good.locationId || "", quantity: total }];
+      savedLocationStocks.forEach((entry) => {
+        const quantity = Number(entry?.quantity);
+        if (!Number.isFinite(quantity) || quantity <= 0) return;
+        const locationId = String(entry.locationId || "");
+        locationBalances.set(locationId, (locationBalances.get(locationId) || 0) + quantity);
+      });
+      const allocated = [...locationBalances.values()].reduce((sum, quantity) => sum + quantity, 0);
+      if (allocated < total) {
+        const primaryLocationId = String(good.locationId || "");
+        locationBalances.set(primaryLocationId, (locationBalances.get(primaryLocationId) || 0) + total - allocated);
+      } else if (allocated > total) {
+        let excess = allocated - total;
+        [...locationBalances.keys()].reverse().forEach((locationId) => {
+          if (excess <= 1e-8) return;
+          const reduction = Math.min(excess, locationBalances.get(locationId) || 0);
+          const remaining = (locationBalances.get(locationId) || 0) - reduction;
+          if (remaining > 1e-8) locationBalances.set(locationId, remaining);
+          else locationBalances.delete(locationId);
+          excess -= reduction;
+        });
+      }
+      const locations = [...locationBalances.entries()]
+        .filter(([, quantity]) => quantity > 1e-8)
+        .map(([locationId, quantity]) => ({
+          name: state.locations?.find((location) => location.id === locationId)?.name || "Belum ditentukan",
+          quantity
+        }));
       const damaged = Math.min(total, Math.max(0, Number(good.damagedConditionCount) || 0));
       const missing = Math.min(total - damaged, Math.max(0, Number(good.missingConditionCount) || 0));
       const calculatedGood = Math.max(0, total - damaged - missing);
@@ -1829,6 +1860,7 @@ async function handleApi(req, res) {
         category: state.categories?.find((category) => category.id === good.categoryId)?.name || "",
         unit: state.units?.find((unit) => unit.id === good.unitId)?.name || "",
         location: state.locations?.find((location) => location.id === good.locationId)?.name || "Belum ditentukan",
+        locations,
         total,
         available,
         damaged,

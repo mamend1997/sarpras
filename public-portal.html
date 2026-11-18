@@ -28,7 +28,10 @@
       <form id="searchForm" class="public-search-form">
         <label for="inventorySearch">Nama barang atau kode QR</label>
         <div class="public-search-control">
-          <input id="inventorySearch" type="search" placeholder="Contoh: proyektor atau BRG-00001" autocomplete="off">
+          <div class="public-search-input-wrap">
+            <input id="inventorySearch" type="search" placeholder="Contoh: proyektor atau BRG-00001" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="inventorySuggestions">
+            <div id="inventorySuggestions" class="public-search-suggestions" role="listbox" hidden></div>
+          </div>
           <button class="public-button" type="submit">Cari barang</button>
         </div>
       </form>

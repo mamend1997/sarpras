@@ -43,13 +43,14 @@
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   const rupiah = (value) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(Number(value) || 0);
   const integerId = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
+  const quantityId = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
   const moneyFields = new Set(["price", "unitPrice", "estimatedCost", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"]);
   const depreciationMethods = {
     straightLine: "Garis Lurus (Straight-Line)",
     doubleDeclining: "Saldo Menurun Ganda (Double Declining-Balance)",
     sumOfYears: "Jumlah Angka Tahun (Sum-of-the-Years'-Digits)"
   };
-  const goodsImportHeaders = ["Nama Barang", "Kode Barang KIB (Opsional)", "Spesifikasi Barang (Opsional)", "Tanggal Barang Masuk (Wajib)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
+  const goodsImportHeaders = ["Nama Barang", "Tanggal Barang Masuk (Wajib, format YYYY-MM-DD)", "Spesifikasi Barang (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
   const kibClasses = [
     { code: "A", label: "KIB A: Tanah" },
     { code: "B", label: "KIB B: Peralatan dan Mesin" },
@@ -250,9 +251,9 @@
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     academicYears: { title: "Tahun Pelajaran", description: "Kelola periode tahun ajaran dan salin data master serta barang dari tahun sebelumnya.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["startDate", "Tanggal Mulai"], ["endDate", "Tanggal Selesai"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["startDate", "Tanggal Mulai", "date", true], ["endDate", "Tanggal Selesai", "date", true], ["copyPreviousData", "Salin data master dan barang beserta stok terakhir dari tahun sebelumnya", "checkbox"], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
-    goods: { title: "Data Barang", description: "Informasi barang, tanggal barang masuk, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["assetCode", "Kode Barang KIB"], ["receivedDate", "Tanggal Barang Masuk"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["receivedDate", "Tanggal Barang Masuk", "date"], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
-    usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
-    stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"], ["missingQuantity", "Jumlah Hilang"], ["lossStatus", "Status Penanganan"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true], ["lossStatus", "Status Penanganan Kehilangan", "select", false, ["Perlu penelusuran", "Dilaporkan", "Ditemukan", "Selesai"]]] },
+    goods: { title: "Data Barang", description: "Informasi barang, tanggal barang masuk, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["assetCode", "Kode Barang KIB"], ["receivedDate", "Tanggal Barang Masuk"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["receivedDate", "Tanggal Barang Masuk", "date"], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi utama", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
+    usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["locationId", "Lokasi Barang", "select", true, "locations"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
+    stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang per lokasi.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["locationId", "Lokasi"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"], ["missingQuantity", "Jumlah Hilang"], ["lossStatus", "Status Penanganan"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["locationId", "Lokasi Barang", "select", true, "locations"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true], ["lossStatus", "Status Penanganan Kehilangan", "select", false, ["Perlu penelusuran", "Dilaporkan", "Ditemukan", "Selesai"]]] },
     repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan (opsional)", "file"], ["goodId", "Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
     maintenanceSchedules: { title: "Jadwal Pemeliharaan", description: "Atur jadwal, biaya, status pengerjaan, dan servis berikutnya.", singular: "Jadwal", cols: [["date", "Tanggal Servis"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["type", "Jenis Perawatan"], ["status", "Status Pengerjaan"], ["estimatedCost", "Estimasi Biaya"], ["nextServiceDate", "Servis Berikutnya"], ["technician", "Teknisi"], ["description", "Deskripsi"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["type", "Jenis Perawatan", "select", true, maintenanceTypes], ["date", "Tanggal Servis", "date", true], ["estimatedCost", "Estimasi Biaya Perawatan (Rp)", "number"], ["status", "Status Pengerjaan", "select", true, maintenanceStatuses], ["nextServiceDate", "Tanggal Servis Berikutnya (opsional)", "date"], ["technician", "Nama Teknisi (opsional)", "text"], ["description", "Deskripsi", "textarea"]] },
     loans: { title: "Peminjaman Barang", description: "Pencatatan peminjaman barang sekolah dan pengembaliannya.", singular: "Peminjaman", cols: [["borrower", "Peminjam"], ["goodId", "Barang"], ["quantity", "Jumlah Dipinjam"], ["locationId", "Lokasi"], ["startDate", "Tanggal Sewa"], ["durationDays", "Lama Pinjam (Hari)"], ["dueDate", "Tanggal Kembali"], ["late", "Keterlambatan"], ["status", "Status"]], fields: [["borrower", "Nama Peminjam", "text", true], ["whatsapp", "Nomor WhatsApp Peminjam (opsional)", "tel"], ["goodId", "Barang", "select", true, "loanGoods"], ["quantity", "Jumlah Barang Dipinjam", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["startDate", "Tanggal Sewa", "date", true], ["durationDays", "Jumlah Hari Peminjaman", "number", true], ["dueDate", "Tanggal Kembali", "date", true], ["note", "Keterangan", "textarea"], ["signature", "Tanda Tangan Peminjam (opsional)", "signature"]] },
@@ -368,21 +369,27 @@
   function lowStockBhpGoods() {
     return recordsForAcademicYear("goods").filter((good) => bhpStockAlert(good));
   }
-  const activeLoanQuantity = (goodId, excludeLoanId = "") => (state.loans || []).reduce((total, loan) => {
-    if (loan.id === excludeLoanId || loan.goodId !== goodId || loan.status !== "Diterima" || loan.stockAdjusted === true) return total;
+  const activeLoanQuantity = (goodId, excludeLoanId = "", locationId = "") => (state.loans || []).reduce((total, loan) => {
+    const loanLocationId = loan.locationId || getById("goods", loan.goodId)?.locationId || "";
+    if (loan.id === excludeLoanId || loan.goodId !== goodId || loan.status !== "Diterima" || loan.stockAdjusted === true
+      || (locationId && loanLocationId !== locationId)) return total;
     return total + Math.max(1, Number(loan.quantity) || 1);
   }, 0);
-  const availableLoanQuantity = (goodId, excludeLoanId = "") => {
+  const availableLoanQuantity = (goodId, excludeLoanId = "", locationId = "") => {
     const good = getById("goods", goodId);
     if (!good || isBhp(good)) return 0;
-    return Math.max(0, Number(good.quantity || 0) - activeLoanQuantity(goodId, excludeLoanId));
+    const stock = locationId ? goodLocationStock(good, locationId) : Math.max(0, Number(good.quantity || 0));
+    return Math.max(0, stock - activeLoanQuantity(goodId, excludeLoanId, locationId));
   };
-  const loanFormAvailableQuantity = (goodId, loanId = "") => {
+  const loanFormAvailableQuantity = (goodId, loanId = "", locationId = "") => {
     const loan = loanId ? getById("loans", loanId) : null;
+    const loanLocationId = loan?.locationId || getById("goods", loan?.goodId)?.locationId || "";
+    const resolvedLocationId = locationId || loanLocationId || getById("goods", goodId)?.locationId || "";
     const restored = loan?.stockAdjusted === true && loan.status === "Diterima" && loan.goodId === goodId
+      && loanLocationId === resolvedLocationId
       ? Math.max(1, Number(loan.quantity) || 1)
       : 0;
-    return availableLoanQuantity(goodId, loanId) + restored;
+    return availableLoanQuantity(goodId, loanId, resolvedLocationId) + restored;
   };
   const isInventoryReport = (type) => inventoryReportTypes.has(type);
 
@@ -862,6 +869,10 @@
           copy[field] = idMaps[collection].get(copy[field]) || copy[field];
         });
         copy.quantity = Number(good.quantity) || 0;
+        copy.locationStocks = getGoodLocationStocks(good).map((entry) => ({
+          locationId: idMaps.locations.get(entry.locationId) || entry.locationId,
+          quantity: entry.quantity
+        }));
         copy.initialQuantity = copy.quantity;
         return copy;
       });
@@ -980,6 +991,18 @@
       if (!Number.isFinite(Number(good.initialQuantity))) {
         good.initialQuantity = Math.max(0, Number(good.quantity) || 0);
         changed = true;
+      }
+      if (!Array.isArray(good.locationStocks)) {
+        good.locationStocks = Number(good.quantity) > 0
+          ? [{ locationId: good.locationId || "", quantity: Math.max(0, Number(good.quantity) || 0) }]
+          : [];
+        changed = true;
+      } else {
+        const balances = getGoodLocationStocks(good);
+        if (JSON.stringify(balances) !== JSON.stringify(good.locationStocks)) {
+          good.locationStocks = balances;
+          changed = true;
+        }
       }
     });
     return changed;
@@ -1855,7 +1878,10 @@
           <div id="goodsCheckStatus" class="goods-check-status" aria-live="polite">Menyiapkan kamera…</div>
           <button id="goodsCheckRestart" class="btn-secondary goods-check-restart" type="button"><i data-lucide="camera"></i>Buka kamera</button>
           <form id="goodsCheckSearchForm" class="goods-check-search">
-            <input id="goodsCheckInput" type="search" autocomplete="off" placeholder="Kode barcode atau nama barang">
+            <div class="goods-check-search-input-wrap">
+              <input id="goodsCheckInput" type="search" autocomplete="off" placeholder="Kode barcode atau nama barang" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="goodsCheckSuggestions">
+              <div id="goodsCheckSuggestions" class="goods-check-suggestions" role="listbox" hidden></div>
+            </div>
             <button class="btn-primary" type="submit"><i data-lucide="search"></i>Cari</button>
           </form>
           <div id="goodsCheckMatches" class="goods-check-matches" aria-live="polite"></div>
@@ -1911,12 +1937,14 @@
         <div><small>Status BHP</small><b>${isBhp(good) ? "Barang Habis Pakai (BHP)" : "Barang Modal"}</b></div>
         <div><small>Kondisi barang</small><b>${integerId.format(conditions.good)} baik · ${integerId.format(conditions.damaged)} rusak · ${integerId.format(conditions.missing)} hilang</b></div>
       </div>
+      ${goodsCheckTable("Jumlah barang per lokasi", ["Lokasi", "Jumlah", "Satuan"], goodLocationStockRows(good), "Belum ada stok yang dialokasikan ke lokasi.")}
       ${goodsCheckTable("Riwayat stok masuk / pengadaan", ["Tanggal masuk", "Jumlah", "Sumber dana", "Nilai pengadaan", "Pengusul"], purchaseRows, "Belum ada pengadaan diterima yang tercatat.")}
       ${goodsCheckTable("Riwayat stock opname", ["Tanggal", "Stok lama", "Stok baru", "Total stok", "Keterangan"], stocktakeRows, "Belum ada riwayat stock opname.")}</div>`;
     if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckResult")] });
   }
 
   function searchGoodsCheck(query) {
+    closeGoodsCheckSuggestions();
     const normalized = String(query || "").trim().toLocaleLowerCase("id-ID");
     const matches = [];
     if (!normalized) {
@@ -1941,11 +1969,62 @@
     if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckMatches")] });
   }
 
+  function closeGoodsCheckSuggestions() {
+    const suggestions = $("#goodsCheckSuggestions");
+    const input = $("#goodsCheckInput");
+    if (suggestions) suggestions.hidden = true;
+    input?.setAttribute("aria-expanded", "false");
+  }
+
+  function updateGoodsCheckSuggestions() {
+    const input = $("#goodsCheckInput");
+    const suggestions = $("#goodsCheckSuggestions");
+    const normalized = input.value.trim().toLocaleLowerCase("id-ID");
+    if (normalized.length < 3) {
+      closeGoodsCheckSuggestions();
+      return;
+    }
+    const matches = recordsForAcademicYear("goods")
+      .filter((good) => [good.name, good.barcode, good.assetCode]
+        .some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(normalized)))
+      .sort((a, b) => Number(String(b.name || "").toLocaleLowerCase("id-ID").startsWith(normalized))
+        - Number(String(a.name || "").toLocaleLowerCase("id-ID").startsWith(normalized)))
+      .slice(0, 8);
+    suggestions.innerHTML = matches.length
+      ? matches.map((good) => `<button class="goods-check-suggestion" type="button" role="option" data-check-suggestion="${esc(good.id)}"><b>${esc(good.name)}</b><small>${esc(good.barcode || good.assetCode || "Kode belum tersedia")} · ${integerId.format(goodConditionCounts(good).total)} ${esc(relatedName("units", good.unitId))}</small></button>`).join("")
+      : `<div class="goods-check-suggestion-empty" role="option" aria-disabled="true">Tidak ada barang yang cocok.</div>`;
+    suggestions.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  }
+
   function setupGoodsCheck() {
-    $("#goodsCheckSearchForm").addEventListener("submit", (event) => {
+    const form = $("#goodsCheckSearchForm");
+    const input = $("#goodsCheckInput");
+    const suggestions = $("#goodsCheckSuggestions");
+    form.addEventListener("submit", (event) => {
       event.preventDefault();
+      closeGoodsCheckSuggestions();
       searchGoodsCheck($("#goodsCheckInput").value);
     });
+    input.addEventListener("input", updateGoodsCheckSuggestions);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeGoodsCheckSuggestions();
+    });
+    suggestions.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("[data-check-suggestion]")) event.preventDefault();
+    });
+    suggestions.addEventListener("click", (event) => {
+      const option = event.target.closest("[data-check-suggestion]");
+      if (!option) return;
+      const good = getById("goods", option.dataset.checkSuggestion);
+      if (!good) return;
+      input.value = good.name;
+      closeGoodsCheckSuggestions();
+      showGoodsCheckResult(good.id);
+    });
+    form.addEventListener("focusout", () => window.setTimeout(() => {
+      if (!form.contains(document.activeElement)) closeGoodsCheckSuggestions();
+    }, 0));
     $("#goodsCheckRestart").addEventListener("click", startGoodsCheckCamera);
     $("#goodsCheckMatches").addEventListener("click", (event) => {
       const match = event.target.closest("[data-check-good]");
@@ -2155,7 +2234,7 @@
       return `<tr>${selection}${displayCols.map(([field]) => {
         const currency = ["price", "totalPrice", "unitPrice", "estimatedCost", "initialValue", "residualValue", "amount", "accumulatedAmount", "finalValue"].includes(field) || (field === "total" && key === "procurements");
         return `<td${currency ? ' class="goods-price-cell"' : ""}>${formatCell(key, field, row)}</td>`;
-      }).join("")}<td><div class="action-buttons">${bastAction}${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${key === "locations" && canEditPage(key) ? `<button class="mini-action" title="Kondisi ruangan" aria-label="Kondisi ruangan ${esc(row.name)}" data-action="room-condition" data-id="${row.id}"><i data-lucide="triangle-alert"></i></button>` : ""}${canEditPage(key) && !(key === "procurements" && isStockAdditionRecord(row)) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
+      }).join("")}<td><div class="action-buttons">${bastAction}${canEditPage(key) && ((key === "loans" && row.status === "Diterima") || (key === "procurements" && row.status === "Pengajuan")) ? `<button class="mini-action" title="Ubah status" data-action="status" data-id="${row.id}"><i data-lucide="check"></i></button>` : ""}${key === "locations" && canEditPage(key) ? `<button class="mini-action" title="Kondisi ruangan" aria-label="Kondisi ruangan ${esc(row.name)}" data-action="room-condition" data-id="${row.id}"><i data-lucide="triangle-alert"></i></button>` : ""}${canEditPage(key) && !(key === "procurements" && isStockAdditionRecord(row)) ? `<button class="mini-action" title="Edit" data-action="edit" data-id="${row.id}"><i data-lucide="pencil"></i></button>` : ""}${canDeletePage(key) ? `<button class="mini-action" title="Hapus" data-action="delete" data-id="${row.id}"><i data-lucide="trash-2"></i></button>` : ""}${key === "goods" && canEditPage(key) ? `<button class="mini-action" title="Atur lokasi stok" aria-label="Atur lokasi stok ${esc(row.name)}" data-action="goods-locations" data-id="${row.id}"><i data-lucide="map-pin"></i></button><button class="mini-action" title="Atur kondisi barang" data-action="goods-condition" data-id="${row.id}"><i data-lucide="activity"></i></button>` : ""}${key === "loans" ? `<button class="mini-action" title="Cetak bukti peminjaman" aria-label="Cetak bukti peminjaman" data-action="print-loan" data-id="${row.id}"><i data-lucide="printer"></i></button>` : ""}</div></td></tr>`;
     }).join("") : `<tr><td colspan="${displayCols.length + 1 + Number(bulkDeletable)}"><div class="empty-state"><i data-lucide="inbox"></i>Tidak ada data yang cocok.</div></td></tr>`;
     const purchaseHistory = key === "goods" ? renderGoodsPurchaseHistory() : "";
     return `${pageHeading(actions)}${toolbar}<div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectHeader}${headers}<th>AKSI</th></tr></thead><tbody>${body}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${rows.length} data</span><div class="pagination"><button class="page-number active">1</button></div></div></div>${purchaseHistory}`;
@@ -2195,15 +2274,15 @@
     const rows = filtered.length ? filtered.map((movement) => `<tr>
       <td>${esc(niceDate(movement.date))}</td><td>${esc(movement.goodBarcode || getById("goods", movement.goodId)?.barcode || getById("goods", movement.goodId)?.assetCode || "—")}</td>
       <td><span class="table-title">${esc(movement.goodName || titleOfGood(movement.goodId))}</span></td>
-      <td>${esc(movement.fromLocationName || "Belum ditentukan")}</td><td>${esc(movement.toLocationName || "—")}</td>
+      <td>${esc(movement.fromLocationName || "Belum ditentukan")}</td><td>${esc(movement.toLocationName || "—")}</td><td>${movement.quantity == null ? "—" : `${quantityId.format(Number(movement.quantity) || 0)} ${esc(relatedName("units", movement.unitId || getById("goods", movement.goodId)?.unitId))}`}</td>
       <td>${esc(movement.responsible || "—")}</td><td>${esc(movement.note || "—")}</td>
       <td><button type="button" class="mini-action" title="Cetak BAST" aria-label="Cetak BAST perpindahan barang" data-action="print-bast" data-type="assetMovements" data-id="${esc(movement.id)}"><i data-lucide="printer"></i></button></td>
-    </tr>`).join("") : `<tr><td class="empty-state" colspan="8">Belum ada riwayat pemindahan yang cocok.</td></tr>`;
+    </tr>`).join("") : `<tr><td class="empty-state" colspan="9">Belum ada riwayat pemindahan yang cocok.</td></tr>`;
     const actions = canEditPage("assetMovements")
       ? `<button class="btn-primary" data-action="add-asset-movement"><i data-lucide="move-right"></i>Pindahkan Barang</button>` : "";
     return `${pageHeading(actions)}<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari nama barang, barcode, ruang..." value="${esc(searchTerm)}"></label><span class="badge neutral">${filtered.length} pemindahan</span></div></div>
-      <div class="settings-card movement-intro"><i data-lucide="route"></i><p>Pilih barang dari Data Barang untuk memindahkannya ke ruang lain. Lokasi barang beserta riwayat perpindahannya dicatat pada data barang.</p></div>
-      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tanggal Pemindahan</th><th>Kode Barang</th><th>Nama Barang</th><th>Dari Ruang</th><th>Ke Ruang</th><th>Penanggung Jawab</th><th>Keterangan</th><th>Dokumen</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${records.length} pemindahan</span></div></div>`;
+      <div class="settings-card movement-intro"><i data-lucide="route"></i><p>Pilih barang, lokasi asal, dan jumlah yang dipindahkan. Saldo pada kedua ruang beserta riwayat perpindahan akan diperbarui.</p></div>
+      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tanggal Pemindahan</th><th>Kode Barang</th><th>Nama Barang</th><th>Dari Ruang</th><th>Ke Ruang</th><th>Jumlah</th><th>Penanggung Jawab</th><th>Keterangan</th><th>Dokumen</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${records.length} pemindahan</span></div></div>`;
   }
 
   function openAssetMovementForm() {
@@ -2217,20 +2296,59 @@
       <div class="modal-header"><div><h2 id="assetMovementTitle">Pindah Ruang Barang</h2><p>Catat perpindahan barang dari Data Barang beserta penanggung jawabnya.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div>
       <form id="assetMovementForm" class="modal-form"><div class="form-grid">
         <div class="form-field"><label for="movementDate">Tanggal Pemindahan *</label><input id="movementDate" name="date" type="date" value="${dateOffset(0)}" required></div>
-        <div class="form-field"><label for="movementGood">Nama Barang *</label><select id="movementGood" name="goodId" required><option value="">Pilih barang dari Data Barang</option>${goodOptions}</select><small class="form-help">Perpindahan memperbarui ruang pada Data Barang.</small></div>
-        <div class="form-field"><label>Ruang Asal</label><input id="movementFromRoom" type="text" value="" readonly placeholder="Otomatis dari Data Barang"><input id="movementFromRoomId" name="fromLocationId" type="hidden"></div>
+        <div class="form-field"><label for="movementGood">Nama Barang *</label><select id="movementGood" name="goodId" required><option value="">Pilih barang dari Data Barang</option>${goodOptions}</select><small class="form-help">Jumlah stok dipindahkan dari saldo lokasi asal ke lokasi tujuan tanpa mengubah total barang.</small></div>
+        <div class="form-field"><label for="movementFromRoom">Ruang Asal *</label><select id="movementFromRoom" name="fromLocationId" required disabled><option value="">Pilih barang terlebih dahulu</option></select><small id="movementAvailableStock" class="form-help">Pilih barang untuk melihat stok setiap lokasi.</small></div>
         <div class="form-field"><label for="movementToRoom">Ruang Tujuan *</label><select id="movementToRoom" name="toLocationId" required><option value="">Pilih ruang tujuan</option>${locations}</select></div>
+        <div class="form-field"><label for="movementQuantity">Jumlah yang Dipindahkan *</label><input id="movementQuantity" name="quantity" type="number" min="1" step="1" required></div>
         <div class="form-field full"><label for="movementResponsible">Nama Penanggung Jawab *</label><input id="movementResponsible" name="responsible" type="text" maxlength="120" required></div>
         <div class="form-field full"><label for="movementNote">Keterangan (opsional)</label><textarea id="movementNote" name="note" rows="3" maxlength="500"></textarea></div>
       </div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="submit" class="btn-primary"><i data-lucide="save"></i>Simpan pemindahan</button></div></form>
     </section></div>`);
     const form = $("#assetMovementForm");
+    const sourceSelect = $("#movementFromRoom");
+    const quantityInput = $("#movementQuantity");
+    const availableLabel = $("#movementAvailableStock");
+    const updateMovementAvailability = () => {
+      const good = getById("goods", $("#movementGood")?.value);
+      const sourceLocationId = sourceSelect?.value === "__unassigned__" ? "" : sourceSelect?.value || "";
+      const available = good && sourceSelect?.value ? goodLocationStock(good, sourceLocationId) : 0;
+      const minimum = good && isBhp(good) ? 0.01 : 1;
+      if (quantityInput) {
+        quantityInput.max = String(available);
+        quantityInput.setCustomValidity(available < minimum ? "Stok pada lokasi asal tidak tersedia." : "");
+      }
+      if (availableLabel) availableLabel.textContent = good && sourceSelect?.value
+        ? `Stok di lokasi asal: ${quantityId.format(available)} ${relatedName("units", good.unitId)}.`
+        : "Pilih barang untuk melihat stok setiap lokasi.";
+    };
     $("#movementGood")?.addEventListener("change", (event) => {
       const good = getById("goods", event.target.value);
-      const locationId = good?.locationId || "";
-      $("#movementFromRoomId").value = locationId;
-      $("#movementFromRoom").value = locationId ? relatedName("locations", locationId) : "Belum ditentukan";
-      if ($("#movementToRoom").value === locationId) $("#movementToRoom").value = "";
+      const balances = getGoodLocationStocks(good);
+      const bhp = good ? isBhp(good) : false;
+      sourceSelect.innerHTML = balances.length
+        ? balances.map((entry) => `<option value="${entry.locationId ? esc(entry.locationId) : "__unassigned__"}">${esc(entry.locationId ? relatedName("locations", entry.locationId) : "Belum ditentukan")} · ${quantityId.format(entry.quantity)} ${esc(relatedName("units", good.unitId))}</option>`).join("")
+        : `<option value="">Stok tidak tersedia</option>`;
+      sourceSelect.disabled = !balances.length;
+      const primary = balances.find((entry) => entry.locationId === good?.locationId) || balances[0];
+      if (primary) sourceSelect.value = primary.locationId || "__unassigned__";
+      if ($("#movementToRoom").value === (primary?.locationId || "")) $("#movementToRoom").value = "";
+      if (quantityInput) {
+        quantityInput.min = bhp ? "0.01" : "1";
+        quantityInput.step = bhp ? "any" : "1";
+        quantityInput.value = primary ? String(bhp ? primary.quantity : Math.floor(primary.quantity)) : "";
+      }
+      updateMovementAvailability();
+    });
+    sourceSelect?.addEventListener("change", () => {
+      const sourceLocationId = sourceSelect.value === "__unassigned__" ? "" : sourceSelect.value;
+      if ($("#movementToRoom").value === sourceLocationId) $("#movementToRoom").value = "";
+      updateMovementAvailability();
+    });
+    $("#movementToRoom")?.addEventListener("change", () => {
+      if ($("#movementToRoom").value === (sourceSelect.value === "__unassigned__" ? "" : sourceSelect.value)) {
+        $("#movementToRoom").value = "";
+        showToast("Ruang asal dan tujuan harus berbeda.", true);
+      }
     });
     form?.addEventListener("submit", saveAssetMovement);
   }
@@ -2242,8 +2360,9 @@
     const good = getById("goods", form.elements.goodId.value);
     const toLocationId = form.elements.toLocationId.value;
     const toRoom = getById("locations", toLocationId);
-    const fromLocationId = form.elements.fromLocationId.value;
+    const fromLocationId = form.elements.fromLocationId.value === "__unassigned__" ? "" : form.elements.fromLocationId.value;
     const fromRoom = getById("locations", fromLocationId);
+    const quantity = Number(form.elements.quantity.value);
     const date = form.elements.date.value;
     const parsedDate = new Date(`${date}T00:00:00Z`);
     const responsible = form.elements.responsible.value.trim();
@@ -2252,7 +2371,12 @@
       return showToast("Tanggal pemindahan wajib diisi dengan tanggal yang valid.", true);
     }
     if (!toRoom || toRoom.status === "Nonaktif") return showToast("Pilih ruang tujuan yang aktif.", true);
-    if (fromLocationId && fromLocationId === toLocationId) return showToast("Ruang asal dan tujuan harus berbeda.", true);
+    if (fromLocationId === toLocationId) return showToast("Ruang asal dan tujuan harus berbeda.", true);
+    if (!Number.isFinite(quantity) || quantity < (isBhp(good) ? 0.01 : 1)
+      || (!isBhp(good) && !Number.isSafeInteger(quantity))) {
+      return showToast(isBhp(good) ? "Jumlah pemindahan harus lebih dari nol." : "Jumlah pemindahan harus berupa bilangan bulat minimal 1 unit.", true);
+    }
+    if (quantity > goodLocationStock(good, fromLocationId)) return showToast("Jumlah pemindahan melebihi stok di lokasi asal.", true);
     if (!responsible) return showToast("Nama penanggung jawab wajib diisi.", true);
     if (!Array.isArray(state.assetMovements)) state.assetMovements = [];
     const movement = {
@@ -2265,11 +2389,16 @@
       fromLocationName: fromRoom?.name || "Belum ditentukan",
       toLocationId,
       toLocationName: toRoom.name,
+      quantity,
+      unitId: good.unitId,
       responsible,
       note: form.elements.note.value.trim(),
       createdBy: activeUser?.name || "Administrator"
     };
-    good.locationId = toLocationId;
+    if (!moveGoodLocationStock(good, fromLocationId, toLocationId, quantity)) {
+      return showToast("Saldo stok tidak berhasil dipindahkan. Periksa stok di lokasi asal lalu coba lagi.", true);
+    }
+    if (!goodLocationStock(good, good.locationId)) good.locationId = good.locationStocks[0]?.locationId || toLocationId;
     state.assetMovements.unshift(movement);
     logActivity("Memindahkan barang", "Pindah Ruang Barang", `${good.name} · ${movement.fromLocationName} → ${toRoom.name}`);
     saveState();
@@ -2663,10 +2792,11 @@
       ? ["name", "ownership", "fund", "type", "category", "location", "quantity", "unit", "price", "totalPrice"]
       : ["name", "type", "category", "quantity", "unit", "totalPrice"];
     const rows = goods.map((good) => {
-      const totalPrice = Number(good.quantity || 0) * Number(good.price || 0);
+      const quantity = filters.locationId ? goodLocationStock(good, filters.locationId) : Number(good.quantity) || 0;
+      const totalPrice = quantity * Number(good.price || 0);
       return showDetails
-        ? [good.name, relatedName("ownerships", good.ownershipId), relatedName("funds", good.fundId), relatedName("types", good.typeId), relatedName("categories", good.categoryId), relatedName("locations", good.locationId), good.quantity, relatedName("units", good.unitId), Number(good.price || 0), totalPrice]
-        : [good.name, relatedName("types", good.typeId), relatedName("categories", good.categoryId), good.quantity, relatedName("units", good.unitId), totalPrice];
+        ? [good.name, relatedName("ownerships", good.ownershipId), relatedName("funds", good.fundId), relatedName("types", good.typeId), relatedName("categories", good.categoryId), relatedName("locations", filters.locationId || good.locationId), quantity, relatedName("units", good.unitId), Number(good.price || 0), totalPrice]
+        : [good.name, relatedName("types", good.typeId), relatedName("categories", good.categoryId), quantity, relatedName("units", good.unitId), totalPrice];
     });
     return { headers, fields, rows };
   }
@@ -2679,7 +2809,7 @@
   function matchesReportAsset(good, startDate, endDate, filters = reportFilters(), dateField = "receivedDate") {
     return Boolean(good)
       && (!filters.fundId || good.fundId === filters.fundId)
-      && (!filters.locationId || good.locationId === filters.locationId)
+      && (!filters.locationId || goodLocationStock(good, filters.locationId) > 0)
       && matchesReportDate(good[dateField] || "", startDate, endDate);
   }
   function filteredReportGoods(type, startDate = "", endDate = "") {
@@ -3427,6 +3557,8 @@
             : key === "loans" && name === "quantity" ? 1
               : key === "disposals" && name === "quantity" ? 1
             : ["repairTickets", "maintenanceSchedules"].includes(key) && name === "quantity" ? 1
+              : ["usages", "stocktakes"].includes(key) && name === "locationId"
+                ? getById("goods", record?.goodId)?.locationId || ""
               : key === "repairTickets" && name === "priority" ? "Sedang"
                 : key === "maintenanceSchedules" && name === "type" ? "Rutin"
               : key === "maintenanceSchedules" && name === "status" ? "Menunggu Jadwal"
@@ -3464,6 +3596,7 @@
       if (key === "loans" && name === "dueDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${required ? " *" : ""}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${required ? "required" : ""} readonly><small class="form-help">Dihitung otomatis dari tanggal sewa dan jumlah hari.</small></div>`;
       if (key === "depreciations" && name === "initialValue") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly><small class="form-help">Terisi otomatis dari harga satuan barang.</small></div>`;
       if (key === "depreciations" && name === "method") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><select id="${idAttr}" name="${name}" required>${optionsFor(source).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select><small class="form-help">Saldo Menurun Ganda memakai tarif 2 ÷ umur ekonomis dan beralih ke garis lurus saat lebih sesuai. Jumlah Angka Tahun membebankan porsi lebih besar pada awal umur aset.</small></div>`;
+      if (key === "goods" && name === "locationId") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><select id="${idAttr}" name="${name}" required><option value="">Pilih lokasi utama</option>${optionsFor(source, recordYearId).replace(new RegExp(`value="${esc(value)}"`), `value="${esc(value)}" selected`)}</select><small class="form-help">Untuk membagi stok ke beberapa ruang, gunakan tombol Atur lokasi stok pada tabel Data Barang.</small></div>`;
       if (key === "depreciations" && name === "date") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" required readonly><small class="form-help">Otomatis mengikuti akhir bulan atau akhir tahun buku.</small></div>`;
       if (key === "depreciations" && ["amount", "accumulatedAmount", "finalValue"].includes(name)) return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" class="money-input depreciation-computed" inputmode="numeric" value="${esc(formatThousands(value))}" required readonly></div>`;
       if (type === "checkbox") return `<div class="form-field full"><label class="form-check"><input id="${idAttr}" name="${name}" type="checkbox" ${value ? "checked" : ""}><span>${esc(label)}</span></label></div>`;
@@ -3616,6 +3749,9 @@
     if (!recordsForAcademicYear("suppliers").some((supplier) => supplier.id === supplierId)) return showToast("Pilih supplier yang valid.", true);
     const previousQuantity = Math.max(0, Number(good.quantity) || 0);
     const previousInitial = Math.max(previousQuantity, Number(good.initialQuantity ?? good.quantity) || 0);
+    if (!adjustGoodLocationStock(good, locationId, quantity)) {
+      return showToast("Stok tidak dapat dialokasikan ke lokasi yang dipilih.", true);
+    }
     const purchaseId = id();
     const previousGoodData = {
       receivedDate: good.receivedDate || "",
@@ -3625,7 +3761,6 @@
       supplierId: good.supplierId || "",
       stockAdditionRecordId: good.stockAdditionRecordId || ""
     };
-    good.quantity = previousQuantity + quantity;
     good.initialQuantity = previousInitial + quantity;
     good.price = unitPrice;
     good.locationId = locationId;
@@ -3661,21 +3796,31 @@
   function setupLoanForm(form) {
     const good = form.elements.goodId;
     const quantity = form.elements.quantity;
+    const location = form.elements.locationId;
     const availableLabel = $("#loanAvailableQuantity", form);
     const startDate = form.elements.startDate;
     const duration = form.elements.durationDays;
     const dueDate = form.elements.dueDate;
     const refreshAvailability = () => {
       if (!good || !quantity) return;
-      const available = loanFormAvailableQuantity(good.value, form.dataset.record);
+      const available = loanFormAvailableQuantity(good.value, form.dataset.record, location?.value || "");
       quantity.max = String(available);
       if (availableLabel) availableLabel.textContent = good.value ? `Stok yang tersedia untuk dipinjam: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
+    };
+    const selectDefaultLocation = () => {
+      if (form.dataset.record || !good?.value || !location || location.value) return;
+      const item = getById("goods", good.value);
+      const balances = getGoodLocationStocks(item);
+      location.value = balances.find((entry) => entry.locationId === item?.locationId)?.locationId
+        || balances[0]?.locationId
+        || "";
     };
     const refreshDueDate = () => {
       const days = Number(duration?.value);
       dueDate.value = startDate?.value && Number.isInteger(days) && days > 0 ? addDaysToDate(startDate.value, days) : "";
     };
-    good?.addEventListener("change", refreshAvailability);
+    good?.addEventListener("change", () => { selectDefaultLocation(); refreshAvailability(); });
+    location?.addEventListener("change", refreshAvailability);
     startDate?.addEventListener("change", refreshDueDate);
     duration?.addEventListener("input", refreshDueDate);
     refreshAvailability();
@@ -3686,19 +3831,30 @@
   function setupDisposalForm(form) {
     const goodSelect = form.elements.goodId;
     const quantity = form.elements.quantity;
+    const location = form.elements.locationId;
     const availableLabel = $("#disposalAvailableQuantity", form);
     const refreshAvailability = () => {
       if (!goodSelect || !quantity) return;
       const good = getById("goods", goodSelect.value);
       const old = form.dataset.record ? getById("disposals", form.dataset.record) : null;
-      const restored = old?.stockAdjusted && old.goodId === good?.id ? Math.max(1, Number(old.quantity) || 1) : 0;
+      const restored = old?.stockAdjusted && old.goodId === good?.id && (old.locationId || good?.locationId || "") === location?.value
+        ? Math.max(1, Number(old.quantity) || 1) : 0;
       const available = good
-        ? Math.max(0, Number(good.quantity || 0) - activeLoanQuantity(good.id) + restored)
+        ? Math.max(0, goodLocationStock(good, location?.value || "") - activeLoanQuantity(good.id, "", location?.value || "") + restored)
         : 0;
       quantity.max = String(available);
       if (availableLabel) availableLabel.textContent = goodSelect.value ? `Stok yang dapat dimusnahkan: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
     };
-    goodSelect?.addEventListener("change", refreshAvailability);
+    const selectDefaultLocation = () => {
+      if (form.dataset.record || !goodSelect?.value || !location || location.value) return;
+      const good = getById("goods", goodSelect.value);
+      const balances = getGoodLocationStocks(good);
+      location.value = balances.find((entry) => entry.locationId === good?.locationId)?.locationId
+        || balances[0]?.locationId
+        || "";
+    };
+    goodSelect?.addEventListener("change", () => { selectDefaultLocation(); refreshAvailability(); });
+    location?.addEventListener("change", refreshAvailability);
     refreshAvailability();
   }
 
@@ -3890,6 +4046,125 @@
     });
   }
 
+  function getGoodLocationStocks(good) {
+    if (!good) return [];
+    const balances = new Map();
+    const source = Array.isArray(good.locationStocks)
+      ? good.locationStocks
+      : [{ locationId: good.locationId || "", quantity: good.quantity }];
+    source.forEach((entry) => {
+      const quantity = Number(entry?.quantity);
+      if (!Number.isFinite(quantity) || quantity <= 0) return;
+      const locationId = String(entry.locationId || "");
+      balances.set(locationId, (balances.get(locationId) || 0) + quantity);
+    });
+    const total = Math.max(0, Number(good.quantity) || 0);
+    const current = [...balances.values()].reduce((sum, quantity) => sum + quantity, 0);
+    const difference = total - current;
+    const primaryLocationId = String(good.locationId || "");
+    if (difference > 1e-8) {
+      balances.set(primaryLocationId, (balances.get(primaryLocationId) || 0) + difference);
+    } else if (difference < -1e-8) {
+      let excess = -difference;
+      const order = [primaryLocationId, ...[...balances.keys()].reverse().filter((locationId) => locationId !== primaryLocationId)];
+      order.forEach((locationId) => {
+        if (excess <= 1e-8) return;
+        const reduction = Math.min(excess, balances.get(locationId) || 0);
+        const remaining = (balances.get(locationId) || 0) - reduction;
+        if (remaining > 1e-8) balances.set(locationId, remaining);
+        else balances.delete(locationId);
+        excess -= reduction;
+      });
+    }
+    return [...balances.entries()]
+      .filter(([, quantity]) => quantity > 1e-8)
+      .map(([locationId, quantity]) => ({ locationId, quantity }));
+  }
+
+  function goodLocationStock(good, locationId) {
+    return getGoodLocationStocks(good)
+      .find((entry) => entry.locationId === String(locationId || ""))?.quantity || 0;
+  }
+
+  function setGoodLocationStocks(good, entries) {
+    const balances = new Map();
+    for (const entry of entries) {
+      const quantity = Number(entry?.quantity);
+      if (!Number.isFinite(quantity) || quantity < 0) return false;
+      const locationId = String(entry.locationId || "");
+      balances.set(locationId, (balances.get(locationId) || 0) + quantity);
+    }
+    good.locationStocks = [...balances.entries()]
+      .filter(([, quantity]) => quantity > 1e-8)
+      .map(([locationId, quantity]) => ({ locationId, quantity }));
+    good.quantity = good.locationStocks.reduce((sum, entry) => sum + entry.quantity, 0);
+    syncGoodConditionCounts(good);
+    return true;
+  }
+
+  function adjustGoodLocationStock(good, locationId, difference) {
+    const balances = getGoodLocationStocks(good);
+    const current = balances.find((entry) => entry.locationId === String(locationId || ""))?.quantity || 0;
+    const next = current + Number(difference);
+    if (!Number.isFinite(next) || next < -1e-8) return false;
+    const updated = balances.filter((entry) => entry.locationId !== String(locationId || ""));
+    if (next > 1e-8) updated.push({ locationId: String(locationId || ""), quantity: Math.max(0, next) });
+    if (!setGoodLocationStocks(good, updated)) return false;
+    if (!good.locationId || !goodLocationStock(good, good.locationId)) {
+      good.locationId = good.locationStocks.find((entry) => entry.locationId)?.locationId || "";
+    }
+    return true;
+  }
+
+  function moveGoodLocationStock(good, fromLocationId, toLocationId, quantity) {
+    const from = String(fromLocationId || "");
+    const to = String(toLocationId || "");
+    const amount = Number(quantity);
+    if (!good || from === to || !Number.isFinite(amount) || amount <= 0) return false;
+    const balances = getGoodLocationStocks(good);
+    const fromEntry = balances.find((entry) => entry.locationId === from);
+    if (!fromEntry || fromEntry.quantity < amount) return false;
+    fromEntry.quantity -= amount;
+    if (fromEntry.quantity <= 1e-8) balances.splice(balances.indexOf(fromEntry), 1);
+    const toEntry = balances.find((entry) => entry.locationId === to);
+    if (toEntry) toEntry.quantity += amount;
+    else balances.push({ locationId: to, quantity: amount });
+    good.locationStocks = balances;
+    good.quantity = balances.reduce((sum, entry) => sum + entry.quantity, 0);
+    return true;
+  }
+
+  function resizeGoodLocationStocks(good, targetQuantity, preferredLocationId) {
+    const target = Number(targetQuantity);
+    if (!Number.isFinite(target) || target < 0) return false;
+    const balances = getGoodLocationStocks(good);
+    const current = balances.reduce((sum, entry) => sum + entry.quantity, 0);
+    let difference = target - current;
+    if (difference > 1e-8) {
+      balances.push({ locationId: String(preferredLocationId || good.locationId || ""), quantity: difference });
+    } else if (difference < -1e-8) {
+      let remove = -difference;
+      const preferred = String(preferredLocationId || good.locationId || "");
+      const order = [...balances].sort((a, b) => Number(b.locationId === preferred) - Number(a.locationId === preferred));
+      for (const entry of order) {
+        if (remove <= 1e-8) break;
+        const reduction = Math.min(remove, entry.quantity);
+        entry.quantity -= reduction;
+        remove -= reduction;
+      }
+      if (remove > 1e-8) return false;
+    }
+    return setGoodLocationStocks(good, balances);
+  }
+
+  function goodLocationStockRows(good) {
+    return getGoodLocationStocks(good).map((entry) => [
+      relatedName("locations", entry.locationId) === "—" ? "Belum ditentukan" : relatedName("locations", entry.locationId),
+      quantityId.format(entry.quantity),
+      relatedName("units", good.unitId)
+    ]);
+  }
+
   function goodConditionCounts(good) {
     const total = Math.max(0, Number(good?.quantity) || 0);
     const damaged = Math.min(total, Math.max(0, Number(good?.damagedConditionCount) || 0));
@@ -3917,31 +4192,27 @@
     if (disposal?.stockAdjusted !== true) return;
     const good = getById("goods", disposal.goodId);
     if (!good) return;
-    good.quantity = Number(good.quantity || 0) + Math.max(1, Number(disposal.quantity) || 1);
-    syncGoodConditionCounts(good);
+    adjustGoodLocationStock(good, disposal.locationId || good.locationId || "", Math.max(1, Number(disposal.quantity) || 1));
   }
 
   function restoreLoanStock(loan) {
     if (loan?.stockAdjusted !== true) return;
     const good = getById("goods", loan.goodId);
     if (!good) return;
-    good.quantity = Number(good.quantity || 0) + Math.max(1, Number(loan.quantity) || 1);
-    syncGoodConditionCounts(good);
+    adjustGoodLocationStock(good, loan.locationId || good.locationId || "", Math.max(1, Number(loan.quantity) || 1));
   }
 
   function restoreUsageStock(usage) {
     if (usage?.stockAdjusted !== true && usage?.status !== "Disetujui") return;
     const good = getById("goods", usage.goodId);
     if (!good) return;
-    good.quantity = Number(good.quantity || 0) + (Number(usage.quantity) || 0);
-    syncGoodConditionCounts(good);
+    adjustGoodLocationStock(good, usage.locationId || good.locationId || "", Number(usage.quantity) || 0);
   }
 
   function removeStockAdditionStock(record) {
     const good = getById("goods", record.goodId);
     const quantity = Math.max(0, Number(record.quantity) || 0);
-    if (!good || !quantity || Number(good.quantity || 0) < quantity) return false;
-    good.quantity = Math.max(0, Number(good.quantity || 0) - quantity);
+    if (!good || !quantity || !adjustGoodLocationStock(good, record.locationId || good.locationId || "", -quantity)) return false;
     good.initialQuantity = Math.max(0, Number(good.initialQuantity ?? good.quantity + quantity) - quantity);
     if (good.stockAdditionRecordId === record.id) {
       const previous = record.previousGoodData || {};
@@ -3959,8 +4230,7 @@
   function restoreStockAdditionStock(record) {
     const good = getById("goods", record.goodId);
     const quantity = Math.max(0, Number(record.quantity) || 0);
-    if (!good || !quantity) return false;
-    good.quantity = Math.max(0, Number(good.quantity || 0)) + quantity;
+    if (!good || !quantity || !adjustGoodLocationStock(good, record.locationId || good.locationId || "", quantity)) return false;
     good.initialQuantity = Math.max(0, Number(good.initialQuantity ?? good.quantity - quantity)) + quantity;
     if (!good.stockAdditionRecordId || String(record.date || "") >= String(good.receivedDate || "")) {
       good.receivedDate = record.date || good.receivedDate || "";
@@ -4013,12 +4283,13 @@
     if (requiresStockAdjustment) {
       const good = getById("goods", record.goodId);
       const quantity = Math.max(0, Number(record.quantity) || 0);
+      const locationId = record.locationId || good?.locationId || "";
       if (!good) {
         showToast("Barang terkait tidak ditemukan; data tidak dapat dipulihkan.", true);
         return false;
       }
-      if (!restoresStockAddition && quantity > Number(good.quantity || 0)) {
-        showToast(`Stok tidak mencukupi untuk memulihkan transaksi ini. Stok tersedia ${Number(good.quantity) || 0} unit.`, true);
+      if (!restoresStockAddition && quantity > goodLocationStock(good, locationId)) {
+        showToast(`Stok di lokasi ${relatedName("locations", locationId)} tidak mencukupi untuk memulihkan transaksi ini. Tersedia ${goodLocationStock(good, locationId)} unit.`, true);
         return false;
       }
       if (restoresStockAddition) {
@@ -4027,8 +4298,10 @@
           return false;
         }
       } else {
-        good.quantity = Math.max(0, Number(good.quantity || 0) - quantity);
-        syncGoodConditionCounts(good);
+        if (!adjustGoodLocationStock(good, locationId, -quantity)) {
+          showToast("Saldo stok pada lokasi transaksi tidak mencukupi; data tidak dapat dipulihkan.", true);
+          return false;
+        }
       }
     }
     state[collection].unshift(structuredClone(record));
@@ -4084,6 +4357,50 @@
     });
   }
 
+  function showGoodsLocationStocksModal(goodId) {
+    const good = getById("goods", goodId);
+    if (!good) return;
+    const balances = getGoodLocationStocks(good);
+    const locations = recordsForAcademicYear("locations");
+    const rows = locations.map((location) => ({
+      id: location.id,
+      name: location.name,
+      quantity: balances.find((entry) => entry.locationId === location.id)?.quantity || 0
+    }));
+    balances.filter((entry) => entry.locationId && !locations.some((location) => location.id === entry.locationId))
+      .forEach((entry) => rows.push({ id: entry.locationId, name: "Lokasi tidak tersedia", quantity: entry.quantity }));
+    rows.push({ id: "", name: "Belum ditentukan", quantity: balances.find((entry) => !entry.locationId)?.quantity || 0 });
+    const total = Math.max(0, Number(good.quantity) || 0);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="goodLocationStocksTitle">
+      <div class="modal-header"><div><h2 id="goodLocationStocksTitle">Atur stok per lokasi</h2><p>${esc(good.name)}</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div>
+      <form class="modal-form" id="goodLocationStocksForm"><p class="muted">Jumlah di semua lokasi harus sama dengan total stok (${integerId.format(total)} ${esc(relatedName("units", good.unitId))}).</p><div class="form-grid">
+        ${rows.map((row, index) => `<div class="form-field"><label for="goodLocationStock${index}">${esc(row.name)}</label><input id="goodLocationStock${index}" type="number" min="0" step="any" value="${esc(row.quantity)}" data-location-stock data-location-id="${esc(row.id)}" required></div>`).join("")}
+      </div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="submit" class="btn-primary"><i data-lucide="save"></i>Simpan lokasi stok</button></div></form></section></div>`);
+    $("#goodLocationStocksForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const entries = $$("[data-location-stock]", event.currentTarget).map((input) => ({
+        locationId: input.dataset.locationId || "",
+        quantity: Number(input.value)
+      }));
+      if (entries.some((entry) => !Number.isFinite(entry.quantity) || entry.quantity < 0)) {
+        return showToast("Jumlah stok setiap lokasi harus berupa angka nol atau lebih.", true);
+      }
+      const allocated = entries.reduce((sum, entry) => sum + entry.quantity, 0);
+      if (Math.abs(allocated - total) > 1e-8) {
+        return showToast(`Jumlah semua lokasi harus sama dengan total stok (${integerId.format(total)}).`, true);
+      }
+      if (!setGoodLocationStocks(good, entries)) return showToast("Pembagian stok per lokasi tidak valid.", true);
+      if (!good.locationId || !goodLocationStock(good, good.locationId)) {
+        good.locationId = good.locationStocks.find((entry) => entry.locationId)?.locationId || "";
+      }
+      logActivity("Mengatur stok per lokasi", "Barang", `${good.name} · ${good.locationStocks.length} lokasi`);
+      saveState();
+      closeModal();
+      showToast(`Pembagian stok ${good.name} berhasil disimpan.`);
+      renderPage();
+    });
+  }
+
   function showRoomConditionModal(locationId) {
     const room = getById("locations", locationId);
     if (!room) return;
@@ -4106,42 +4423,69 @@
 
   function setupStocktakeForm(form) {
     const goodSelect = form.elements.goodId;
+    const locationSelect = form.elements.locationId;
     const oldStockInput = form.elements.oldStock;
     if (!goodSelect || !oldStockInput) return;
     oldStockInput.readOnly = true;
     const newStockInput = form.elements.newStock;
     if (form.dataset.record) goodSelect.disabled = true;
+    if (form.dataset.record && locationSelect) locationSelect.disabled = true;
+    let selectedGoodId = "";
     const updateOldStock = () => {
       const good = getById("goods", goodSelect.value);
       const saved = form.dataset.record ? getById("stocktakes", form.dataset.record) : null;
-      oldStockInput.value = saved ? String(saved.oldStock ?? 0) : good ? String(good.quantity ?? 0) : "";
+      if (!saved && good && locationSelect && selectedGoodId !== good.id) {
+        const balances = getGoodLocationStocks(good);
+        locationSelect.value = balances.find((entry) => entry.locationId === good.locationId)?.locationId
+          || balances[0]?.locationId
+          || "";
+      }
+      selectedGoodId = good?.id || "";
+      const locationId = saved?.locationId || locationSelect?.value || good?.locationId || "";
+      oldStockInput.value = saved ? String(saved.oldStock ?? 0) : good ? String(goodLocationStock(good, locationId)) : "";
       if (newStockInput) {
         newStockInput.max = oldStockInput.value || "0";
         newStockInput.setCustomValidity("");
       }
     };
-    if (!form.dataset.record) goodSelect.addEventListener("change", updateOldStock);
+    if (!form.dataset.record) {
+      goodSelect.addEventListener("change", updateOldStock);
+      locationSelect?.addEventListener("change", updateOldStock);
+    }
     updateOldStock();
   }
 
   function setupUsageForm(form) {
     const goodSelect = form.elements.goodId;
+    const locationSelect = form.elements.locationId;
     const quantityInput = form.elements.quantity;
     const unitIdInput = form.elements.unitId;
     const unitNameInput = $("#usages-unitName", form);
     const availability = $("#usageAvailableQuantity", form);
+    let selectedGoodId = "";
     const updateUsageDetails = () => {
       const good = getById("goods", goodSelect.value);
+      if (!form.dataset.record && good && locationSelect && selectedGoodId !== good.id) {
+        const balances = getGoodLocationStocks(good);
+        locationSelect.value = balances.find((entry) => entry.locationId === good.locationId)?.locationId
+          || balances[0]?.locationId
+          || "";
+      }
+      selectedGoodId = good?.id || "";
       const unitId = good?.unitId || "";
       unitIdInput.value = unitId;
       unitNameInput.value = unitId ? relatedName("units", unitId) : "";
       const old = form.dataset.record ? getById("usages", form.dataset.record) : null;
-      const restored = (old?.stockAdjusted === true || old?.status === "Disetujui") && old.goodId === good?.id ? Number(old.quantity) || 0 : 0;
-      const available = good ? Math.max(0, Number(good.quantity || 0) + restored) : 0;
+      const locationId = locationSelect?.value || "";
+      const oldLocationId = old?.locationId || getById("goods", old?.goodId)?.locationId || "";
+      const restored = (old?.stockAdjusted === true || old?.status === "Disetujui")
+        && old.goodId === good?.id && oldLocationId === locationId ? Number(old.quantity) || 0 : 0;
+      const available = good ? Math.max(0, goodLocationStock(good, locationId) + restored) : 0;
       quantityInput.max = String(available);
       if (availability) availability.textContent = goodSelect.value ? `Stok tersedia untuk digunakan: ${available}` : "Pilih barang untuk melihat stok yang tersedia.";
     };
     goodSelect.addEventListener("change", updateUsageDetails);
+    locationSelect?.addEventListener("change", updateUsageDetails);
     updateUsageDetails();
   }
 
@@ -4372,9 +4716,11 @@
     let loanGood = null;
     let priorLoanGood = null;
     let priorLoanQuantity = 0;
+    let priorLoanLocationId = "";
     let usageGood = null;
     let priorUsageGood = null;
     let priorUsageQuantity = 0;
+    let priorUsageLocationId = "";
     for (const [name, , type] of config.fields) {
       const input = form.elements.namedItem(name);
       if (!input) continue;
@@ -4434,9 +4780,20 @@
       if (!recordsForAcademicYear("ownerships").some((ownership) => ownership.id === data.ownershipId)) { showToast("Pilih kepemilikan barang yang valid.", true); return; }
       const previousQuantity = Math.max(0, Number(old?.quantity) || 0);
       const previousInitial = Math.max(0, Number(old?.initialQuantity ?? old?.quantity) || 0);
+      const targetQuantity = Number(data.quantity);
+      if (!Number.isSafeInteger(targetQuantity) || targetQuantity < 0) {
+        showToast("Jumlah barang harus berupa bilangan bulat nol atau lebih.", true);
+        return;
+      }
+      data.locationStocks = old ? getGoodLocationStocks(old) : [];
+      data.quantity = previousQuantity;
+      if (!resizeGoodLocationStocks(data, targetQuantity, data.locationId)) {
+        showToast("Jumlah stok tidak dapat disesuaikan dengan pembagian per lokasi saat ini.", true);
+        return;
+      }
       data.initialQuantity = old
-        ? previousInitial + Math.max(0, Number(data.quantity) - previousQuantity)
-        : Math.max(0, Number(data.quantity) || 0);
+        ? previousInitial + Math.max(0, targetQuantity - previousQuantity)
+        : targetQuantity;
     }
     if (key === "locations") {
       if (!recordsForAcademicYear("ownerships", data.academicYearId).some((ownership) => ownership.id === data.ownershipId)) {
@@ -4482,8 +4839,13 @@
     }
     if (key === "usages") {
       const good = getById("goods", data.goodId);
+      const locationId = data.locationId || old?.locationId || good?.locationId || "";
       if (!good || !isBhp(good)) {
         showToast("Pilih barang habis pakai (BHP) yang valid.", true);
+        return;
+      }
+      if (!recordsForAcademicYear("locations").some((location) => location.id === locationId)) {
+        showToast("Pilih lokasi barang yang valid untuk penggunaan BHP.", true);
         return;
       }
       if (!good.unitId) {
@@ -4495,9 +4857,12 @@
         return;
       }
       data.unitId = good.unitId;
-      const restoresOldUsage = (old?.stockAdjusted === true || old?.status === "Disetujui") && old.goodId === good.id;
+      data.locationId = locationId;
+      const oldLocationId = old?.locationId || getById("goods", old?.goodId)?.locationId || "";
+      const restoresOldUsage = (old?.stockAdjusted === true || old?.status === "Disetujui")
+        && old.goodId === good.id && oldLocationId === locationId;
       const restoredQuantity = restoresOldUsage ? Number(old.quantity) || 0 : 0;
-      const available = Number(good.quantity || 0) + restoredQuantity;
+      const available = goodLocationStock(good, locationId) + restoredQuantity;
       if (data.quantity > available) {
         showToast(`Maksimal stok adalah ${available}.`, true);
         return;
@@ -4505,6 +4870,7 @@
       if (old?.stockAdjusted === true || old?.status === "Disetujui") {
         priorUsageGood = getById("goods", old.goodId);
         priorUsageQuantity = Number(old.quantity) || 0;
+        priorUsageLocationId = oldLocationId;
       }
       usageGood = good;
       data.stockAdjusted = true;
@@ -4590,9 +4956,13 @@
         showToast("Jumlah barang yang dipinjam minimal 1 unit.", true);
         return;
       }
+      if (!recordsForAcademicYear("locations").some((location) => location.id === data.locationId)) {
+        showToast("Pilih lokasi barang yang valid untuk peminjaman.", true);
+        return;
+      }
       data.status = old?.status && old.status !== "Pengajuan" ? old.status : "Diterima";
       if (data.status === "Diterima") {
-        const available = loanFormAvailableQuantity(data.goodId, old?.id);
+        const available = loanFormAvailableQuantity(data.goodId, old?.id, data.locationId);
         if (data.quantity > available) {
           showToast(`Jumlah melebihi stok yang dapat dipinjam. Maksimal tersedia ${available} unit.`, true);
           return;
@@ -4615,6 +4985,7 @@
       if (old?.stockAdjusted === true) {
         priorLoanGood = getById("goods", old.goodId);
         priorLoanQuantity = Math.max(1, Number(old.quantity) || 1);
+        priorLoanLocationId = old.locationId || priorLoanGood?.locationId || "";
       }
       data.stockAdjusted = data.status === "Diterima";
       if (!old) {
@@ -4627,6 +4998,7 @@
     let disposalGood = null;
     let priorDisposalGood = null;
     let priorDisposalQuantity = 0;
+    let priorDisposalLocationId = "";
     if (key === "disposals") {
       disposalGood = getById("goods", data.goodId);
       if (!disposalGood) {
@@ -4637,9 +5009,15 @@
         showToast("Jumlah barang yang dimusnahkan minimal 1 unit.", true);
         return;
       }
-      const restoresOldDisposal = old?.stockAdjusted === true && old.goodId === disposalGood.id;
+      if (!recordsForAcademicYear("locations").some((location) => location.id === data.locationId)) {
+        showToast("Pilih lokasi barang yang valid untuk pemusnahan.", true);
+        return;
+      }
+      const restoresOldDisposal = old?.stockAdjusted === true && old.goodId === disposalGood.id
+        && (old.locationId || disposalGood.locationId || "") === data.locationId;
       const restoredQuantity = restoresOldDisposal ? Math.max(1, Number(old.quantity) || 1) : 0;
-      const available = Math.max(0, Number(disposalGood.quantity || 0) - activeLoanQuantity(disposalGood.id) + restoredQuantity);
+      const available = Math.max(0, goodLocationStock(disposalGood, data.locationId)
+        - activeLoanQuantity(disposalGood.id, "", data.locationId) + restoredQuantity);
       if (data.quantity > available) {
         showToast(`Jumlah pemusnahan melebihi stok yang dapat dimusnahkan. Maksimal tersedia ${available} unit.`, true);
         return;
@@ -4647,6 +5025,7 @@
       if (old?.stockAdjusted === true) {
         priorDisposalGood = getById("goods", old.goodId);
         priorDisposalQuantity = Math.max(1, Number(old.quantity) || 1);
+        priorDisposalLocationId = old.locationId || priorDisposalGood?.locationId || "";
       }
       data.status = "Selesai";
       data.stockAdjusted = true;
@@ -4658,8 +5037,13 @@
         showToast("Pilih barang yang valid untuk stock opname.", true);
         return;
       }
+      const locationId = old?.locationId || data.locationId || stocktakeGood.locationId || "";
+      if (!recordsForAcademicYear("locations").some((location) => location.id === locationId)) {
+        showToast("Pilih lokasi barang yang valid untuk stock opname.", true);
+        return;
+      }
       const newStock = Number(data.newStock);
-      const initialStock = old ? Number(old.oldStock || 0) : Number(stocktakeGood.quantity || 0);
+      const initialStock = old ? Number(old.oldStock || 0) : goodLocationStock(stocktakeGood, locationId);
       if (!Number.isInteger(newStock) || newStock < 0) {
         showToast("Stok baru harus berupa bilangan bulat nol atau lebih.", true);
         return;
@@ -4677,7 +5061,13 @@
       data.oldStock = initialStock;
       data.missingQuantity = Math.max(0, initialStock - newStock);
       data.lossStatus = data.missingQuantity ? (data.lossStatus || old?.lossStatus || "Perlu penelusuran") : "Tidak ada kehilangan";
-      data.locationId = old?.locationId || stocktakeGood.locationId || "";
+      data.locationId = locationId;
+      const currentLocationStock = goodLocationStock(stocktakeGood, locationId);
+      const adjustedLocationStock = currentLocationStock + newStock - (old ? Number(old.newStock ?? old.oldStock) : currentLocationStock);
+      if (adjustedLocationStock < -1e-8) {
+        showToast("Stok di lokasi tersebut tidak mencukupi untuk memperbarui stock opname.", true);
+        return;
+      }
     }
     if (key === "depreciations") {
       const good = getById("goods", data.goodId);
@@ -4759,32 +5149,26 @@
       if (!old && copySourceYear) copyAcademicYearData(copySourceYear.id, data.id);
     }
     if (stocktakeGood) {
-      stocktakeGood.quantity = data.newStock;
-      syncGoodConditionCounts(stocktakeGood);
+      const previousNewStock = old ? Number(old.newStock ?? old.oldStock) : Number(data.oldStock);
+      adjustGoodLocationStock(stocktakeGood, data.locationId, data.newStock - previousNewStock);
     }
     if (priorUsageGood) {
-      priorUsageGood.quantity = Number(priorUsageGood.quantity || 0) + priorUsageQuantity;
-      syncGoodConditionCounts(priorUsageGood);
+      adjustGoodLocationStock(priorUsageGood, priorUsageLocationId, priorUsageQuantity);
     }
     if (usageGood) {
-      usageGood.quantity = Math.max(0, Number(usageGood.quantity || 0) - data.quantity);
-      syncGoodConditionCounts(usageGood);
+      adjustGoodLocationStock(usageGood, data.locationId, -data.quantity);
     }
     if (priorLoanGood) {
-      priorLoanGood.quantity = Number(priorLoanGood.quantity || 0) + priorLoanQuantity;
-      syncGoodConditionCounts(priorLoanGood);
+      adjustGoodLocationStock(priorLoanGood, priorLoanLocationId, priorLoanQuantity);
     }
     if (loanGood && data.status === "Diterima") {
-      loanGood.quantity = Math.max(0, Number(loanGood.quantity || 0) - data.quantity);
-      syncGoodConditionCounts(loanGood);
+      adjustGoodLocationStock(loanGood, data.locationId, -data.quantity);
     }
     if (priorDisposalGood) {
-      priorDisposalGood.quantity = Number(priorDisposalGood.quantity || 0) + priorDisposalQuantity;
-      syncGoodConditionCounts(priorDisposalGood);
+      adjustGoodLocationStock(priorDisposalGood, priorDisposalLocationId, priorDisposalQuantity);
     }
     if (disposalGood) {
-      disposalGood.quantity = Math.max(0, Number(disposalGood.quantity || 0) - data.quantity);
-      syncGoodConditionCounts(disposalGood);
+      adjustGoodLocationStock(disposalGood, data.locationId, -data.quantity);
     }
     if (key === "accounts") {
       try {
@@ -5107,6 +5491,9 @@
     } else if (action === "goods-condition") {
       if (page !== "goods" || !canEditPage("goods")) return showToast("Akun Anda tidak memiliki izin mengubah kondisi barang.", true);
       showGoodsConditionModal(button.dataset.id);
+    } else if (action === "goods-locations") {
+      if (page !== "goods" || !canEditPage("goods")) return showToast("Akun Anda tidak memiliki izin mengubah lokasi stok.", true);
+      showGoodsLocationStocksModal(button.dataset.id);
     } else if (action === "room-condition") {
       if (page !== "locations" || !canEditPage("locations")) return showToast("Akun Anda tidak memiliki izin mengubah kondisi ruangan.", true);
       showRoomConditionModal(button.dataset.id);
@@ -5622,7 +6009,7 @@
       return;
     }
     goodsImportDraft = [];
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Impor Barang</h2><p>Unggah file Excel atau CSV, lalu lengkapi data pada pratinjau.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><label id="goodsImportDrop" class="goods-import-drop"><i data-lucide="file-up"></i><b>Tarik file ke area ini</b><span>atau pilih file Excel / CSV</span><input type="file" id="goodsImport" accept=".xlsx,.xls,.csv"></label><small class="form-help">Kolom yang tidak ada atau kosong dapat dilengkapi pada tahap pratinjau. Nama Barang harus tersedia sebagai judul kolom.</small><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button></div></div></section></div>`);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Impor Barang</h2><p>Unggah file Excel atau CSV, lalu lengkapi data pada pratinjau.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><label id="goodsImportDrop" class="goods-import-drop"><i data-lucide="file-up"></i><b>Tarik file ke area ini</b><span>atau pilih file Excel / CSV</span><input type="file" id="goodsImport" accept=".xlsx,.xls,.csv"></label><small class="form-help">Tanggal Barang Masuk wajib diisi dengan format YYYY-MM-DD; kolom yang kosong dapat dilengkapi pada pratinjau. Kode KIB mengikuti kategori barang.</small><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button></div></div></section></div>`);
     const input = $("#goodsImport");
     const drop = $("#goodsImportDrop");
     input?.addEventListener("change", () => {
@@ -5662,9 +6049,8 @@
         const column = (...names) => headers.findIndex((header) => names.some((name) => header === normalize(name)));
         const columns = {
           name: column("Nama Barang", "Nama"),
-          assetCode: column("Kode Barang KIB (Opsional)", "Kode Barang KIB", "Kode Barang"),
           specification: column("Spesifikasi Barang (Opsional)", "Spesifikasi Barang", "Spesifikasi"),
-          receivedDate: column("Tanggal Barang Masuk (Wajib)", "Tanggal Barang Masuk (Opsional)", "Tanggal Barang Masuk", "Tanggal Masuk"),
+          receivedDate: column("Tanggal Barang Masuk (Wajib, format YYYY-MM-DD)", "Tanggal Barang Masuk (Wajib)", "Tanggal Barang Masuk (Opsional)", "Tanggal Barang Masuk", "Tanggal Masuk"),
           ownership: column("Kepemilikan", "Milik"),
           ownerOther: column("Nama Pemilik Lainnya", "Pemilik Lainnya"),
           fund: column("Sumber Dana"),
@@ -5689,7 +6075,6 @@
           const referenceId = (collection, value) => findByName(collection, value)?.id || "";
           return {
             name: valueAt(row, "name"),
-            assetCode: valueAt(row, "assetCode"),
             specification: valueAt(row, "specification"),
             receivedDate: valueAt(row, "receivedDate"),
             ownershipId: referenceId("ownerships", ownershipValue),
@@ -5726,9 +6111,8 @@
     const rows = goodsImportDraft.map((row, index) => `<tr data-import-preview-row="${index}">
       <td>${index + 1}</td>
       <td>${editableField(index, "name", row.name, "Nama Barang")}</td>
-      <td>${editableField(index, "assetCode", row.assetCode, "Kode Barang KIB")}</td>
-      <td>${editableField(index, "specification", row.specification, "Spesifikasi Barang")}</td>
       <td>${editableField(index, "receivedDate", row.receivedDate, "Tanggal Barang Masuk", "date")}</td>
+      <td>${editableField(index, "specification", row.specification, "Spesifikasi Barang")}</td>
       <td>${goodsImportSelect(index, "ownershipId", "Kepemilikan", "ownerships")}</td>
       <td>${goodsImportSelect(index, "fundId", "Sumber Dana", "funds")}</td>
       <td>${goodsImportSelect(index, "typeId", "Jenis Barang", "types")}</td>
@@ -5741,7 +6125,7 @@
       <td><select data-import-row="${index}" data-import-field="consumable" aria-label="Status BHP"><option value="">Pilih status</option><option value="true" ${row.consumable === "true" ? "selected" : ""}>BHP</option><option value="false" ${row.consumable === "false" ? "selected" : ""}>Barang Modal</option></select></td>
       <td><span class="goods-import-row-error" id="goodsImportRowError${index}"></span></td>
     </tr>`).join("");
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal modal-wide" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Pratinjau dan Lengkapi Barang</h2><p>Semua kolom wajib valid kecuali kode KIB dan spesifikasi.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div id="goodsImportValidation" class="goods-import-validation" aria-live="polite"></div><div class="goods-import-preview-wrap"><table class="goods-import-table"><thead><tr><th>No.</th><th>Nama Barang *</th><th>Kode Barang KIB</th><th>Spesifikasi</th><th>Tanggal Masuk *</th><th>Kepemilikan *</th><th>Sumber Dana *</th><th>Jenis *</th><th>Kategori *</th><th>Ruang / Lokasi *</th><th>Satuan *</th><th>Supplier *</th><th>Jumlah *</th><th>Harga *</th><th>Status BHP *</th><th>Validasi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="button" class="btn-primary" id="saveGoodsImport"><i data-lucide="save"></i>Simpan barang</button></div></div></section></div>`, true);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal modal-wide" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Pratinjau dan Lengkapi Barang</h2><p>Isi tanggal barang masuk pada setiap baris; kode barang KIB otomatis mengikuti kategori.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div id="goodsImportValidation" class="goods-import-validation" aria-live="polite"></div><div class="goods-import-preview-wrap"><table class="goods-import-table"><thead><tr><th>No.</th><th>Nama Barang *</th><th>Spesifikasi</th><th>Tanggal Masuk *</th><th>Kepemilikan *</th><th>Sumber Dana *</th><th>Jenis *</th><th>Kategori *</th><th>Ruang / Lokasi *</th><th>Satuan *</th><th>Supplier *</th><th>Jumlah *</th><th>Harga *</th><th>Status BHP *</th><th>Validasi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="button" class="btn-primary" id="saveGoodsImport"><i data-lucide="save"></i>Simpan barang</button></div></div></section></div>`, true);
     if ($("#modalRoot")) {
       $("#modalRoot").oninput = updateGoodsImportFromPreview;
       $("#modalRoot").onchange = updateGoodsImportFromPreview;
@@ -5829,7 +6213,6 @@
       id: id(),
       academicYearId: currentAcademicYearId(),
       name: row.name.trim(),
-      assetCode: row.assetCode.trim(),
       specification: row.specification.trim(),
       receivedDate: row.receivedDate || "",
       ownershipId: row.ownershipId,
@@ -5837,6 +6220,7 @@
       typeId: row.typeId,
       categoryId: row.categoryId,
       locationId: row.locationId,
+      locationStocks: [{ locationId: row.locationId, quantity }],
       unitId: row.unitId,
       supplierId: row.supplierId,
       quantity,
@@ -5931,7 +6315,9 @@
   }
 
   function downloadGoodsTemplate() {
-    downloadExcel("template-impor-barang.xlsx", [goodsImportHeaders, Array(goodsImportHeaders.length).fill("")]);
+    const exampleRow = Array(goodsImportHeaders.length).fill("");
+    exampleRow[1] = "YYYY-MM-DD";
+    downloadExcel("template-impor-barang.xlsx", [goodsImportHeaders, exampleRow]);
   }
 
   function downloadExcel(filename, rows) {
@@ -6227,8 +6613,14 @@
     });
     $("#sendRegistrationOtp").addEventListener("click", async (event) => {
       const form = $("#schoolRegistrationForm");
-      const phone = form.elements.phone.value.trim();
-      if (!form.elements.phone.reportValidity()) return;
+      const phoneField = form.elements.phone;
+      const phone = phoneField.value.trim();
+      if (!validWhatsAppNumber(phone)) {
+        phoneField.setCustomValidity("Masukkan nomor WhatsApp lengkap setelah kode negara +62.");
+        phoneField.reportValidity();
+        return;
+      }
+      phoneField.setCustomValidity("");
       const button = event.currentTarget;
       button.disabled = true;
       setRegistrationMessage("Mengirim kode OTP...", "info");
@@ -6258,6 +6650,7 @@
       }
     });
     $("#schoolRegistrationForm").elements.phone.addEventListener("input", (event) => {
+      event.target.setCustomValidity("");
       if (registrationOtpSentPhone && registrationPhoneKey(event.target.value) !== registrationOtpSentPhone) {
         registrationOtpSentPhone = "";
         $("#schoolRegistrationForm").elements.otpCode.value = "";
@@ -6301,6 +6694,14 @@
         missingFields[0][0].focus();
         return;
       }
+      if (!validWhatsAppNumber(form.elements.phone.value)) {
+        form.elements.phone.setCustomValidity("Masukkan nomor WhatsApp lengkap setelah kode negara +62.");
+        form.elements.phone.reportValidity();
+        setRegistrationMessage("Masukkan nomor WhatsApp yang valid terlebih dahulu.", "warning");
+        form.elements.phone.focus();
+        return;
+      }
+      form.elements.phone.setCustomValidity("");
       registrationEmailTouched = true;
       updateRegistrationEmailValidation();
       if (!form.elements.email.validity.valid) {
