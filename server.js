@@ -682,7 +682,10 @@ async function readJsonBody(req, maxBytes = 5_000_000) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > maxBytes) throw new Error("Ukuran data melebihi batas 5 MB.");
+    if (size > maxBytes) {
+      const limit = maxBytes >= 1_000_000 ? `${Math.ceil(maxBytes / 1_000_000)} MB` : `${Math.ceil(maxBytes / 1_000)} KB`;
+      throw new Error(`Ukuran data melebihi batas ${limit}.`);
+    }
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
@@ -2018,17 +2021,22 @@ async function handleApi(req, res) {
     return send(res, 200, JSON.stringify({ state: tenantState(session.schoolId) }));
   }
   if (req.method === "PUT" && req.url === "/api/state") {
-    const parsed = await readJsonBody(req);
+    const parsed = await readJsonBody(req, 50_000_000);
     if (!parsed || typeof parsed.state !== "object" || parsed.state === null || Array.isArray(parsed.state)) {
       return send(res, 400, JSON.stringify({ error: "Format data tidak valid." }));
     }
     const storedState = tenantState(session.schoolId);
     if (!storedState) return send(res, 409, JSON.stringify({ error: "Data sekolah belum tersedia." }));
-    if (!Array.isArray(parsed.state.accounts) || parsed.state.accounts.filter((account) => account.role === "Administrator").length !== 1) {
+    if (parsed.removed !== undefined && (!Array.isArray(parsed.removed) || parsed.removed.some((key) => typeof key !== "string"))) {
+      return send(res, 400, JSON.stringify({ error: "Format perubahan data tidak valid." }));
+    }
+    const nextState = { ...storedState, ...parsed.state };
+    (parsed.removed || []).forEach((key) => delete nextState[key]);
+    if (!Array.isArray(nextState.accounts) || nextState.accounts.filter((account) => account.role === "Administrator").length !== 1) {
       return send(res, 400, JSON.stringify({ error: "Data harus memiliki tepat satu akun Administrator." }));
     }
-    if (session.account.role !== "Administrator") parsed.state.accounts = storedState.accounts;
-    saveTenantStateRow.run(session.schoolId, JSON.stringify(parsed.state));
+    if (session.account.role !== "Administrator") nextState.accounts = storedState.accounts;
+    saveTenantStateRow.run(session.schoolId, JSON.stringify(nextState));
     return send(res, 200, JSON.stringify({ ok: true }));
   }
   if (req.method === "GET" && req.url === "/api/tenant/portal-content") {

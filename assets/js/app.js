@@ -152,6 +152,11 @@
   };
 
   const state = structuredClone(seed);
+  let persistedStateSnapshot = null;
+  let stateSyncQueue = Promise.resolve();
+  let stateSyncWarningShown = false;
+  let localStateCacheError = "";
+  let pendingStateCacheError = "";
   let page = "dashboard";
   let activeUser = null;
   let tenantFeatureAccess = {};
@@ -418,9 +423,10 @@
       const schoolCode = activeSchoolCode();
       const key = schoolCode ? pendingServerStateKey(schoolCode) : PENDING_STATE_KEY;
       localStorage.setItem(key, JSON.stringify({ schoolCode, state }));
+      pendingStateCacheError = "";
       return true;
     } catch (error) {
-      showToast(`Perubahan belum tersinkron dan salinan pemulihan gagal disimpan: ${error.message}`, true);
+      pendingStateCacheError = error.message;
       return false;
     }
   }
@@ -440,6 +446,64 @@
     if (schoolCode) localStorage.setItem(CACHED_STATE_SCHOOL_CODE_KEY, schoolCode);
   }
 
+  function storeLocalStateSafely() {
+    try {
+      storeLocalState();
+      localStateCacheError = "";
+      return true;
+    } catch (error) {
+      localStateCacheError = error.message;
+      return false;
+    }
+  }
+
+  function createStateSyncPatch() {
+    const changedState = {};
+    const removed = [];
+    if (!persistedStateSnapshot) return { state: structuredClone(state), removed };
+    Object.keys(state).forEach((key) => {
+      if (!(key in persistedStateSnapshot) || JSON.stringify(state[key]) !== JSON.stringify(persistedStateSnapshot[key])) {
+        changedState[key] = structuredClone(state[key]);
+      }
+    });
+    Object.keys(persistedStateSnapshot).forEach((key) => {
+      if (!(key in state)) removed.push(key);
+    });
+    return { state: changedState, removed };
+  }
+
+  function syncStateToServer() {
+    const sync = stateSyncQueue.then(async () => {
+      const patch = createStateSyncPatch();
+      if (!Object.keys(patch.state).length && !patch.removed.length) return true;
+      try {
+        const response = await fetch("/api/state", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch)
+        });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          handleStateSyncFailure(response.status, error.error || "");
+          return false;
+        }
+        apiAvailable = true;
+        localStateCacheError = "";
+        pendingStateCacheError = "";
+        if (!persistedStateSnapshot) persistedStateSnapshot = {};
+        patch.removed.forEach((key) => delete persistedStateSnapshot[key]);
+        Object.assign(persistedStateSnapshot, patch.state);
+        stateSyncWarningShown = false;
+        return true;
+      } catch (error) {
+        handleStateSyncFailure(0, error.message);
+        return false;
+      }
+    });
+    stateSyncQueue = sync.then(() => undefined, () => undefined);
+    return sync;
+  }
+
   function loadLocalStateForCurrentSchool() {
     const stored = localStorage.getItem(STORE_KEY);
     if (!stored) return false;
@@ -452,11 +516,22 @@
 
   function handleStateSyncFailure(status, detail = "") {
     apiAvailable = false;
-    cachePendingServerState();
+    const recoverySaved = cachePendingServerState();
+    const localDetails = [
+      localStateCacheError && `Salinan lokal: ${localStateCacheError}`,
+      pendingStateCacheError && `Salinan pemulihan: ${pendingStateCacheError}`
+    ].filter(Boolean);
+    const localDetail = localDetails.length ? ` ${localDetails.join(". ")}.` : "";
     const reason = status === 401
       ? "Sesi server berakhir (401)."
       : status ? `Server menolak sinkronisasi (HTTP ${status}).` : "Server tidak dapat dijangkau.";
-    showToast(`${reason} Salinan lokal tetap tersimpan dan akan disinkronkan otomatis saat koneksi pulih atau Administrator masuk kembali.${detail ? ` ${detail}` : ""}`, true);
+    const recoveryMessage = recoverySaved
+      ? "Salinan lokal tetap tersimpan; sinkronisasi akan dicoba lagi pada perubahan berikutnya atau saat Administrator masuk kembali."
+      : "Salinan pemulihan lokal gagal disimpan; perubahan ini belum aman jika halaman ditutup.";
+    if (!stateSyncWarningShown) {
+      showToast(`${reason} ${recoveryMessage}${detail ? ` ${detail}` : ""}${localDetail}`, true);
+      stateSyncWarningShown = true;
+    }
   }
 
   function readPendingServerState(schoolCode) {
@@ -1013,32 +1088,12 @@
 
   async function persistState() {
     ensureGoodBarcodes();
-    storeLocalState();
-    if (apiAvailable) {
-      try {
-        const response = await fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) });
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({}));
-          handleStateSyncFailure(response.status, error.error || "");
-          return false;
-        }
-      } catch (error) {
-        handleStateSyncFailure(0, error.message);
-        return false;
-      }
-    } else {
-      cachePendingServerState();
-      return false;
-    }
-    return true;
+    storeLocalStateSafely();
+    return syncStateToServer();
   }
 
   async function persistAccounts() {
-    storeLocalState();
-    if (!apiAvailable) {
-      if (hasPendingServerStateForCurrentSchool()) cachePendingServerState();
-      return true;
-    }
+    storeLocalStateSafely();
     try {
       const response = await fetch("/api/accounts", {
         method: "PUT",
@@ -1050,6 +1105,11 @@
         handleStateSyncFailure(response.status, error.error || "");
         return false;
       }
+      apiAvailable = true;
+      localStateCacheError = "";
+      pendingStateCacheError = "";
+      stateSyncWarningShown = false;
+      if (persistedStateSnapshot) persistedStateSnapshot.accounts = structuredClone(state.accounts);
     } catch (error) {
       handleStateSyncFailure(0, error.message);
       return false;
@@ -1059,22 +1119,8 @@
 
   function saveState() {
     ensureGoodBarcodes();
-    try { storeLocalState(); }
-    catch (error) { showToast(`Penyimpanan lokal gagal: ${error.message}`, true); }
-    if (!apiAvailable) {
-      cachePendingServerState();
-      return;
-    }
-    fetch("/api/state", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }) })
-      .then(async (response) => {
-        if (!response.ok) {
-          const result = await response.json().catch(() => ({}));
-          const error = new Error(result.error || `HTTP ${response.status}`);
-          error.status = response.status;
-          throw error;
-        }
-      })
-      .catch((error) => handleStateSyncFailure(error.status || 0, error.message));
+    storeLocalStateSafely();
+    void syncStateToServer();
   }
 
   async function loadState() {
@@ -1086,14 +1132,17 @@
       apiAvailable = true;
       if (result.state) {
         needsBootstrap = !Array.isArray(result.state.goods) || !Array.isArray(result.state.items) || !Array.isArray(result.state.accounts) || !Array.isArray(result.state.ownerships);
+        persistedStateSnapshot = structuredClone(result.state);
         Object.assign(state, result.state);
       }
       else {
+        persistedStateSnapshot = null;
         loadLocalStateForCurrentSchool();
         saveState();
       }
     } catch {
       apiAvailable = false;
+      persistedStateSnapshot = null;
       try { loadLocalStateForCurrentSchool(); }
       catch (error) { showToast(`Data lokal tidak dapat dibaca: ${error.message}`, true); }
     }
@@ -1113,8 +1162,7 @@
       }
     } else if (ownershipsChanged || typeClassificationChanged || goodsOnlyTransactionsChanged || rolesChanged || permissionsChanged || brandingChanged || loanReceiptDefaultsChanged || workspaceCollectionsChanged) saveState();
     else if (apiAvailable) {
-      try { storeLocalState(); }
-      catch (error) { showToast(`Salinan lokal tenant gagal diperbarui: ${error.message}`, true); }
+      storeLocalStateSafely();
     }
   }
 
