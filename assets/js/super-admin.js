@@ -69,15 +69,26 @@
     const list = Array.isArray(selected) ? selected : [];
     return `<div class="check-grid">${Object.entries(featureNames).map(([key, label]) => `<label class="check-option"><input type="checkbox" name="features" value="${key}" ${list.includes(key) ? "checked" : ""}>${esc(label)}</label>`).join("")}</div>`;
   }
-  function showGate({ setup = false, message = "" } = {}) {
+  function showGate({ setup = false, message = "", reset = false, step = "request", identifier = "" } = {}) {
     $("#platform").classList.add("hidden");
     $("#gate").classList.remove("hidden");
     $("#gateContent").innerHTML = setup
       ? `<h1>Siapkan akun Super Admin</h1><p>Buat satu akun pengelola platform. Halaman setup akan terkunci setelah akun dibuat.</p>
         <form id="gateForm">${field("Nama lengkap", "name", "", "text", "required maxlength=120")}${field("Username", "username", "", "text", "required minlength=3 maxlength=32 pattern=[a-z0-9._-]+")}${field("Email", "email", "", "email", "required")}${field("Kata sandi (minimal 10 karakter)", "password", "", "password", "required minlength=10")}<button class="primary w-full" type="submit">Buat akun Super Admin</button><p class="error" id="gateError">${esc(message)}</p></form>`
-      : `<h1>Masuk ke panel SaaS</h1><p>Gunakan kredensial Super Admin untuk mengelola seluruh sekolah.</p>
-        <form id="gateForm">${field("Username atau email", "username", "", "text", "required autocomplete=username")}${field("Kata sandi", "password", "", "password", "required autocomplete=current-password")}<button class="primary w-full" type="submit">Masuk ke control center</button><p class="error" id="gateError">${esc(message)}</p></form>`;
+      : reset
+        ? step === "complete"
+          ? `<h1>Atur ulang kata sandi</h1><p>Jika akun ditemukan, kode OTP dikirim ke nomor pemulihan Super Admin. Kode berlaku 10 menit.</p>
+            <form id="gateForm" data-mode="reset-complete">${field("Username atau email", "username", identifier, "text", "required autocomplete=username")}${field("Kode OTP 6 digit", "otpCode", "", "text", "required inputmode=numeric pattern=[0-9]{6} maxlength=6 autocomplete=one-time-code")}${field("Kata sandi baru (minimal 10 karakter)", "newPassword", "", "password", "required minlength=10 maxlength=200 autocomplete=new-password")}<button class="primary w-full" type="submit">Simpan kata sandi baru</button><p class="error" id="gateError">${esc(message)}</p></form>
+            <button class="secondary w-full" id="backToLogin" type="button">Kembali ke login</button>`
+          : `<h1>Lupa kata sandi?</h1><p>Masukkan username atau email akun. Jika akun ditemukan, kode OTP dikirim ke nomor pemulihan Super Admin.</p>
+            <form id="gateForm" data-mode="reset-request">${field("Username atau email", "username", "", "text", "required autocomplete=username")}<button class="primary w-full" type="submit">Kirim kode OTP</button><p class="error" id="gateError">${esc(message)}</p></form>
+            <button class="secondary w-full" id="backToLogin" type="button">Kembali ke login</button>`
+        : `<h1>Masuk ke panel SaaS</h1><p>Gunakan kredensial Super Admin untuk mengelola seluruh sekolah.</p>
+          <form id="gateForm" data-mode="login">${field("Username atau email", "username", "", "text", "required autocomplete=username")}${field("Kata sandi", "password", "", "password", "required autocomplete=current-password")}<button class="primary w-full" type="submit">Masuk ke control center</button><p class="error" id="gateError">${esc(message)}</p></form>
+          <button class="secondary w-full" id="forgotPassword" type="button">Lupa kata sandi?</button>`;
     $("#gateForm").addEventListener("submit", submitGate);
+    $("#forgotPassword")?.addEventListener("click", () => showGate({ reset: true }));
+    $("#backToLogin")?.addEventListener("click", () => showGate());
   }
   async function submitGate(event) {
     event.preventDefault();
@@ -85,6 +96,20 @@
     const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
     try {
+      if (form.dataset.mode === "reset-request") {
+        const username = form.elements.username.value.trim();
+        await api("/api/platform/password-reset/request", "POST", { username });
+        showGate({ reset: true, step: "complete", identifier: username });
+        return;
+      }
+      if (form.dataset.mode === "reset-complete") {
+        await api("/api/platform/password-reset/complete", "POST", {
+          username: form.elements.username.value.trim(),
+          otpCode: form.elements.otpCode.value.trim(),
+          newPassword: form.elements.newPassword.value
+        });
+        return showGate({ message: "Kata sandi berhasil direset. Silakan masuk." });
+      }
       const setup = form.elements.name;
       if (setup) {
         await api("/api/platform/setup", "POST", {

@@ -228,6 +228,8 @@ const saveSaasMigration = db.prepare(`
 const registrationAttempts = new Map();
 const registrationOtpChallenges = new Map();
 const registrationOtpSendAttempts = new Map();
+const superAdminResetChallenges = new Map();
+const superAdminResetSendAttempts = new Map();
 const mime = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -670,6 +672,10 @@ async function sendFonnteMessage(tokenCipher, target, message) {
   return result;
 }
 
+function getSuperAdminResetDigest(adminId, code) {
+  return crypto.createHmac("sha256", encryptionKey).update(`${adminId}:${code}`).digest();
+}
+
 async function readJsonBody(req, maxBytes = 5_000_000) {
   const chunks = [];
   let size = 0;
@@ -1059,6 +1065,83 @@ async function handlePlatformApi(req, res) {
     }
     auditPlatform("Membuat akun Super Admin", username);
     return send(res, 201, JSON.stringify({ ok: true })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/password-reset/request") {
+    const now = Date.now();
+    const input = await readJsonBody(req, 32_000);
+    const identifier = String(input.username || "").trim().toLowerCase();
+    const ipKey = `ip:${req.socket.remoteAddress || "unknown"}`;
+    for (const [key, timestamps] of superAdminResetSendAttempts) {
+      const recentTimestamps = timestamps.filter((timestamp) => now - timestamp < 900_000);
+      if (recentTimestamps.length) superAdminResetSendAttempts.set(key, recentTimestamps);
+      else superAdminResetSendAttempts.delete(key);
+    }
+    const recent = superAdminResetSendAttempts.get(ipKey) || [];
+    if (recent.length >= 5) return send(res, 429, JSON.stringify({ error: "Terlalu banyak permintaan pemulihan. Coba lagi dalam 15 menit." })), true;
+    recent.push(now);
+    superAdminResetSendAttempts.set(ipKey, recent);
+
+    const whatsapp = platformState().settings.whatsapp || {};
+    const recoveryPhone = normalizeWhatsAppNumber(process.env.SARPRAH_SUPER_ADMIN_RECOVERY_PHONE);
+    if (!whatsapp.fonnteTokenCipher || !recoveryPhone) {
+      return send(res, 503, JSON.stringify({ error: "Pemulihan belum dikonfigurasi. Admin server perlu mengatur gateway Fonnte dan SARPRAH_SUPER_ADMIN_RECOVERY_PHONE." })), true;
+    }
+    const admin = identifier ? getSuperAdminByUsername.get(identifier, identifier) : null;
+    if (admin) {
+      const adminKey = `admin:${admin.id}`;
+      const adminRecent = superAdminResetSendAttempts.get(adminKey) || [];
+      const existing = superAdminResetChallenges.get(admin.id);
+      if (adminRecent.length < 3 && (!existing || now - existing.sentAt >= 60_000 || existing.expiresAt <= now)) {
+        adminRecent.push(now);
+        superAdminResetSendAttempts.set(adminKey, adminRecent);
+        const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+        superAdminResetChallenges.set(admin.id, {
+          digest: getSuperAdminResetDigest(admin.id, code),
+          attempts: 0,
+          sentAt: now,
+          expiresAt: now + 600_000
+        });
+        try {
+          const branding = platformState().settings.branding || {};
+          const appName = String(branding.appName || "Sarprah").slice(0, 80);
+          await sendFonnteMessage(whatsapp.fonnteTokenCipher, recoveryPhone,
+            `Kode OTP pemulihan akun Super Admin ${appName}: ${code}. Kode berlaku 10 menit. Jangan bagikan kode ini kepada siapa pun.`);
+        } catch (error) {
+          superAdminResetChallenges.delete(admin.id);
+          console.error("Pengiriman OTP pemulihan Super Admin gagal:", error);
+          return send(res, 502, JSON.stringify({ error: "OTP pemulihan tidak dapat dikirim. Periksa konfigurasi gateway Fonnte." })), true;
+        }
+      }
+    }
+    return send(res, 200, JSON.stringify({ ok: true, message: "Jika akun ditemukan, kode OTP akan dikirim ke nomor pemulihan Super Admin." })), true;
+  }
+  if (req.method === "POST" && pathname === "/api/platform/password-reset/complete") {
+    const input = await readJsonBody(req, 32_000);
+    const identifier = String(input.username || "").trim().toLowerCase();
+    const code = String(input.otpCode || "").trim();
+    const password = String(input.newPassword || "");
+    if (password.length < 10 || password.length > 200) {
+      return send(res, 400, JSON.stringify({ error: "Kata sandi baru harus 10–200 karakter." })), true;
+    }
+    const admin = identifier ? getSuperAdminByUsername.get(identifier, identifier) : null;
+    const challenge = admin ? superAdminResetChallenges.get(admin.id) : null;
+    if (!challenge || challenge.expiresAt <= Date.now() || challenge.attempts >= 5) {
+      if (admin) superAdminResetChallenges.delete(admin.id);
+      return send(res, 400, JSON.stringify({ error: "Kode OTP tidak valid atau sudah kedaluwarsa. Minta kode baru." })), true;
+    }
+    challenge.attempts++;
+    const digest = getSuperAdminResetDigest(admin.id, code);
+    if (!/^\d{6}$/.test(code) || !crypto.timingSafeEqual(digest, challenge.digest)) {
+      if (challenge.attempts >= 5) superAdminResetChallenges.delete(admin.id);
+      return send(res, 400, JSON.stringify({ error: "Kode OTP tidak valid atau sudah kedaluwarsa. Minta kode baru." })), true;
+    }
+    const salt = crypto.randomBytes(16).toString("hex");
+    db.prepare("UPDATE saas_super_admins SET password_salt = ?, password_hash = ? WHERE id = ?")
+      .run(salt, hashPassword(password, salt), admin.id);
+    db.prepare("DELETE FROM saas_sessions WHERE admin_id = ?").run(admin.id);
+    superAdminResetChallenges.delete(admin.id);
+    auditPlatform("Mereset kata sandi Super Admin melalui OTP", admin.username);
+    return send(res, 200, JSON.stringify({ ok: true })), true;
   }
   if (req.method === "POST" && pathname === "/api/platform/login") {
     const input = await readJsonBody(req, 32_000);
