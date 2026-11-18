@@ -214,6 +214,7 @@ const saveSchoolRow = db.prepare(`
 const getTenantSession = db.prepare("SELECT school_id, account_id, expires_at FROM saas_tenant_sessions WHERE token_hash = ?");
 const getSuperAdminSession = db.prepare("SELECT admin_id, expires_at FROM saas_sessions WHERE token_hash = ?");
 const getSuperAdminByUsername = db.prepare("SELECT * FROM saas_super_admins WHERE username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE");
+const getAllSuperAdmins = db.prepare("SELECT * FROM saas_super_admins ORDER BY username COLLATE NOCASE");
 const saveSuperAdmin = db.prepare("INSERT INTO saas_super_admins (id, username, email, name, password_salt, password_hash) VALUES (?, ?, ?, ?, ?, ?)");
 const saveAuditRow = db.prepare("INSERT INTO saas_audit_logs (id, payload) VALUES (?, ?)");
 const getAuditRows = db.prepare("SELECT payload FROM saas_audit_logs ORDER BY created_at DESC LIMIT ?");
@@ -1086,7 +1087,11 @@ async function handlePlatformApi(req, res) {
     if (!whatsapp.fonnteTokenCipher || !recoveryPhone) {
       return send(res, 503, JSON.stringify({ error: "Pemulihan belum dikonfigurasi. Admin server perlu mengatur gateway Fonnte dan SARPRAH_SUPER_ADMIN_RECOVERY_PHONE." })), true;
     }
-    const admin = identifier ? getSuperAdminByUsername.get(identifier, identifier) : null;
+    const admins = identifier ? [] : getAllSuperAdmins.all();
+    if (!identifier && admins.length > 1) {
+      return send(res, 409, JSON.stringify({ error: "Ada beberapa akun Super Admin. Masukkan username atau email akun yang akan dipulihkan." })), true;
+    }
+    const admin = identifier ? getSuperAdminByUsername.get(identifier, identifier) : admins[0] || null;
     if (admin) {
       const adminKey = `admin:${admin.id}`;
       const adminRecent = superAdminResetSendAttempts.get(adminKey) || [];
@@ -1123,7 +1128,11 @@ async function handlePlatformApi(req, res) {
     if (password.length < 10 || password.length > 200) {
       return send(res, 400, JSON.stringify({ error: "Kata sandi baru harus 10–200 karakter." })), true;
     }
-    const admin = identifier ? getSuperAdminByUsername.get(identifier, identifier) : null;
+    const admins = identifier ? [] : getAllSuperAdmins.all();
+    if (!identifier && admins.length > 1) {
+      return send(res, 400, JSON.stringify({ error: "Ada beberapa akun Super Admin. Masukkan username atau email akun yang akan dipulihkan." })), true;
+    }
+    const admin = identifier ? getSuperAdminByUsername.get(identifier, identifier) : admins[0] || null;
     const challenge = admin ? superAdminResetChallenges.get(admin.id) : null;
     if (!challenge || challenge.expiresAt <= Date.now() || challenge.attempts >= 5) {
       if (admin) superAdminResetChallenges.delete(admin.id);
