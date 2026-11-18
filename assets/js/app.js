@@ -517,14 +517,13 @@
   function handleStateSyncFailure(status, detail = "") {
     apiAvailable = false;
     const recoverySaved = cachePendingServerState();
+    if (status === 401) return;
     const localDetails = [
       localStateCacheError && `Salinan lokal: ${localStateCacheError}`,
       pendingStateCacheError && `Salinan pemulihan: ${pendingStateCacheError}`
     ].filter(Boolean);
     const localDetail = localDetails.length ? ` ${localDetails.join(". ")}.` : "";
-    const reason = status === 401
-      ? "Sesi server berakhir (401)."
-      : status ? `Server menolak sinkronisasi (HTTP ${status}).` : "Server tidak dapat dijangkau.";
+    const reason = status ? `Server menolak sinkronisasi (HTTP ${status}).` : "Server tidak dapat dijangkau.";
     const recoveryMessage = recoverySaved
       ? "Salinan lokal tetap tersimpan; sinkronisasi akan dicoba lagi pada perubahan berikutnya atau saat Administrator masuk kembali."
       : "Salinan pemulihan lokal gagal disimpan; perubahan ini belum aman jika halaman ditutup.";
