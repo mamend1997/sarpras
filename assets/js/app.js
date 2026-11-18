@@ -82,8 +82,8 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "assetMovements", "loans", "procurements", "disposals", "depreciations", "reports", "activityLog", "trash", "helpTickets", "userGuide", "termsSla", "subscriptionBilling", "theme", "fileManager", "publicPortal"];
-  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view", activityLog: "view", helpTickets: "edit", userGuide: "view", termsSla: "view", subscriptionBilling: "view", theme: "view" };
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "assetMovements", "loans", "procurements", "disposals", "depreciations", "reports", "activityLog", "trash", "helpTickets", "userGuide", "termsSla", "subscriptionBilling", "theme", "fileManager", "publicPortal"];
+  const defaultMenuPermissions = { dashboard: "view", goods: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view", activityLog: "view", helpTickets: "edit", userGuide: "view", termsSla: "view", subscriptionBilling: "view", theme: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
     Object.fromEntries(permissionPages.map((key) => [key, defaultMenuPermissions[key] || "hidden"]))
@@ -140,7 +140,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), goodId: "gd1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), goodId: "gd2", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", customHeaderLines: [], headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "checkGoods", permissions: createDefaultPermissions() }
+    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", customHeaderLines: [], headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "procurements", "reports"], mobileNavHighlight: "goods", permissions: createDefaultPermissions() }
   };
 
   const themePalette = {
@@ -164,7 +164,9 @@
   let tenantPortalContent = { terms: "", sla: "", announcements: [], manuals: [] };
   let tenantBillingData = null;
   let registrationOtpRequired = false;
+  let registrationOptionsLoaded = false;
   let registrationOtpSentPhone = "";
+  let registrationEmailTouched = false;
   let storageUsageData = null;
   let pendingStateRecoveryKey = "";
   let apiAvailable = false;
@@ -194,24 +196,23 @@
     types: ["Jenis Barang", "Kelompokkan barang berdasarkan jenisnya.", "shapes"],
     categories: ["Kategori Barang", "Atur kategori agar pendataan aset lebih terstruktur.", "tags"],
     units: ["Satuan", "Kelola satuan untuk pencatatan barang dan stok.", "ruler"],
-    locations: ["Ruang / Lokasi", "Daftar ruang dan lokasi penempatan inventaris.", "map-pin"],
+    locations: ["Ruang / Lokasi", "Daftar ruang dan lokasi penempatan barang.", "map-pin"],
     ownerships: ["Kepemilikan", "Kelola pilihan kepemilikan barang.", "key-round"],
     suppliers: ["Penyedia / Supplier", "Kelola supplier sekolah beserta alamat dan informasi kontak.", "truck"],
     funds: ["Sumber Dana", "Kelola sumber pendanaan dan hibah aset.", "wallet"],
     academicYears: ["Tahun Pelajaran", "Kelola daftar tahun pelajaran sekolah.", "calendar-days"],
     goods: ["Data Barang", "Daftar master barang dan informasi pengadaan aset.", "package"],
-    checkGoods: ["Cek Barang", "Pindai barcode atau cari barang untuk melihat detail dan riwayat stok.", "scan-search"],
     usages: ["Penggunaan BHP", "Catat penggunaan barang habis pakai dan pantau stok.", "clipboard-list"],
     stocktakes: ["Stock Opname", "Rekam hasil pemeriksaan dan penyesuaian stok.", "clipboard-check"],
     barcode: ["Cetak Barcode", "Kelola dan cetak barcode untuk data barang.", "qr-code"],
     repairTickets: ["Tiket Perbaikan", "Kelola laporan kerusakan sarana dan prasarana.", "ticket"],
     maintenanceCalendar: ["Kalender Pemeliharaan", "Atur jadwal perawatan, perbaikan, dan pengecekan barang.", "calendar-days"],
-    assetMovements: ["Pindah Ruang Barang", "Catat perubahan ruangan per item inventaris dan lihat riwayatnya.", "move-right"],
+    assetMovements: ["Pindah Ruang Barang", "Catat perubahan ruangan barang dan lihat riwayatnya.", "move-right"],
     loans: ["Peminjaman & Pengembalian", "Kelola pengajuan, peminjaman, dan pengembalian barang.", "repeat-2"],
     procurements: ["Pengadaan Barang", "Pantau usulan dan realisasi pengadaan aset.", "shopping-cart"],
     disposals: ["Pemusnahan Barang", "Kelola pengajuan pemusnahan aset rusak.", "archive-x"],
     depreciations: ["Penyusutan", "Catat perubahan nilai barang secara berkala.", "trending-down"],
-    reports: ["Laporan", "Rekap inventaris dan transaksi sarana prasarana sekolah.", "files"],
+    reports: ["Laporan", "Rekap Data Barang dan transaksi sarana prasarana sekolah.", "files"],
     activityLog: ["Log Aktivitas", "Riwayat perubahan dan aktivitas pengguna aplikasi.", "history"],
     trash: ["Kotak Sampah", "Pulihkan data yang dihapus atau hapus permanen.", "trash-2"],
     helpTickets: ["Bantuan & Tiket Kendala", "Temukan bantuan atau kirim laporan kendala.", "life-buoy"],
@@ -230,7 +231,7 @@
     { section: "RINGKASAN", links: [{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard" }] },
     { section: "PENGELOLAAN", groups: [
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] },
-      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"], ["assetMovements", "Pindah Ruang Barang"], ["repairTickets", "Tiket Perbaikan"], ["maintenanceCalendar", "Kalender Pemeliharaan"]] },
+      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"], ["assetMovements", "Pindah Ruang Barang"], ["repairTickets", "Tiket Perbaikan"], ["maintenanceCalendar", "Kalender Pemeliharaan"]] },
       { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["ownerships", "Kepemilikan"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
     ] },
     { section: "BANTUAN & RIWAYAT", links: [{ id: "activityLog", label: "Log Aktivitas", icon: "history" }, { id: "trash", label: "Kotak Sampah", icon: "trash-2" }, { id: "helpTickets", label: "Bantuan & Tiket Kendala", icon: "life-buoy" }, { id: "userGuide", label: "Petunjuk Pengguna", icon: "book-open" }, { id: "termsSla", label: "Syarat & SLA", icon: "file-check-2" }] },
@@ -247,7 +248,6 @@
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     academicYears: { title: "Tahun Pelajaran", description: "Kelola periode tahun ajaran dan salin data master serta barang dari tahun sebelumnya.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["startDate", "Tanggal Mulai"], ["endDate", "Tanggal Selesai"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["startDate", "Tanggal Mulai", "date", true], ["endDate", "Tanggal Selesai", "date", true], ["copyPreviousData", "Salin data master dan barang beserta stok terakhir dari tahun sebelumnya", "checkbox"], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
     goods: { title: "Data Barang", description: "Informasi barang, tanggal barang masuk, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["assetCode", "Kode Barang KIB"], ["receivedDate", "Tanggal Barang Masuk"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["assetCode", "Kode Barang KIB (opsional)", "text"], ["receivedDate", "Tanggal Barang Masuk (opsional)", "date"], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
-    items: { title: "Data Item", description: "Inventaris per unit dengan kode unik, kondisi, dan lokasi.", singular: "Item Inventaris", cols: [["code", "Kode Unik"], ["goodId", "Nama Barang"], ["condition", "Kondisi"], ["locationId", "Lokasi"], ["received", "Tanggal Diterima"]], fields: [["goodId", "Nama Barang", "select", true, "goods"], ["condition", "Kondisi", "select", true, ["Baik", "Rusak", "Rusak Berat", "Hilang"]], ["locationId", "Lokasi", "select", true, "locations"], ["received", "Tanggal Diterima", "date", true]] },
     usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"], ["missingQuantity", "Jumlah Hilang"], ["lossStatus", "Status Penanganan"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true], ["lossStatus", "Status Penanganan Kehilangan", "select", false, ["Perlu penelusuran", "Dilaporkan", "Ditemukan", "Selesai"]]] },
     repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan (opsional)", "file"], ["goodId", "Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
@@ -869,23 +869,29 @@
   function ensureMobileNavigationDefaults() {
     const settings = state.settings || (state.settings = {});
     let changed = false;
+    const normalizeMobilePage = (key) => ["items", "checkGoods"].includes(key) ? "goods" : key;
     if (!Array.isArray(settings.mobileNav)) {
       settings.mobileNav = [...seed.settings.mobileNav];
       changed = true;
     } else {
-      const mobileNav = settings.mobileNav.filter((key, index, values) => key !== "items" && values.indexOf(key) === index).slice(0, 5);
+      const mobileNav = settings.mobileNav.map(normalizeMobilePage).filter((key, index, values) => values.indexOf(key) === index).slice(0, 5);
       if (JSON.stringify(mobileNav) !== JSON.stringify(settings.mobileNav)) {
         settings.mobileNav = mobileNav;
         changed = true;
       }
     }
+    const mobileNavHighlight = normalizeMobilePage(settings.mobileNavHighlight);
+    if (mobileNavHighlight !== settings.mobileNavHighlight) {
+      settings.mobileNavHighlight = mobileNavHighlight;
+      changed = true;
+    }
     if (!settings.mobileNav.includes(settings.mobileNavHighlight)) {
-      if (!settings.mobileNav.includes("checkGoods")) {
+      if (!settings.mobileNav.includes("goods")) {
         const center = Math.floor(settings.mobileNav.length / 2);
-        if (settings.mobileNav.length >= 5) settings.mobileNav[center] = "checkGoods";
-        else settings.mobileNav.splice(center, 0, "checkGoods");
+        if (settings.mobileNav.length >= 5) settings.mobileNav[center] = "goods";
+        else settings.mobileNav.splice(center, 0, "goods");
       }
-      settings.mobileNavHighlight = "checkGoods";
+      settings.mobileNavHighlight = "goods";
       changed = true;
     }
     return changed;
@@ -1237,18 +1243,6 @@
 
   function ensureGoodsOnlyTransactionDefaults() {
     let changed = false;
-    (state.goods || []).forEach((good) => {
-      if (good.locationId) return;
-      const locationCounts = {};
-      (state.items || []).filter((item) => item.goodId === good.id && item.locationId).forEach((item) => {
-        locationCounts[item.locationId] = (locationCounts[item.locationId] || 0) + 1;
-      });
-      const inferredLocation = Object.keys(locationCounts).sort((a, b) => locationCounts[b] - locationCounts[a])[0];
-      if (inferredLocation) {
-        good.locationId = inferredLocation;
-        changed = true;
-      }
-    });
     ["loans", "procurements", "disposals"].forEach((collection) => {
       (state[collection] || []).forEach((record) => {
         if ("itemIds" in record) {
@@ -1322,7 +1316,9 @@
   }
 
   function renderMobileNav() {
-    const links = (state.settings?.mobileNav || seed.settings.mobileNav).filter((key) => key !== "items" && canViewPage(key));
+    const links = (state.settings?.mobileNav || seed.settings.mobileNav)
+      .map((key) => ["items", "checkGoods"].includes(key) ? "goods" : key)
+      .filter((key, index, values) => values.indexOf(key) === index && canViewPage(key));
     const visibleLinks = links.slice(0, 5);
     const highlightKey = visibleLinks.includes(state.settings?.mobileNavHighlight)
       ? state.settings.mobileNavHighlight
@@ -1335,7 +1331,7 @@
     const shortLabels = {
       dashboard: "Beranda", school: "Sekolah", types: "Jenis", categories: "Kategori",
       units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana", academicYears: "Tahun",
-      goods: "Barang", checkGoods: "Cek", usages: "BHP", stocktakes: "Opname", barcode: "QR",
+      goods: "Barang", usages: "BHP", stocktakes: "Opname", barcode: "QR",
       repairTickets: "Tiket", maintenanceCalendar: "Kalender", assetMovements: "Pindah",
       waNotifications: "WA",
       loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
@@ -1350,6 +1346,7 @@
   }
 
   function navigate(next) {
+    if (["items", "checkGoods"].includes(next)) next = "goods";
     if (!meta[next]) return;
     if (!canViewPage(next)) next = permissionPages.find(canViewPage) || "";
     if (page === "accounts" && next !== "accounts") {
@@ -1400,21 +1397,69 @@
     else if (number.startsWith("8")) number = `62${number}`;
     return number;
   }
+  function updateRegistrationPasswordRules() {
+    const password = $("#registrationPassword").value;
+    const requirements = {
+      length: password.length >= 8,
+      uppercase: /[A-Z]/.test(password),
+      number: /\d/.test(password),
+      symbol: /[^A-Za-z0-9\s]/.test(password)
+    };
+    Object.entries(requirements).forEach(([key, valid]) => {
+      const rule = $(`[data-password-rule="${key}"]`, $("#registrationPasswordRules"));
+      rule.classList.toggle("is-valid", valid);
+      $(".password-rule-check", rule).textContent = valid ? "✓" : "○";
+    });
+    const valid = Object.values(requirements).every(Boolean);
+    $("#registrationPassword").setCustomValidity(password && !valid
+      ? "Kata sandi harus memiliki minimal 8 karakter, huruf besar, angka, dan simbol."
+      : "");
+    return valid;
+  }
+  function updateRegistrationEmailValidation() {
+    const input = $("#registrationEmail");
+    const invalid = registrationEmailTouched && Boolean(input.value.trim()) && !input.validity.valid;
+    input.classList.toggle("is-invalid", invalid);
+    input.setAttribute("aria-invalid", String(invalid));
+    $("#registrationEmailError").hidden = !invalid;
+  }
+  function setRegistrationPasswordVisibility(visible) {
+    const password = $("#registrationPassword");
+    const toggle = $("#registrationPasswordToggle");
+    password.type = visible ? "text" : "password";
+    toggle.setAttribute("aria-label", visible ? "Sembunyikan kata sandi" : "Tampilkan kata sandi");
+    toggle.setAttribute("aria-pressed", String(visible));
+    toggle.innerHTML = `<i data-lucide="${visible ? "eye-off" : "eye"}"></i>`;
+    if (window.lucide) lucide.createIcons({ nodes: [toggle] });
+  }
+  function updateRegistrationSubmitAvailability() {
+    const form = $("#schoolRegistrationForm");
+    const phoneMatches = registrationOtpSentPhone
+      && registrationPhoneKey(form.elements.phone.value) === registrationOtpSentPhone;
+    const otpComplete = !registrationOtpRequired || (phoneMatches && /^\d{6}$/.test(form.elements.otpCode.value.trim()));
+    $("#registerSchoolSubmit").disabled = !registrationOptionsLoaded || !otpComplete;
+  }
   async function loadRegistrationOptions() {
+    registrationOptionsLoaded = false;
+    updateRegistrationSubmitAvailability();
     try {
       const response = await fetch("/api/auth/registration-options");
       if (!response.ok) throw new Error("Pengaturan pendaftaran tidak dapat dimuat.");
       const options = await response.json();
       registrationOtpRequired = options.whatsappOtpRequired === true;
+      registrationOptionsLoaded = true;
       $("#registrationOtpPanel").classList.toggle("hidden", !registrationOtpRequired);
+      $("#registrationOtpHint").classList.toggle("hidden", !registrationOtpRequired);
       const codeInput = $("#schoolRegistrationForm").elements.otpCode;
       codeInput.required = registrationOtpRequired;
       if (!registrationOtpRequired) {
         registrationOtpSentPhone = "";
         $("#registrationOtpCodeField").classList.add("hidden");
       }
+      updateRegistrationSubmitAvailability();
     } catch (error) {
       $("#registrationResult").textContent = error.message || "Pengaturan pendaftaran tidak dapat dimuat.";
+      updateRegistrationSubmitAvailability();
     }
   }
   function canEditPage(key = page) {
@@ -1502,24 +1547,17 @@
     const loansMonth = state.loans.filter((row) => thisMonth(row.startDate)).length;
     const procMonth = state.procurements.filter((row) => thisMonth(row.date)).length;
     const disposalMonth = state.disposals.filter((row) => thisMonth(row.date)).length;
-    const itemsTotal = state.items.length;
-    const damaged = state.items.filter((row) => row.condition === "Rusak" || row.condition === "Rusak Berat").length;
     const outstanding = state.loans.filter((row) => ["Diterima", "Pengajuan"].includes(row.status)).length;
     const goods = recordsForAcademicYear("goods");
     const rooms = recordsForAcademicYear("locations");
     const goodsById = new Map(goods.map((good) => [good.id, good]));
     const goodCount = goods.length;
+    const goodsTotalQuantity = goods.reduce((total, good) => total + goodConditionCounts(good).total, 0);
+    const damaged = goods.reduce((total, good) => total + goodConditionCounts(good).damaged, 0);
     const saranaAssets = goods;
-    const saranaGoods = saranaAssets.reduce((total, good) => total + Math.max(0, Number(good.quantity) || 0), 0);
+    const saranaGoods = saranaAssets.reduce((total, good) => total + goodConditionCounts(good).total, 0);
     const saranaAvailable = saranaAssets.reduce((total, good) => {
-      const quantity = Math.max(0, Number(good.quantity) || 0);
-      const hasConditionCount = Object.prototype.hasOwnProperty.call(good, "goodConditionCount")
-        && good.goodConditionCount !== "" && good.goodConditionCount != null
-        && Number.isFinite(Number(good.goodConditionCount));
-      const available = hasConditionCount
-        ? Number(good.goodConditionCount)
-        : quantity;
-      return total + Math.min(quantity, Math.max(0, available));
+      return total + goodConditionCounts(good).good;
     }, 0);
     const activeRooms = rooms.filter((room) => room.status === "Aktif").length;
     const roomsDamagedMedium = rooms.filter((room) => room.condition === "Rusak Sedang").length;
@@ -1529,10 +1567,10 @@
     const procurements = state.procurements.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
     const stat = (label, value, icon, tone, foot) => `<div class="summary-card"><div class="summary-top">${label}<span class="summary-icon ${tone}"><i data-lucide="${icon}"></i></span></div><div class="summary-value">${value}</div><div class="summary-foot"><span class="trend-up">${foot}</span> bulan ini</div></div>`;
     return `${pageHeading()}
-      <div class="stats-row">${stat("Total Peminjaman Bulan Ini", loansMonth, "arrow-left-right", "orange", "+12%")}${stat("Total Pengadaan Bulan Ini", procMonth, "shopping-bag", "blue", "+8%")}${stat("Total Pemusnahan Bulan Ini", disposalMonth, "archive-x", "green", `${disposalMonth} item`)}</div>
+      <div class="stats-row">${stat("Total Peminjaman Bulan Ini", loansMonth, "arrow-left-right", "orange", "+12%")}${stat("Total Pengadaan Bulan Ini", procMonth, "shopping-bag", "blue", "+8%")}${stat("Total Pemusnahan Bulan Ini", disposalMonth, "archive-x", "green", `${disposalMonth} barang`)}</div>
       <div class="indicator-grid">
         ${indicator("Total Barang", goodCount, "package", "coral", "Master barang terdaftar")}
-        ${indicator("Item Rusak", damaged, "triangle-alert", "blue", `${itemsTotal ? Math.round(damaged / itemsTotal * 100) : 0}% dari item terdata`)}
+        ${indicator("Barang Rusak", integerId.format(damaged), "triangle-alert", "blue", `${goodsTotalQuantity ? Math.round(damaged / goodsTotalQuantity * 100) : 0}% dari jumlah barang`)}
         ${indicator("Item Belum Kembali", outstanding, "clock-3", "amber", "Peminjaman aktif")}
       </div>
       <div class="indicator-grid">
@@ -1540,11 +1578,11 @@
         ${indicator("Rusak Sedang", roomsDamagedMedium, "triangle-alert", "amber", "Kondisi ruangan", "locations")}
         ${indicator("Rusak Berat", roomsDamagedHeavy, "triangle-alert", "blue", "Kondisi ruangan", "locations")}
       </div>
-      <div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h3>Statistik Jumlah Sarana dan Prasarana</h3><p>Tren item sarana; prasarana mengikuti jumlah ruang pada tahun pelajaran ini</p></div><div><select class="chart-select" id="chartPeriod"><option value="12" ${chartPeriod === "12" ? "selected" : ""}>12 bulan terakhir</option><option value="6" ${chartPeriod === "6" ? "selected" : ""}>6 bulan terakhir</option></select></div></div><div class="chart-legend"><span><i class="legend-dot"></i>Sarana</span><span><i class="legend-dot blue"></i>Prasarana</span></div><div class="chart-wrap"><canvas id="inventoryChart"></canvas></div></section>
-      <section class="panel"><div class="panel-heading"><div><h3>Ketersediaan Sarana & Prasarana</h3><p>Item sarana baik dan ruang dengan status aktif</p></div><i data-lucide="chart-no-axes-combined" class="muted"></i></div>
+      <div class="dashboard-grid"><section class="panel"><div class="panel-heading"><div><h3>Statistik Jumlah Sarana dan Prasarana</h3><p>Tren jumlah barang; prasarana mengikuti jumlah ruang pada tahun pelajaran ini</p></div><div><select class="chart-select" id="chartPeriod"><option value="12" ${chartPeriod === "12" ? "selected" : ""}>12 bulan terakhir</option><option value="6" ${chartPeriod === "6" ? "selected" : ""}>6 bulan terakhir</option></select></div></div><div class="chart-legend"><span><i class="legend-dot"></i>Sarana</span><span><i class="legend-dot blue"></i>Prasarana</span></div><div class="chart-wrap"><canvas id="inventoryChart"></canvas></div></section>
+      <section class="panel"><div class="panel-heading"><div><h3>Ketersediaan Sarana & Prasarana</h3><p>Jumlah barang baik dan ruang dengan status aktif</p></div><i data-lucide="chart-no-axes-combined" class="muted"></i></div>
         <div class="availability-row"><div class="availability-label"><b>Prasarana tersedia</b><span>${activeRooms} / ${rooms.length} ruang · ${pct(activeRooms, rooms.length)}%</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct(activeRooms, rooms.length)}%"></div></div></div>
-        <div class="availability-row"><div class="availability-label"><b>Sarana tersedia</b><span>${saranaAvailable} / ${saranaGoods} item · ${pct(saranaAvailable, saranaGoods)}%</span></div><div class="progress-track"><div class="progress-fill blue" style="width:${pct(saranaAvailable, saranaGoods)}%"></div></div></div>
-        <div style="margin-top:20px;padding:12px;border-radius:9px;background:#fff8f1;display:flex;gap:10px;align-items:flex-start"><i data-lucide="lightbulb" style="color:#e98939;width:17px;height:17px"></i><div><b style="font-size:10px">Catatan inventaris</b><p style="font-size:9px;color:#8d95a2;margin:4px 0 0;line-height:1.55">Periksa berkala item rusak agar pemeliharaan dan pengadaan dapat direncanakan tepat waktu.</p></div></div>
+        <div class="availability-row"><div class="availability-label"><b>Sarana tersedia</b><span>${saranaAvailable} / ${saranaGoods} barang · ${pct(saranaAvailable, saranaGoods)}%</span></div><div class="progress-track"><div class="progress-fill blue" style="width:${pct(saranaAvailable, saranaGoods)}%"></div></div></div>
+        <div style="margin-top:20px;padding:12px;border-radius:9px;background:#fff8f1;display:flex;gap:10px;align-items:flex-start"><i data-lucide="lightbulb" style="color:#e98939;width:17px;height:17px"></i><div><b style="font-size:10px">Catatan barang</b><p style="font-size:9px;color:#8d95a2;margin:4px 0 0;line-height:1.55">Periksa jumlah dan kondisi barang secara berkala agar pemeliharaan dan pengadaan dapat direncanakan tepat waktu.</p></div></div>
       </section></div>
       <div class="dashboard-tables">
         <section class="panel"><div class="panel-heading"><div><h3>Daftar Barang Belum Kembali</h3><p>Peminjaman yang melewati tanggal pengembalian</p></div><button class="btn-quiet" data-nav="loans">Lihat semua <i data-lucide="arrow-right"></i></button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>PEMINJAM</th><th>BARANG</th><th>TERLAMBAT</th><th>STATUS</th></tr></thead><tbody>${lateRows.length ? lateRows.map((row) => `<tr><td><span class="table-title">${esc(row.borrower)}</span></td><td>${esc(titleOfGood(row.goodId))}</td><td><span class="badge danger">Terlambat ${loanLateDays(row)} hari</span></td><td>${statusBadge(displayedStatus("loans", row.status))}</td></tr>`).join("") : `<tr><td colspan="4" class="empty-state">Tidak ada barang yang terlambat dikembalikan.</td></tr>`}</tbody></table></div></section>
@@ -1823,25 +1861,16 @@
     return `<section class="goods-check-history"><h3>${esc(title)}</h3><div class="table-wrap"><table class="data-table"><thead><tr>${headers.map((header) => `<th>${esc(header.toUpperCase())}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div></section>`;
   }
 
-  function showGoodsCheckResult(goodId, itemId = "") {
+  function showGoodsCheckResult(goodId) {
     const good = getById("goods", goodId);
     if (!good || (good.academicYearId && good.academicYearId !== currentAcademicYearId())) {
       $("#goodsCheckStatus").textContent = "Barang tidak ditemukan.";
       $("#goodsCheckResult").innerHTML = `<div class="empty-state"><i data-lucide="search-x"></i>Barang tidak ditemukan. Periksa kembali kode atau nama yang dimasukkan.</div>`;
       return;
     }
-    const items = state.items.filter((item) => item.goodId === good.id).sort((a, b) => String(b.received || "").localeCompare(String(a.received || "")));
     const procurements = state.procurements.filter((record) => record.goodId === good.id && record.status === "Diterima").sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
     const stocktakes = state.stocktakes.filter((record) => record.goodId === good.id).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
-    const availableItems = items.filter((item) => item.condition === "Baik").length;
-    const focusedItem = itemId ? getById("items", itemId) : null;
-    const itemRows = items.map((item) => [
-      item.code,
-      item.condition,
-      relatedName("locations", item.locationId),
-      niceDate(item.received),
-      item.id === focusedItem?.id ? "Dipindai" : ""
-    ]);
+    const conditions = goodConditionCounts(good);
     const purchaseRows = procurements.map((record) => [
       niceDate(record.date),
       String(record.quantity || 0),
@@ -1859,7 +1888,7 @@
     $("#goodsCheckStatus").textContent = `Barang ditemukan: ${good.name}.`;
     $("#goodsCheckMatches").innerHTML = "";
     $("#goodsCheckResult").innerHTML = `<div class="goods-check-detail">
-      <div class="goods-check-result-head"><div><h2>${esc(good.name)}</h2><p>${focusedItem ? `Kode item: ${esc(focusedItem.code)}` : "Informasi barang dan stok saat ini"}</p></div><div class="goods-check-stock"><b>${esc(good.quantity ?? 0)}</b><span>Sisa stok ${esc(relatedName("units", good.unitId))}</span></div></div>
+      <div class="goods-check-result-head"><div><h2>${esc(good.name)}</h2><p>${esc(good.barcode || good.assetCode || "Informasi barang dan stok saat ini")}</p></div><div class="goods-check-stock"><b>${integerId.format(conditions.total)}</b><span>Jumlah barang ${esc(relatedName("units", good.unitId))}</span></div></div>
       <div class="goods-check-facts">
         <div><small>Jenis</small><b>${esc(relatedName("types", good.typeId))}</b></div>
         <div><small>Kategori</small><b>${esc(relatedName("categories", good.categoryId))}</b></div>
@@ -1868,10 +1897,9 @@
         <div><small>Supplier</small><b>${esc(relatedName("suppliers", good.supplierId))}</b></div>
         <div><small>Harga satuan</small><b>${esc(rupiah(good.price))}</b></div>
         <div><small>Status BHP</small><b>${isBhp(good) ? "Barang Habis Pakai (BHP)" : "Barang Modal"}</b></div>
-        <div><small>Item inventaris</small><b>${items.length} unit · ${availableItems} baik</b></div>
+        <div><small>Kondisi barang</small><b>${integerId.format(conditions.good)} baik · ${integerId.format(conditions.damaged)} rusak · ${integerId.format(conditions.missing)} hilang</b></div>
       </div>
       ${goodsCheckTable("Riwayat stok masuk / pengadaan", ["Tanggal masuk", "Jumlah", "Sumber dana", "Nilai pengadaan", "Pengusul"], purchaseRows, "Belum ada pengadaan diterima yang tercatat.")}
-      ${goodsCheckTable("Rincian item inventaris", ["Kode item", "Kondisi", "Lokasi", "Tanggal diterima", "Keterangan"], itemRows, "Belum ada item inventaris per unit untuk barang ini.")}
       ${goodsCheckTable("Riwayat stock opname", ["Tanggal", "Stok lama", "Stok baru", "Total stok", "Keterangan"], stocktakeRows, "Belum ada riwayat stock opname.")}</div>`;
     if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckResult")] });
   }
@@ -1883,26 +1911,21 @@
       $("#goodsCheckStatus").textContent = "Masukkan kode barcode atau nama barang terlebih dahulu.";
       return;
     }
-    const currentGoodIds = new Set(recordsForAcademicYear("goods").map((good) => good.id));
-    const exactGood = recordsForAcademicYear("goods").find((good) => String(good.barcode || "").toLocaleLowerCase("id-ID") === normalized);
+    const goods = recordsForAcademicYear("goods");
+    const exactGood = goods.find((good) => String(good.barcode || "").toLocaleLowerCase("id-ID") === normalized);
     if (exactGood) return showGoodsCheckResult(exactGood.id);
-    const exactItem = state.items.find((item) => currentGoodIds.has(item.goodId) && String(item.code || "").toLocaleLowerCase("id-ID") === normalized);
-    if (exactItem) return showGoodsCheckResult(exactItem.goodId, exactItem.id);
-    state.items.filter((item) => currentGoodIds.has(item.goodId) && String(item.code || "").toLocaleLowerCase("id-ID").includes(normalized))
-      .forEach((item) => matches.push({ good: getById("goods", item.goodId), item }));
-    recordsForAcademicYear("goods").filter((good) => [good.name, good.barcode].some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(normalized)))
-      .forEach((good) => { if (!matches.some((match) => match.good?.id === good.id)) matches.push({ good, item: null }); });
-    const validMatches = matches.filter((match) => match.good);
-    if (!validMatches.length) {
+    goods.filter((good) => [good.name, good.barcode, good.assetCode].some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(normalized)))
+      .forEach((good) => matches.push(good));
+    if (!matches.length) {
       $("#goodsCheckStatus").textContent = "Barang tidak ditemukan. Coba kode barcode atau nama barang lain.";
       $("#goodsCheckMatches").innerHTML = "";
       $("#goodsCheckResult").innerHTML = `<div class="empty-state"><i data-lucide="search-x"></i>Tidak ada barang yang cocok dengan pencarian.</div>`;
       if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckResult")] });
       return;
     }
-    if (validMatches.length === 1) return showGoodsCheckResult(validMatches[0].good.id, validMatches[0].item?.id || "");
-    $("#goodsCheckStatus").textContent = `Ditemukan ${validMatches.length} hasil. Pilih barang yang sesuai.`;
-    $("#goodsCheckMatches").innerHTML = validMatches.map(({ good, item }) => `<button class="goods-check-match" type="button" data-check-good="${esc(good.id)}" data-check-item="${esc(item?.id || "")}"><i data-lucide="package"></i><span><b>${esc(good.name)}</b><small>${item ? `Kode item ${esc(item.code)}` : `${esc(good.barcode || "Kode belum tersedia")} · ${esc(good.quantity ?? 0)} ${esc(relatedName("units", good.unitId))} tersisa`}</small></span><i data-lucide="chevron-right"></i></button>`).join("");
+    if (matches.length === 1) return showGoodsCheckResult(matches[0].id);
+    $("#goodsCheckStatus").textContent = `Ditemukan ${matches.length} barang. Pilih barang yang sesuai.`;
+    $("#goodsCheckMatches").innerHTML = matches.map((good) => `<button class="goods-check-match" type="button" data-check-good="${esc(good.id)}"><i data-lucide="package"></i><span><b>${esc(good.name)}</b><small>${esc(good.barcode || good.assetCode || "Kode belum tersedia")} · ${integerId.format(goodConditionCounts(good).total)} ${esc(relatedName("units", good.unitId))}</small></span><i data-lucide="chevron-right"></i></button>`).join("");
     if (window.lucide) lucide.createIcons({ nodes: [$("#goodsCheckMatches")] });
   }
 
@@ -1914,7 +1937,7 @@
     $("#goodsCheckRestart").addEventListener("click", startGoodsCheckCamera);
     $("#goodsCheckMatches").addEventListener("click", (event) => {
       const match = event.target.closest("[data-check-good]");
-      if (match) showGoodsCheckResult(match.dataset.checkGood, match.dataset.checkItem);
+      if (match) showGoodsCheckResult(match.dataset.checkGood);
     });
   }
 
@@ -2153,11 +2176,11 @@
       .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
     const query = searchTerm.toLocaleLowerCase("id-ID");
     const filtered = records.filter((movement) => [
-      movement.itemCode, movement.goodName, movement.fromLocationName,
+      movement.goodBarcode, movement.goodName, movement.fromLocationName,
       movement.toLocationName, movement.responsible, movement.note
     ].join(" ").toLocaleLowerCase("id-ID").includes(query));
     const rows = filtered.length ? filtered.map((movement) => `<tr>
-      <td>${esc(niceDate(movement.date))}</td><td>${esc(movement.itemCode || "—")}</td>
+      <td>${esc(niceDate(movement.date))}</td><td>${esc(movement.goodBarcode || getById("goods", movement.goodId)?.barcode || getById("goods", movement.goodId)?.assetCode || "—")}</td>
       <td><span class="table-title">${esc(movement.goodName || titleOfGood(movement.goodId))}</span></td>
       <td>${esc(movement.fromLocationName || "Belum ditentukan")}</td><td>${esc(movement.toLocationName || "—")}</td>
       <td>${esc(movement.responsible || "—")}</td><td>${esc(movement.note || "—")}</td>
@@ -2165,9 +2188,9 @@
     </tr>`).join("") : `<tr><td class="empty-state" colspan="8">Belum ada riwayat pemindahan yang cocok.</td></tr>`;
     const actions = canEditPage("assetMovements")
       ? `<button class="btn-primary" data-action="add-asset-movement"><i data-lucide="move-right"></i>Pindahkan Barang</button>` : "";
-    return `${pageHeading(actions)}<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari nama barang, kode item, ruang..." value="${esc(searchTerm)}"></label><span class="badge neutral">${filtered.length} pemindahan</span></div></div>
-      <div class="settings-card movement-intro"><i data-lucide="route"></i><p>Pilih barang dari Data Barang untuk memindahkannya ke ruang lain. Lokasi barang dan item inventaris terkait diperbarui; catatan asal, tujuan, tanggal, serta penanggung jawab disimpan untuk laporan siklus aset.</p></div>
-      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tanggal Pemindahan</th><th>Kode Item</th><th>Nama Barang</th><th>Dari Ruang</th><th>Ke Ruang</th><th>Penanggung Jawab</th><th>Keterangan</th><th>Dokumen</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${records.length} pemindahan</span></div></div>`;
+    return `${pageHeading(actions)}<div class="table-toolbar"><div class="table-toolbar-left"><label class="search-field"><i data-lucide="search"></i><input id="tableSearch" placeholder="Cari nama barang, barcode, ruang..." value="${esc(searchTerm)}"></label><span class="badge neutral">${filtered.length} pemindahan</span></div></div>
+      <div class="settings-card movement-intro"><i data-lucide="route"></i><p>Pilih barang dari Data Barang untuk memindahkannya ke ruang lain. Lokasi barang beserta riwayat perpindahannya dicatat pada data barang.</p></div>
+      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr><th>Tanggal Pemindahan</th><th>Kode Barang</th><th>Nama Barang</th><th>Dari Ruang</th><th>Ke Ruang</th><th>Penanggung Jawab</th><th>Keterangan</th><th>Dokumen</th></tr></thead><tbody>${rows}</tbody></table></div><div class="table-footer"><span>Menampilkan ${filtered.length} dari ${records.length} pemindahan</span></div></div>`;
   }
 
   function openAssetMovementForm() {
@@ -2181,7 +2204,7 @@
       <div class="modal-header"><div><h2 id="assetMovementTitle">Pindah Ruang Barang</h2><p>Catat perpindahan barang dari Data Barang beserta penanggung jawabnya.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div>
       <form id="assetMovementForm" class="modal-form"><div class="form-grid">
         <div class="form-field"><label for="movementDate">Tanggal Pemindahan *</label><input id="movementDate" name="date" type="date" value="${dateOffset(0)}" required></div>
-        <div class="form-field"><label for="movementGood">Nama Barang *</label><select id="movementGood" name="goodId" required><option value="">Pilih barang dari Data Barang</option>${goodOptions}</select><small class="form-help">Perpindahan memperbarui ruang barang dan lokasi seluruh item inventaris terkait.</small></div>
+        <div class="form-field"><label for="movementGood">Nama Barang *</label><select id="movementGood" name="goodId" required><option value="">Pilih barang dari Data Barang</option>${goodOptions}</select><small class="form-help">Perpindahan memperbarui ruang pada Data Barang.</small></div>
         <div class="form-field"><label>Ruang Asal</label><input id="movementFromRoom" type="text" value="" readonly placeholder="Otomatis dari Data Barang"><input id="movementFromRoomId" name="fromLocationId" type="hidden"></div>
         <div class="form-field"><label for="movementToRoom">Ruang Tujuan *</label><select id="movementToRoom" name="toLocationId" required><option value="">Pilih ruang tujuan</option>${locations}</select></div>
         <div class="form-field full"><label for="movementResponsible">Nama Penanggung Jawab *</label><input id="movementResponsible" name="responsible" type="text" maxlength="120" required></div>
@@ -2223,6 +2246,7 @@
       id: id(),
       goodId: good.id,
       goodName: good.name,
+      goodBarcode: good.barcode || good.assetCode || "",
       date,
       fromLocationId,
       fromLocationName: fromRoom?.name || "Belum ditentukan",
@@ -2233,8 +2257,6 @@
       createdBy: activeUser?.name || "Administrator"
     };
     good.locationId = toLocationId;
-    (state.items || []).filter((item) => item.goodId === good.id)
-      .forEach((item) => { item.locationId = toLocationId; });
     state.assetMovements.unshift(movement);
     logActivity("Memindahkan barang", "Pindah Ruang Barang", `${good.name} · ${movement.fromLocationName} → ${toRoom.name}`);
     saveState();
@@ -2678,16 +2700,8 @@
       const rows = [];
       goods.forEach((good) => {
         const category = getById("categories", good.categoryId);
-        const items = (state.items || []).filter((item) => item.goodId === good.id);
-        const trackedCounts = { Baik: 0, Rusak: 0, Hilang: 0 };
-        const conditionLabel = (condition) => condition === "Hilang" ? "Hilang"
-          : condition === "Baik" ? "Baik"
-            : condition === "Dihapus" ? "Dihapus" : "Rusak";
-        const itemRows = items.filter((item) => !filters.locationId || (item.locationId || good.locationId) === filters.locationId);
-        items.forEach((item) => {
-          const label = conditionLabel(item.condition || "Baik");
-          if (label in trackedCounts) trackedCounts[label] += 1;
-        });
+        if (filters.locationId && good.locationId !== filters.locationId) return;
+        const conditions = goodConditionCounts(good);
         const name = `${good.name}${relatedName("types", good.typeId) !== "—" ? ` / ${relatedName("types", good.typeId)}` : ""}`;
         const baseRow = (register, condition, price, note) => [
           ++number,
@@ -2700,40 +2714,17 @@
           price,
           note || good.specification || category?.note || "—"
         ];
-        itemRows.forEach((item) => rows.push(baseRow(
-          item.code || "Belum diisi",
-          conditionLabel(item.condition || "Baik"),
-          Number(good.price) || 0,
-          item.note || good.specification || category?.note || "—"
-        )));
-        const remaining = Math.max(0, (Number(good.quantity) || 0) - items.length);
-        if (!remaining || filters.locationId && good.locationId !== filters.locationId) return;
-        const hasConditionSummary = ["goodConditionCount", "damagedConditionCount", "missingConditionCount"]
-          .some((field) => Object.prototype.hasOwnProperty.call(good, field));
-        const remainingByCondition = hasConditionSummary
-          ? {
-            Baik: Math.max(0, (Number(good.goodConditionCount) || 0) - trackedCounts.Baik),
-            Rusak: Math.max(0, (Number(good.damagedConditionCount) || 0) - trackedCounts.Rusak),
-            Hilang: Math.max(0, (Number(good.missingConditionCount) || 0) - trackedCounts.Hilang)
-          }
-          : { Baik: remaining, Rusak: 0, Hilang: 0 };
-        let unassigned = remaining - Object.values(remainingByCondition).reduce((sum, count) => sum + count, 0);
-        if (unassigned > 0) remainingByCondition.Baik += unassigned;
-        else if (unassigned < 0) {
-          unassigned = -unassigned;
-          for (const condition of ["Baik", "Rusak", "Hilang"]) {
-            const reduction = Math.min(remainingByCondition[condition], unassigned);
-            remainingByCondition[condition] -= reduction;
-            unassigned -= reduction;
-          }
-        }
-        Object.entries(remainingByCondition).forEach(([condition, quantity]) => {
+        [
+          ["Baik", conditions.good],
+          ["Rusak", conditions.damaged],
+          ["Hilang", conditions.missing]
+        ].forEach(([condition, quantity]) => {
           if (!quantity) return;
           rows.push(baseRow(
-            `Belum dibuatkan nomor register (${integerId.format(quantity)} unit)`,
+            `${good.barcode || "—"} · ${integerId.format(quantity)} ${relatedName("units", good.unitId)}`,
             condition,
             (Number(good.price) || 0) * quantity,
-            `${good.specification || category?.note || "—"} · ${integerId.format(quantity)} unit belum dirinci per item`
+            `${good.specification || category?.note || "—"} · ${integerId.format(quantity)} ${relatedName("units", good.unitId)}`
           ));
         });
       });
@@ -2748,7 +2739,6 @@
       (!filters.fundId || good.fundId === filters.fundId)
       && matchesReportDate(good.receivedDate || "", startDate, endDate)
     );
-    const goodIds = new Set(goods.map((good) => good.id));
     const grouped = new Map();
     const ensureRow = (good, locationId) => {
       const key = `${locationId || ""}:${good.id}`;
@@ -2761,92 +2751,50 @@
       });
       return grouped.get(key);
     };
-    const trackedByGood = new Map();
-    const trackedConditionsByGood = new Map();
-    (state.items || []).filter((item) => goodIds.has(item.goodId)).forEach((item) => {
-      const good = goods.find((row) => row.id === item.goodId);
-      if (!good) return;
-      trackedByGood.set(good.id, (trackedByGood.get(good.id) || 0) + (item.condition === "Hilang" ? 0 : 1));
-      const tracked = trackedConditionsByGood.get(good.id) || { goodQty: 0, damagedQty: 0, missingQty: 0, totalCount: 0 };
-      tracked.totalCount += 1;
-      if (item.condition === "Hilang") tracked.missingQty += 1;
-      else if (item.condition === "Rusak" || item.condition === "Rusak Berat") tracked.damagedQty += 1;
-      else tracked.goodQty += 1;
-      trackedConditionsByGood.set(good.id, tracked);
-      const locationId = item.locationId || good.locationId;
-      if (filters.locationId && locationId !== filters.locationId) return;
-      const row = ensureRow(good, locationId);
-      if (item.condition === "Hilang") row.missingQty += 1;
-      else if (item.condition === "Rusak" || item.condition === "Rusak Berat") row.damagedQty += 1;
-      else row.goodQty += 1;
-    });
     goods.forEach((good) => {
-      const hasConditionSummary = ["goodConditionCount", "damagedConditionCount", "missingConditionCount"]
-        .some((field) => Object.prototype.hasOwnProperty.call(good, field));
-      if (hasConditionSummary) {
-        const tracked = trackedConditionsByGood.get(good.id) || { goodQty: 0, damagedQty: 0, missingQty: 0, totalCount: 0 };
-        const remaining = Math.max(0, (Number(good.quantity) || 0) - tracked.totalCount);
-        if (!remaining || filters.locationId && good.locationId !== filters.locationId) return;
-        const counts = {
-          goodQty: Math.max(0, (Number(good.goodConditionCount) || 0) - tracked.goodQty),
-          damagedQty: Math.max(0, (Number(good.damagedConditionCount) || 0) - tracked.damagedQty),
-          missingQty: Math.max(0, (Number(good.missingConditionCount) || 0) - tracked.missingQty)
-        };
-        let difference = remaining - Object.values(counts).reduce((sum, count) => sum + count, 0);
-        if (difference > 0) counts.goodQty += difference;
-        else if (difference < 0) {
-          difference = -difference;
-          for (const field of ["goodQty", "damagedQty", "missingQty"]) {
-            const reduction = Math.min(counts[field], difference);
-            counts[field] -= reduction;
-            difference -= reduction;
-          }
-        }
-        const row = ensureRow(good, good.locationId);
-        row.goodQty += counts.goodQty;
-        row.damagedQty += counts.damagedQty;
-        row.missingQty += counts.missingQty;
-        return;
-      }
-      const remaining = Math.max(0, (Number(good.quantity) || 0) - (trackedByGood.get(good.id) || 0));
-      if (!remaining || filters.locationId && good.locationId !== filters.locationId) return;
-      ensureRow(good, good.locationId).goodQty += remaining;
+      if (filters.locationId && good.locationId !== filters.locationId) return;
+      const counts = goodConditionCounts(good);
+      const row = ensureRow(good, good.locationId);
+      row.goodQty += counts.good;
+      row.damagedQty += counts.damaged;
+      row.missingQty += counts.missing;
     });
     return { headers, fields, rows: [...grouped.values()].map((row) => [
       row.location, row.good, row.goodQty, row.damagedQty, row.missingQty, row.goodQty + row.damagedQty + row.missingQty
     ]) };
   }
   function damageLossReportData(startDate, endDate) {
-    const headers = ["Tanggal", "Barang / Item", "Kondisi / Kejadian", "Jumlah", "Ruangan", "Status Penanganan", "Keterangan"];
+    const headers = ["Tanggal", "Nama Barang", "Kondisi / Kejadian", "Jumlah", "Ruangan", "Status Penanganan", "Keterangan"];
     const fields = ["date", "asset", "event", "quantity", "location", "status", "note"];
     const goods = recordsForAcademicYear("goods");
     const goodById = new Map(goods.map((good) => [good.id, good]));
     const filters = reportFilters();
     const rows = [];
-    (state.items || []).filter((item) => {
-      const good = goodById.get(item.goodId);
-      return good && ["Rusak", "Rusak Berat", "Hilang"].includes(item.condition)
-        && (!filters.fundId || good.fundId === filters.fundId)
-        && (!filters.locationId || (item.locationId || good.locationId) === filters.locationId)
-        && matchesReportDate(item.conditionDate || item.received || "", startDate, endDate);
-    }).forEach((item) => {
-      const good = goodById.get(item.goodId);
-      const ticket = (state.repairTickets || []).find((row) => row.goodId === good.id && (!row.locationId || row.locationId === item.locationId));
-      rows.push([
-        item.conditionDate || item.received || "",
-        `${good.name}${item.code ? ` (${item.code})` : ""}`,
-        item.condition,
-        1,
-        relatedName("locations", item.locationId || good.locationId),
-        item.condition === "Hilang" ? "Perlu penelusuran" : ticket ? ticket.status : "Belum ada tiket perbaikan",
-        ticket ? ticket.title : "Kondisi item inventaris"
-      ]);
+    goods.forEach((good) => {
+      if ((!filters.fundId || good.fundId === filters.fundId)
+        && (!filters.locationId || good.locationId === filters.locationId)
+        && matchesReportDate(dateOffset(0), startDate, endDate)) {
+        const conditions = goodConditionCounts(good);
+        [
+          ["Rusak", conditions.damaged, "Perlu ditindaklanjuti", "Ringkasan kondisi dari Data Barang"],
+          ["Hilang", conditions.missing, "Perlu penelusuran", "Ringkasan kondisi dari Data Barang"]
+        ].forEach(([condition, quantity, status, note]) => {
+          if (quantity > 0) rows.push([
+            dateOffset(0),
+            good.name,
+            condition,
+            quantity,
+            relatedName("locations", good.locationId),
+            status,
+            note
+          ]);
+        });
+      }
     });
     (state.repairTickets || []).filter((ticket) => {
       const good = goodById.get(ticket.goodId);
-      const hasTrackedCondition = (state.items || []).some((item) => item.goodId === ticket.goodId && ["Rusak", "Rusak Berat"].includes(item.condition));
       const ticketDate = String(ticket.createdAt || ticket.date || "").slice(0, 10);
-      return good && !hasTrackedCondition
+      return good
         && (!filters.fundId || good.fundId === filters.fundId)
         && (!filters.locationId || (ticket.locationId || good.locationId) === filters.locationId)
         && matchesReportDate(ticketDate, startDate, endDate);
@@ -3080,10 +3028,14 @@
   }
 
   function renderAccounts() {
-    const available = ["dashboard", "goods", "checkGoods", "loans", "procurements", "disposals", "reports", "activityLog", "trash", "helpTickets", "userGuide", "backup"];
-    if (!Array.isArray(mobileNavDraft)) mobileNavDraft = [...(state.settings.mobileNav || seed.settings.mobileNav)];
-    if (mobileNavHighlightDraft === null) mobileNavHighlightDraft = state.settings.mobileNavHighlight || "checkGoods";
-    if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("checkGoods") ? "checkGoods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)] || "";
+    const available = ["dashboard", "goods", "loans", "procurements", "disposals", "reports", "activityLog", "trash", "helpTickets", "userGuide", "backup"];
+    if (!Array.isArray(mobileNavDraft)) {
+      mobileNavDraft = [...(state.settings.mobileNav || seed.settings.mobileNav)]
+        .map((key) => ["items", "checkGoods"].includes(key) ? "goods" : key)
+        .filter((key, index, values) => values.indexOf(key) === index);
+    }
+    if (mobileNavHighlightDraft === null) mobileNavHighlightDraft = ["items", "checkGoods"].includes(state.settings.mobileNavHighlight) ? "goods" : state.settings.mobileNavHighlight || "goods";
+    if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("goods") ? "goods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)] || "";
     const labels = Object.fromEntries([...available, ...permissionPages, "accounts", "backup", "waNotifications"].map((key) => [key, meta[key][0]]));
     const accessMenus = permissionPages.map((key) => `
       <details class="role-permission-menu">
@@ -3139,11 +3091,11 @@
     const portalUrl = schoolCode ? new URL(`/portal/${encodeURIComponent(schoolCode)}`, location.origin).href : "";
     const editable = activeUser?.role === "Administrator" && Boolean(apiAvailable && schoolCode);
     return `${pageHeading()}<section class="settings-card public-portal-settings">
-      <div class="backup-card-heading"><span class="backup-icon"><i data-lucide="globe-2"></i></span><div><h3>Portal Publik Inventaris</h3><p>Bagikan ketersediaan barang sekolah kepada warga sekolah tanpa memberikan akses ke akun pengelola.</p></div><span class="badge ${enabled ? "success" : "neutral"}">${enabled ? "Aktif" : "Nonaktif"}</span></div>
+      <div class="backup-card-heading"><span class="backup-icon"><i data-lucide="globe-2"></i></span><div><h3>Portal Publik Data Barang</h3><p>Bagikan ketersediaan barang sekolah kepada warga sekolah tanpa memberikan akses ke akun pengelola.</p></div><span class="badge ${enabled ? "success" : "neutral"}">${enabled ? "Aktif" : "Nonaktif"}</span></div>
       <div class="public-portal-share"><div><small>Alamat portal publik</small><strong id="publicPortalUrl">${portalUrl ? esc(portalUrl) : "Portal publik memerlukan akun sekolah online."}</strong></div>${portalUrl ? `<div class="public-portal-actions"><button type="button" class="btn-secondary" data-action="copy-public-portal-link"><i data-lucide="copy"></i>Salin link</button><a class="btn-secondary" href="${esc(portalUrl)}" target="_blank" rel="noopener"><i data-lucide="external-link"></i>Buka portal</a></div>` : ""}</div>
-      ${portalUrl ? `<div class="public-portal-qr-card"><div class="public-portal-qr-copy"><span class="eyebrow">QR CODE PORTAL</span><h3>Scan untuk membuka portal sekolah</h3><p>QR Code ini mengarah otomatis ke halaman inventaris publik dengan kode sekolah ${esc(schoolCode)}.</p><button type="button" class="btn-primary" data-action="download-public-portal-qr"><i data-lucide="download"></i>Unduh QR Code</button><small id="publicPortalQrStatus" class="form-help" aria-live="polite"></small></div><div id="publicPortalQr" class="public-portal-qr" data-url="${esc(portalUrl)}" role="img" aria-label="QR Code untuk portal publik sekolah"></div></div>` : ""}
-      <form id="publicPortalSettingsForm"><label class="form-check public-portal-toggle"><input id="publicPortalEnabled" name="enabled" type="checkbox" ${enabled ? "checked" : ""} ${editable ? "" : "disabled"}><span>Aktifkan portal publik dan pencarian inventaris</span></label>
-      <p class="form-help">Pengunjung dapat mencari barang atau memindai kode QR item. Portal hanya menampilkan nama barang, kategori, dan ringkasan stok/kondisi; data akun, transaksi pribadi, dan informasi pemasok tidak ditampilkan.</p>
+      ${portalUrl ? `<div class="public-portal-qr-card"><div class="public-portal-qr-copy"><span class="eyebrow">QR CODE PORTAL</span><h3>Scan untuk membuka portal sekolah</h3><p>QR Code ini mengarah otomatis ke halaman Data Barang publik dengan kode sekolah ${esc(schoolCode)}.</p><button type="button" class="btn-primary" data-action="download-public-portal-qr"><i data-lucide="download"></i>Unduh QR Code</button><small id="publicPortalQrStatus" class="form-help" aria-live="polite"></small></div><div id="publicPortalQr" class="public-portal-qr" data-url="${esc(portalUrl)}" role="img" aria-label="QR Code untuk portal Data Barang sekolah"></div></div>` : ""}
+      <form id="publicPortalSettingsForm"><label class="form-check public-portal-toggle"><input id="publicPortalEnabled" name="enabled" type="checkbox" ${enabled ? "checked" : ""} ${editable ? "" : "disabled"}><span>Aktifkan portal publik dan pencarian Data Barang</span></label>
+      <p class="form-help">Pengunjung dapat mencari barang atau memindai barcode barang. Portal hanya menampilkan nama barang, kategori, dan ringkasan stok/kondisi; data akun, transaksi pribadi, dan informasi pemasok tidak ditampilkan.</p>
       <div class="modal-footer">${editable ? `<button class="btn-primary" type="submit"><i data-lucide="save"></i>Simpan pengaturan</button>` : `<small class="form-help">Pengaturan ini hanya dapat diubah Administrator pada akun sekolah yang terhubung ke server.</small>`}</div></form>
     </section>`;
   }
@@ -3433,8 +3385,7 @@
     if (source === "bhpGoods") rows = recordsForAcademicYear("goods", academicYearId).filter(isBhp);
     if (source === "loanGoods") rows = recordsForAcademicYear("goods", academicYearId).filter((good) => !isBhp(good));
     if (source === "repairGoods") rows = recordsForAcademicYear("goods", academicYearId).filter((good) => !isBhp(good));
-    if (source === "items") rows = state.items;
-    const text = source === "items" ? (row) => `${row.code} — ${titleOfGood(row.goodId)}` : (row) => row.name;
+    const text = (row) => row.name;
     return rows.map((row) => `<option value="${row.id}">${esc(text(row))}</option>`).join("");
   }
 
@@ -3445,7 +3396,7 @@
       || getById("locations", record?.locationId)?.academicYearId
       || currentAcademicYearId();
     const scanPanel = !record && ["usages", "stocktakes", "loans", "procurements", "disposals", "depreciations"].includes(key)
-      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "barang atau item"}</b><small>${key === "usages" ? "Pindai barcode barang BHP atau pilih barang secara manual dari daftar." : "Pindai kode barcode barang atau kode unik item untuk mengisi pilihan secara otomatis."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="${key === "usages" ? "Pindai atau masukkan kode barcode BHP" : "Contoh barcode BRG-00001 atau kode item"}"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
+      ? `<div class="form-field full"><div class="barcode-scan-panel"><div class="barcode-scan-heading"><i data-lucide="scan-line"></i><div><b>Pindai barcode ${key === "usages" ? "barang BHP" : "barang"}</b><small>${key === "usages" ? "Pindai barcode barang BHP atau pilih barang secara manual dari daftar." : "Pindai barcode barang dari Data Barang untuk mengisi pilihan secara otomatis."}</small></div><button id="startBarcodeScan" class="btn-secondary" type="button"><i data-lucide="camera"></i>Buka kamera</button></div><div class="barcode-scan-manual"><input id="barcodeScanCode" type="text" autocomplete="off" placeholder="Contoh barcode BRG-00001"><button id="applyBarcodeScan" class="btn-quiet" type="button"><i data-lucide="scan"></i>Gunakan kode</button></div><video id="barcodeScannerVideo" class="barcode-scanner-video hidden" playsinline muted></video><div id="barcodeScanStatus" class="barcode-scan-status" aria-live="polite">Pilih atau pindai kode barang untuk mengisi formulir.</div><button id="stopBarcodeScan" class="btn-quiet barcode-scan-stop hidden" type="button">Tutup kamera</button></div></div>`
       : "";
     const loanDuration = record?.durationDays ?? (record?.startDate && record?.dueDate ? Math.max(1, daysBetweenDates(record.startDate, record.dueDate)) : 1);
     const depreciationPeriodType = record?.periodType || (record ? "Tahunan" : "Bulanan");
@@ -3918,6 +3869,19 @@
     });
   }
 
+  function goodConditionCounts(good) {
+    const total = Math.max(0, Number(good?.quantity) || 0);
+    const damaged = Math.min(total, Math.max(0, Number(good?.damagedConditionCount) || 0));
+    const missing = Math.min(total - damaged, Math.max(0, Number(good?.missingConditionCount) || 0));
+    const calculatedGood = total - damaged - missing;
+    const hasGoodCount = good?.goodConditionCount !== "" && good?.goodConditionCount != null
+      && Number.isFinite(Number(good.goodConditionCount));
+    const goodCount = hasGoodCount
+      ? Math.min(calculatedGood, Math.max(0, Number(good.goodConditionCount)))
+      : calculatedGood;
+    return { total, good: goodCount, damaged, missing };
+  }
+
   function syncGoodConditionCounts(good) {
     if (!("goodConditionCount" in good) && !("damagedConditionCount" in good) && !("missingConditionCount" in good)) return;
     const total = Math.max(0, Number(good.quantity) || 0);
@@ -4213,27 +4177,11 @@
       const code = String(value || "").trim();
       const normalizedCode = code.toLowerCase();
       const currentGoods = recordsForAcademicYear("goods");
-      const currentGoodIds = new Set(currentGoods.map((good) => good.id));
-      const item = state.items.find((row) => currentGoodIds.has(row.goodId) && String(row.code || "").toLowerCase() === normalizedCode);
-      const scannedGood = currentGoods.find((row) => String(row.barcode || "").trim().toLowerCase() === normalizedCode);
-      const scannedBhpGood = key === "usages"
-        ? currentGoods.find((row) => isBhp(row) && [row.barcode, row.id, row.name].some((candidate) => String(candidate || "").trim().toLowerCase() === normalizedCode))
-        : null;
-      const good = key === "usages" ? (item ? getById("goods", item.goodId) : scannedBhpGood) : (item ? getById("goods", item.goodId) : scannedGood);
+      const good = currentGoods.find((row) => String(row.barcode || "").trim().toLowerCase() === normalizedCode);
       if (!good) {
-        const message = key === "usages" ? "Barcode BHP tidak dikenali. Pilih barang secara manual." : `Kode "${code}" tidak ditemukan di data barang atau item.`;
+        const message = key === "usages" ? "Barcode barang BHP tidak dikenali. Pilih barang secara manual." : `Barcode "${code}" tidak ditemukan di Data Barang.`;
         setStatus(message, true);
-        showToast(key === "usages" ? message : `Barcode "${code}" tidak dikenali.`, true);
-        return false;
-      }
-      if (key === "loans" && item && item.condition !== "Baik") {
-        setStatus("Item tidak berkondisi baik dan tidak dapat dipinjam.", true);
-        showToast("Pilih item dengan kondisi baik untuk peminjaman.", true);
-        return false;
-      }
-      if (key === "disposals" && item && !["Rusak", "Rusak Berat"].includes(item.condition)) {
-        setStatus("Item tidak berkondisi rusak dan tidak dapat diajukan untuk pemusnahan.", true);
-        showToast("Pindai item dengan kondisi rusak untuk pemusnahan.", true);
+        showToast(message, true);
         return false;
       }
       if (key === "usages") {
@@ -4261,14 +4209,10 @@
         goodSelect.value = good.id;
         if (changed) goodSelect.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      const locationSelect = form.elements.locationId;
-      if (locationSelect && item?.locationId && [...locationSelect.options].some((option) => option.value === item.locationId)) {
-        locationSelect.value = item.locationId;
-      }
       if (key === "loans" && form.elements.quantity) form.elements.quantity.value = "1";
       const stock = `${good.quantity} ${relatedName("units", good.unitId)}`;
       const loanAvailability = key === "loans" ? ` · Tersedia untuk dipinjam: ${loanFormAvailableQuantity(good.id, form.dataset.record)}` : "";
-      setStatus(`${item?.code || good.barcode} · ${good.name} · Stok saat ini: ${stock}${loanAvailability}.`);
+      setStatus(`${good.barcode} · ${good.name} · Stok saat ini: ${stock}${loanAvailability}.`);
       return true;
     };
 
@@ -4613,11 +4557,6 @@
       if (data.status === "Selesai") data.completedAt = old?.completedAt || dateOffset(0);
       else delete data.completedAt;
     }
-    if (key === "items" && !old) {
-      const goodIndex = Math.max(0, recordsForAcademicYear("goods").findIndex((good) => good.id === data.goodId)) + 1;
-      const itemIndex = state.items.filter((item) => item.goodId === data.goodId).length + 1;
-      data.code = `E.1-T.${goodIndex}-L1-KS.${itemIndex}`;
-    }
     if (key === "loans") {
       const good = getById("goods", data.goodId);
       if (!good || isBhp(good)) {
@@ -4716,11 +4655,6 @@
       data.missingQuantity = Math.max(0, initialStock - newStock);
       data.lossStatus = data.missingQuantity ? (data.lossStatus || old?.lossStatus || "Perlu penelusuran") : "Tidak ada kehilangan";
       data.locationId = old?.locationId || stocktakeGood.locationId || "";
-    }
-    if (key === "items" && ["Rusak", "Rusak Berat", "Hilang"].includes(data.condition)) {
-      data.conditionDate = old?.condition === data.condition ? old.conditionDate || old.received || "" : dateOffset(0);
-    } else if (key === "items" && data.condition === "Baik") {
-      data.conditionDate = "";
     }
     if (key === "depreciations") {
       const good = getById("goods", data.goodId);
@@ -4975,8 +4909,6 @@
 
   function printBastDocument(type, record, parties, heading) {
     const good = getById("goods", record.goodId);
-    const itemCodes = (state.items || []).filter((item) => item.goodId === record.goodId).map((item) => item.code).filter(Boolean);
-    if (type === "assetMovements" && record.itemCode && !itemCodes.includes(record.itemCode)) itemCodes.unshift(record.itemCode);
     const quantity = Number(record.quantity) || (type === "assetMovements" ? Number(good?.quantity) || 1 : 0);
     const unit = relatedName("units", good?.unitId);
     const location = type === "assetMovements"
@@ -4987,13 +4919,13 @@
     const design = state.settings.printDesign || seed.settings.printDesign;
     const header = printSchoolHeaderMarkup(school, design);
     const itemDescription = good?.name || record.goodName || record.title || "Barang / aset";
-    const codes = itemCodes.length ? itemCodes.join(", ") : "—";
+    const codes = good?.barcode || good?.assetCode || record.goodBarcode || "—";
     const printWindow = window.open("", "_blank");
     if (!printWindow) return showToast("Jendela cetak diblokir. Izinkan pop-up lalu ulangi cetak BAST.", true);
     printWindow.document.open();
     printWindow.document.write(`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(parties.number)}</title><style>
       *{box-sizing:border-box}body{margin:0;color:#172033;font:12px Arial,sans-serif}.bast-page{max-width:190mm;margin:14mm auto}.bast-header{display:flex;align-items:center;gap:14px;border-bottom:3px double #222;padding-bottom:12px}.bast-header img{width:55px;height:55px;object-fit:contain}.bast-header .print-school-initial{display:grid;place-items:center;border:1px solid #444;font-weight:bold}.bast-header h1{margin:0 0 5px;font-size:18px}.bast-header p{margin:3px 0;font-size:10px}.bast-title{text-align:center;margin:24px 0 18px}.bast-title h2{margin:0;text-decoration:underline;font-size:16px}.bast-title p{margin:8px 0 0}.bast-copy{line-height:1.75;text-align:justify}.bast-table{width:100%;border-collapse:collapse;margin:15px 0}.bast-table th,.bast-table td{border:1px solid #333;padding:8px;text-align:left;vertical-align:top}.bast-table th{background:#f1f3f5}.bast-signatures{display:grid;grid-template-columns:1fr 1fr;gap:30px;text-align:center;margin-top:35px;page-break-inside:avoid}.bast-signatures p{margin:0 0 8px}.bast-signature-space{height:74px}.bast-signatures strong{display:block;text-decoration:underline}.bast-signatures small{display:block;margin-top:4px}.bast-note{margin-top:22px;font-size:10px;color:#444}@page{size:A4 portrait;margin:16mm}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.bast-page{max-width:none;margin:0}.bast-table th{background:#f1f3f5!important}.bast-signatures{break-inside:avoid}}
-      </style></head><body><main class="bast-page"><header class="bast-header">${header}</header><div class="bast-title"><h2>BERITA ACARA SERAH TERIMA</h2><p>${esc(parties.number)}</p><p>${esc(heading)}</p></div><p class="bast-copy">Pada hari ini, ${esc(niceDate(parties.date))}, pihak yang bertanda tangan di bawah ini menyatakan telah melaksanakan serah terima barang/aset sekolah dengan rincian sebagai berikut:</p><table class="bast-table"><thead><tr><th>No.</th><th>Nama Barang / Aset</th><th>Kode Inventaris</th><th>Jumlah</th><th>Lokasi</th></tr></thead><tbody><tr><td>1</td><td>${esc(itemDescription)}<br><small>${esc(detail)}</small></td><td>${esc(codes)}</td><td>${esc(quantity)} ${esc(unit)}</td><td>${esc(location)}</td></tr></tbody></table><p class="bast-copy">Barang/aset tersebut telah diperiksa dan diterima sesuai kondisi serta keterangan di atas. Berita acara ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.</p><div class="bast-signatures"><div><p>Pihak yang Menyerahkan,</p><div class="bast-signature-space"></div><strong>${esc(parties.senderName)}</strong><small>${esc(school.sarprasVicePrincipalNip ? `NIP. ${school.sarprasVicePrincipalNip}` : "")}</small></div><div><p>${esc(school.city || "................")}, ${esc(niceDate(parties.date))}</p><p>Pihak yang Menerima,</p><div class="bast-signature-space"></div><strong>${esc(parties.receiverName)}</strong></div></div><p class="bast-note">Dokumen ini merupakan berita acara serah terima aset sekolah dan dapat ditandatangani oleh para pihak.</p></main><script>window.addEventListener("load",()=>setTimeout(()=>{window.focus();window.print()},250));</script></body></html>`);
+      </style></head><body><main class="bast-page"><header class="bast-header">${header}</header><div class="bast-title"><h2>BERITA ACARA SERAH TERIMA</h2><p>${esc(parties.number)}</p><p>${esc(heading)}</p></div><p class="bast-copy">Pada hari ini, ${esc(niceDate(parties.date))}, pihak yang bertanda tangan di bawah ini menyatakan telah melaksanakan serah terima barang/aset sekolah dengan rincian sebagai berikut:</p><table class="bast-table"><thead><tr><th>No.</th><th>Nama Barang / Aset</th><th>Kode Barang</th><th>Jumlah</th><th>Lokasi</th></tr></thead><tbody><tr><td>1</td><td>${esc(itemDescription)}<br><small>${esc(detail)}</small></td><td>${esc(codes)}</td><td>${esc(quantity)} ${esc(unit)}</td><td>${esc(location)}</td></tr></tbody></table><p class="bast-copy">Barang/aset tersebut telah diperiksa dan diterima sesuai kondisi serta keterangan di atas. Berita acara ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.</p><div class="bast-signatures"><div><p>Pihak yang Menyerahkan,</p><div class="bast-signature-space"></div><strong>${esc(parties.senderName)}</strong><small>${esc(school.sarprasVicePrincipalNip ? `NIP. ${school.sarprasVicePrincipalNip}` : "")}</small></div><div><p>${esc(school.city || "................")}, ${esc(niceDate(parties.date))}</p><p>Pihak yang Menerima,</p><div class="bast-signature-space"></div><strong>${esc(parties.receiverName)}</strong></div></div><p class="bast-note">Dokumen ini merupakan berita acara serah terima aset sekolah dan dapat ditandatangani oleh para pihak.</p></main><script>window.addEventListener("load",()=>setTimeout(()=>{window.focus();window.print()},250));</script></body></html>`);
     printWindow.document.close();
   }
 
@@ -5597,7 +5529,7 @@
         if (mobileNavDraft.length === 1) { input.checked = true; return showToast("Pilih minimal satu pintasan.", true); }
         mobileNavDraft = mobileNavDraft.filter((key) => key !== input.value);
       }
-      if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("checkGoods") ? "checkGoods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)];
+      if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("goods") ? "goods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)];
       renderPage();
     }));
     $("#mobileNavHighlight")?.addEventListener("change", (event) => {
@@ -5898,7 +5830,9 @@
   function exportRows(key) {
     const config = collectionConfig[key];
     if (!config) {
-      const rows = [["Kategori", "Jumlah"], ["Barang", recordsForAcademicYear("goods").length], ["Item", state.items.length], ["Peminjaman", state.loans.length], ["Pengadaan", state.procurements.length]];
+      const goods = recordsForAcademicYear("goods");
+      const quantity = goods.reduce((total, good) => total + Math.max(0, Number(good.quantity) || 0), 0);
+      const rows = [["Kategori", "Jumlah"], ["Jenis Barang", goods.length], ["Jumlah Barang", quantity], ["Peminjaman", state.loans.length], ["Pengadaan", state.procurements.length]];
       downloadExcel("ringkasan-sarprah.xlsx", rows);
       return;
     }
@@ -6087,21 +6021,21 @@
     let saranaBeforePeriod = 0;
     const firstMonthStart = `${months[0].key}-01`;
     const asOfDate = dateOffset(0);
-    state.items.forEach((item) => {
-      if (!goodsById.has(item.goodId)) return;
-      const received = String(item.received || "").slice(0, 10);
+    goodsById.forEach((good) => {
+      const quantity = Math.max(0, Number(good.quantity) || 0);
+      const received = String(good.receivedDate || "").slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(received)) {
-        saranaBeforePeriod++;
+        saranaBeforePeriod += quantity;
         return;
       }
       if (received > asOfDate) return;
       if (received < firstMonthStart) {
-        saranaBeforePeriod++;
+        saranaBeforePeriod += quantity;
         return;
       }
       const index = monthIndex.get(received.slice(0, 7));
       if (index === undefined) return;
-      saranaAdded[index]++;
+      saranaAdded[index] += quantity;
     });
     let saranaTotal = saranaBeforePeriod;
     const sarana = saranaAdded.map((added) => { saranaTotal += added; return saranaTotal; });
@@ -6162,6 +6096,17 @@
       localStorage.setItem("sarprah-sidebar-collapsed", String(next));
     });
     $("#mobileMenuToggle").addEventListener("click", () => { $("#sidebar").classList.add("open"); $("#sidebarOverlay").classList.add("visible"); });
+    const mobileHeaderToggle = $("#mobileHeaderToggle");
+    const topbar = mobileHeaderToggle.closest(".topbar");
+    mobileHeaderToggle.addEventListener("click", () => {
+      const minimized = topbar.classList.toggle("is-minimized");
+      const label = minimized ? "Perbesar header" : "Ciutkan header";
+      mobileHeaderToggle.setAttribute("aria-label", label);
+      mobileHeaderToggle.setAttribute("aria-expanded", String(!minimized));
+      mobileHeaderToggle.title = label;
+      mobileHeaderToggle.innerHTML = `<i data-lucide="${minimized ? "maximize-2" : "minimize-2"}"></i>`;
+      if (window.lucide) lucide.createIcons({ nodes: [mobileHeaderToggle] });
+    });
     $("#headerAcademicYear").addEventListener("change", (event) => {
       const year = state.academicYears.find((row) => row.id === event.target.value);
       if (!year) return;
@@ -6232,13 +6177,25 @@
       event.currentTarget.innerHTML = `<i data-lucide="${visible ? "eye-off" : "eye"}"></i>`;
       if (window.lucide) lucide.createIcons({ nodes: [event.currentTarget] });
     });
+    $("#registrationPasswordToggle").addEventListener("click", () => {
+      setRegistrationPasswordVisibility($("#registrationPassword").type === "password");
+    });
+    $("#registrationPassword").addEventListener("input", updateRegistrationPasswordRules);
+    updateRegistrationPasswordRules();
     $("#showSchoolRegistration").addEventListener("click", () => {
       $("#loginForm").classList.add("hidden");
       $("#schoolRegistrationPanel").classList.remove("hidden");
       $("#registrationResult").textContent = "";
       $("#schoolRegistrationForm").reset();
+      setRegistrationPasswordVisibility(false);
+      updateRegistrationPasswordRules();
+      registrationEmailTouched = false;
+      updateRegistrationEmailValidation();
+      registrationOptionsLoaded = false;
       registrationOtpSentPhone = "";
       $("#registrationOtpCodeField").classList.add("hidden");
+      $("#registrationOtpHint").textContent = "Kirim OTP dan isi kode 6 digit sebelum mendaftar.";
+      updateRegistrationSubmitAvailability();
       loadRegistrationOptions();
       $("#schoolRegistrationForm").elements.schoolName.focus();
     });
@@ -6259,6 +6216,8 @@
         if (!response.ok) throw new Error(result.error || "Kode OTP tidak dapat dikirim.");
         registrationOtpSentPhone = registrationPhoneKey(phone);
         $("#registrationOtpCodeField").classList.remove("hidden");
+        $("#registrationOtpHint").textContent = "Kode OTP telah dikirim. Isi kode 6 digit untuk melanjutkan pendaftaran.";
+        updateRegistrationSubmitAvailability();
         form.elements.otpCode.focus();
         $("#registrationResult").textContent = "Kode OTP telah dikirim melalui WhatsApp dan berlaku 10 menit.";
         button.textContent = "Tunggu sebelum meminta kode baru";
@@ -6275,9 +6234,17 @@
       if (registrationOtpSentPhone && registrationPhoneKey(event.target.value) !== registrationOtpSentPhone) {
         registrationOtpSentPhone = "";
         $("#schoolRegistrationForm").elements.otpCode.value = "";
+        $("#registrationOtpHint").textContent = "Nomor WhatsApp berubah. Kirim ulang OTP dan isi kode terbaru.";
         $("#registrationResult").textContent = "Nomor WhatsApp berubah. Kirim ulang kode OTP untuk nomor ini.";
       }
+      updateRegistrationSubmitAvailability();
     });
+    $("#schoolRegistrationForm").elements.otpCode.addEventListener("input", updateRegistrationSubmitAvailability);
+    $("#registrationEmail").addEventListener("blur", () => {
+      registrationEmailTouched = true;
+      updateRegistrationEmailValidation();
+    });
+    $("#registrationEmail").addEventListener("input", updateRegistrationEmailValidation);
     $("#backToSchoolLogin").addEventListener("click", () => {
       $("#schoolRegistrationPanel").classList.add("hidden");
       $("#loginForm").classList.remove("hidden");
@@ -6287,14 +6254,22 @@
       event.preventDefault();
       const form = event.currentTarget;
       const password = form.elements.password.value;
-      if (password !== form.elements.passwordConfirm.value) {
-        $("#registrationResult").textContent = "Konfirmasi kata sandi tidak cocok.";
+      if (!updateRegistrationPasswordRules()) {
+        $("#registrationResult").textContent = "Kata sandi harus memenuhi semua persyaratan.";
+        $("#registrationPassword").focus();
         return;
       }
-      if (registrationOtpRequired
-        && (registrationPhoneKey(form.elements.phone.value) !== registrationOtpSentPhone || !form.elements.otpCode.value.trim())) {
-        $("#registrationResult").textContent = "Verifikasi nomor WhatsApp dengan kode OTP sebelum mendaftar.";
-        return;
+      if (registrationOtpRequired) {
+        if (!registrationOtpSentPhone || registrationPhoneKey(form.elements.phone.value) !== registrationOtpSentPhone) {
+          $("#registrationResult").textContent = "Tekan tombol Kirim kode OTP WhatsApp terlebih dahulu.";
+          $("#sendRegistrationOtp").focus();
+          return;
+        }
+        if (!/^\d{6}$/.test(form.elements.otpCode.value.trim())) {
+          $("#registrationResult").textContent = "Isi kode OTP 6 digit yang dikirim ke WhatsApp sebelum mendaftar.";
+          form.elements.otpCode.focus();
+          return;
+        }
       }
       const submit = form.querySelector('button[type="submit"]');
       submit.disabled = true;
@@ -6323,8 +6298,14 @@
         $("#loginSchoolCode").value = result.school.code;
         $("#loginEmail").value = form.elements.email.value.trim().toLowerCase();
         form.reset();
+        setRegistrationPasswordVisibility(false);
+        updateRegistrationPasswordRules();
+        registrationEmailTouched = false;
+        updateRegistrationEmailValidation();
         registrationOtpSentPhone = "";
         $("#registrationOtpCodeField").classList.add("hidden");
+        $("#registrationOtpHint").textContent = "Kirim OTP dan isi kode 6 digit sebelum mendaftar.";
+        updateRegistrationSubmitAvailability();
       } catch (error) {
         $("#registrationResult").textContent = error.message || "Pendaftaran sekolah gagal.";
         $("#registrationResult").classList.remove("login-success");

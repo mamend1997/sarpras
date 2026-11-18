@@ -3,7 +3,7 @@
   const featureNames = {
     dashboard: "Dashboard", school: "Data Sekolah", types: "Jenis Barang", categories: "Kategori Barang", units: "Satuan",
     locations: "Ruang / Lokasi", ownerships: "Kepemilikan", suppliers: "Penyedia / Supplier", funds: "Sumber Dana",
-    academicYears: "Tahun Pelajaran", goods: "Data Barang", checkGoods: "Data Item", usages: "Penggunaan BHP",
+    academicYears: "Tahun Pelajaran", goods: "Data Barang", usages: "Penggunaan BHP",
     stocktakes: "Stock Opname", barcode: "Cetak Barcode", repairTickets: "Tiket Perbaikan",
     maintenanceCalendar: "Kalender Pemeliharaan", loans: "Peminjaman", procurements: "Pengadaan",
     disposals: "Pemusnahan", depreciations: "Penyusutan", reports: "Laporan"
@@ -197,7 +197,7 @@
   function schoolRows(schools) {
     return schools.map((school) => `<tr><td><span class="row-title">${esc(school.name)}</span><span class="subtext">${esc(school.code)} · ${esc(school.level || "Jenjang belum diatur")}</span></td>
       <td>${esc(school.email || "—")}<span class="subtext">${esc(school.phone || "")}</span></td><td>${esc(school.planName || data.plans.find((p) => p.id === school.planId)?.name || "—")}</td>
-      <td>${statusBadge(school.status)}</td><td>${school.accountCount || 0} akun · ${school.itemCount || 0} item</td>
+      <td>${statusBadge(school.status)}</td><td>${school.accountCount || 0} akun · ${school.goodsCount || 0} barang</td>
       <td><button class="action-btn" data-school-detail="${esc(school.id)}">Detail</button></td></tr>`).join("");
   }
   function dashboard() {
@@ -264,7 +264,7 @@
     } else if (tab === "tickets") {
       body = table(["Tiket", "Tanggal", "Status", "Aksi"], (detail.tickets || []).map((t) => `<tr><td>${esc(t.ticketNo || t.title || "Tiket")}<span class="subtext">${esc(t.title || "")}</span></td><td>${date(t.createdAt)}</td><td>${statusBadge(t.status)}</td><td><button class="action-btn" data-ticket-reply="${esc(t.id)}">Tanggapi</button></td></tr>`).join(""), "Belum ada tiket.");
     } else {
-      body = `<div class="stats-grid">${stat("BARANG", detail.summary.goods)}${stat("ITEM INVENTARIS", detail.summary.items, true)}${stat("AKUN PENGGUNA", detail.summary.accounts)}${stat("TIKET TERBUKA", school.openTicketCount || 0)}</div><p class="help-text">Tenant dibuat pada ${date(school.createdAt)}. Status saat ini: ${statusBadge(school.status)}</p>`;
+      body = `<div class="stats-grid">${stat("BARANG", detail.summary.goods, true)}${stat("AKUN PENGGUNA", detail.summary.accounts)}${stat("TIKET TERBUKA", school.openTicketCount || 0)}</div><p class="help-text">Tenant dibuat pada ${date(school.createdAt)}. Status saat ini: ${statusBadge(school.status)}</p>`;
     }
     const modal = $("#platformModal");
     modal.innerHTML = `<section class="modal-card"><div class="modal-head"><div><h2>${esc(school.name)}</h2><p>Kode ${esc(school.code)} · ${esc(school.email || "Email belum diatur")}</p></div><button class="modal-close" data-modal-close aria-label="Tutup">×</button></div>

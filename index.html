@@ -29,7 +29,7 @@
     </div>
     <div class="login-form-wrap"><form id="loginForm" class="login-form">
       <div class="mobile-login-brand"><span class="brand-mark" data-app-brand><i data-lucide="boxes"></i></span><b data-app-name>Sarprah</b></div>
-      <p class="eyebrow text-orange-600">SELAMAT DATANG KEMBALI</p><h2>Masuk ke akun Anda</h2><p class="muted mb-8">Kelola inventaris sekolah dengan lebih mudah.</p>
+      <p class="eyebrow text-orange-600">SELAMAT DATANG KEMBALI</p><h2>Masuk ke akun Anda</h2><p class="muted mb-8">Kelola Data Barang sekolah dengan lebih mudah.</p>
       <label class="field-label">Kode sekolah<input id="loginSchoolCode" type="text" inputmode="text" autocapitalize="characters" spellcheck="false" pattern="[A-Za-z0-9]{4}" maxlength="4" placeholder="Contoh: 0001 atau A1B2" autocomplete="organization" required></label>
       <label class="field-label">Alamat email<input id="loginEmail" type="email" placeholder="nama@sekolah.sch.id" autocomplete="username" required></label>
       <label class="field-label mt-5">Kata sandi<span class="password-input-wrap"><input id="loginPassword" type="password" placeholder="Masukkan kata sandi" autocomplete="current-password" required><button id="loginPasswordToggle" class="password-visibility-toggle" type="button" aria-label="Tampilkan kata sandi" aria-pressed="false"><i data-lucide="eye"></i></button></span></label>
@@ -43,15 +43,22 @@
       <form id="schoolRegistrationForm">
         <label class="field-label">Nama sekolah<input name="schoolName" type="text" maxlength="180" required></label>
         <label class="field-label mt-4">Nama Administrator<input name="adminName" type="text" maxlength="120" required></label>
-        <label class="field-label mt-4">Email Administrator<input name="email" type="email" autocomplete="email" required></label>
+        <label class="field-label mt-4">Email Administrator<input id="registrationEmail" class="registration-email-input" name="email" type="email" autocomplete="email" aria-describedby="registrationEmailError" required></label>
+        <small id="registrationEmailError" class="registration-field-error" role="status" hidden>Masukkan alamat email yang valid, termasuk tanda @ dan domain.</small>
         <label class="field-label mt-4">Nomor WhatsApp<input name="phone" type="tel" autocomplete="tel" required></label>
         <div id="registrationOtpPanel" class="hidden mt-4">
           <button id="sendRegistrationOtp" class="btn-secondary w-full" type="button">Kirim kode OTP WhatsApp</button>
+          <small id="registrationOtpHint" class="registration-otp-hint">Kirim OTP dan isi kode 6 digit sebelum mendaftar.</small>
           <label id="registrationOtpCodeField" class="field-label mt-4 hidden">Kode OTP 6 digit<input name="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}"></label>
         </div>
-        <label class="field-label mt-4">Kata sandi<input name="password" type="password" minlength="8" autocomplete="new-password" required></label>
-        <label class="field-label mt-4">Ulangi kata sandi<input name="passwordConfirm" type="password" minlength="8" autocomplete="new-password" required></label>
-        <button class="btn-primary w-full mt-6" type="submit"><i data-lucide="school"></i>Daftarkan sekolah</button>
+        <label class="field-label mt-4">Kata sandi<span class="password-input-wrap"><input id="registrationPassword" name="password" type="password" minlength="8" maxlength="200" autocomplete="new-password" aria-describedby="registrationPasswordRules" required><button id="registrationPasswordToggle" class="password-visibility-toggle" type="button" aria-label="Tampilkan kata sandi" aria-pressed="false"><i data-lucide="eye"></i></button></span></label>
+        <ul id="registrationPasswordRules" class="registration-password-rules" aria-live="polite">
+          <li data-password-rule="length"><span class="password-rule-check" aria-hidden="true">○</span><span>Minimal 8 karakter</span></li>
+          <li data-password-rule="uppercase"><span class="password-rule-check" aria-hidden="true">○</span><span>Mengandung huruf besar (A-Z)</span></li>
+          <li data-password-rule="number"><span class="password-rule-check" aria-hidden="true">○</span><span>Mengandung angka (0-9)</span></li>
+          <li data-password-rule="symbol"><span class="password-rule-check" aria-hidden="true">○</span><span>Mengandung simbol (contoh: !@#)</span></li>
+        </ul>
+        <button id="registerSchoolSubmit" class="btn-primary w-full mt-6" type="submit" disabled><i data-lucide="school"></i>Daftarkan sekolah</button>
       </form>
       <p id="registrationResult" class="login-error" aria-live="polite"></p>
       <p class="login-register-link"><button id="backToSchoolLogin" type="button">Kembali ke login</button></p>
@@ -70,6 +77,7 @@
     <main class="main-area">
       <header class="topbar"><div class="topbar-left"><button id="mobileMenuToggle" class="icon-btn mobile-menu-toggle" aria-label="Buka menu"><i data-lucide="panel-left"></i></button><div class="topbar-school"><b id="headerSchoolName" class="header-school-name">SMA Negeri 1 Bandung</b><label class="header-academic-year"><span>Tahun Pelajaran</span><select id="headerAcademicYear" aria-label="Pilih tahun pelajaran"></select></label></div></div>
         <div class="topbar-actions"><div class="topbar-search" id="topbarSearch"><button class="search-icon-trigger" id="searchTrigger" type="button" aria-label="Cari menu" aria-expanded="false"><i data-lucide="search"></i></button><div class="topbar-search-box hidden" id="topbarSearchBox"><i data-lucide="search"></i><input id="globalSearch" type="search" placeholder="Cari menu..." autocomplete="off" aria-label="Cari menu"><button class="search-close" id="searchClose" type="button" aria-label="Tutup pencarian"><i data-lucide="x"></i></button><div class="topbar-search-results hidden" id="searchResults" role="listbox"></div></div></div><div class="topbar-notifications" id="topbarNotifications"><button class="icon-btn notification-btn" id="notificationToggle" type="button" aria-label="Notifikasi" aria-haspopup="dialog" aria-expanded="false"><i data-lucide="bell"></i></button><div class="notification-dropdown hidden" id="notificationDropdown" role="dialog" aria-label="Notifikasi"><b>Notifikasi</b><div class="notification-empty"><i data-lucide="bell-off"></i><span>Tidak ada notifikasi</span></div></div></div><div class="topbar-divider"></div><div class="topbar-profile" id="topbarProfile"><button class="topbar-user" id="topbarUser" aria-label="Menu profil" aria-haspopup="menu" aria-expanded="false"><span class="avatar">AD</span><i data-lucide="chevron-down"></i></button><div class="topbar-profile-menu hidden" id="topbarProfileMenu" role="menu"></div></div></div>
+        <button id="mobileHeaderToggle" class="icon-btn mobile-header-toggle" type="button" aria-label="Ciutkan header" aria-expanded="true" title="Ciutkan header"><i data-lucide="minimize-2"></i></button>
       </header>
       <div id="printSchoolHeader" class="print-school-header" aria-hidden="true"></div>
       <section id="pageContent" class="page-content"></section>

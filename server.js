@@ -275,7 +275,7 @@ function tenantState(schoolId) {
 }
 
 function defaultPlatformState() {
-  const featureKeys = ["dashboard", "school", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "loans", "procurements", "disposals", "depreciations", "reports"];
+  const featureKeys = ["dashboard", "school", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "loans", "procurements", "disposals", "depreciations", "reports"];
   return {
     settings: {
       branding: { appName: "Sarprah", tagline: "Sistem Manajemen Sarana & Prasarana", logo: "" },
@@ -900,7 +900,6 @@ function platformSchoolSummaries() {
       ...school,
       accountCount: (tenant.accounts || []).length,
       goodsCount: (tenant.goods || []).length,
-      itemCount: (tenant.items || []).length,
       openTicketCount: (tenant.helpTickets || []).filter((ticket) => !["Selesai", "Ditutup"].includes(ticket.status)).length
     };
   });
@@ -954,7 +953,10 @@ function validateSchoolRegistration(input, platform) {
   if (!name || name.length > 180) throw new Error("Nama sekolah wajib diisi (maksimal 180 karakter).");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Email Administrator tidak valid.");
   if (!adminName || adminName.length > 120) throw new Error("Nama Administrator wajib diisi.");
-  if (password.length < 8 || password.length > 200) throw new Error("Kata sandi minimal 8 karakter.");
+  if (password.length < 8 || password.length > 200 || !/[A-Z]/.test(password)
+    || !/\d/.test(password) || !/[^A-Za-z0-9\s]/.test(password)) {
+    throw new Error("Kata sandi harus memiliki 8–200 karakter, huruf besar, angka, dan simbol.");
+  }
   if (!plan) throw new Error("Paket langganan tidak tersedia.");
   return { school, name, email, adminName, password, plan };
 }
@@ -1303,7 +1305,7 @@ async function handlePlatformApi(req, res) {
       admin: (tenant.accounts || []).filter((account) => account.role === "Administrator").map(({ id, name, email, active }) => ({ id, name, email, active })),
       tickets: (tenant.helpTickets || []).map((ticket) => ({ ...ticket, schoolId: school.id, schoolName: school.name })),
       payments: platformState().payments.filter((payment) => payment.schoolId === school.id),
-      summary: { goods: (tenant.goods || []).length, items: (tenant.items || []).length, accounts: (tenant.accounts || []).length }
+      summary: { goods: (tenant.goods || []).length, accounts: (tenant.accounts || []).length }
     })), true;
   }
   if (schoolMatch && req.method === "PUT") {
@@ -1796,24 +1798,31 @@ async function handleApi(req, res) {
     const accessError = tenantAccessError(school);
     if (accessError) return send(res, accessError.status, JSON.stringify({ error: accessError.message }));
     const state = tenantState(school.id);
-    if (!state) return send(res, 404, JSON.stringify({ error: "Data inventaris tidak tersedia." }));
+    if (!state) return send(res, 404, JSON.stringify({ error: "Data barang tidak tersedia." }));
     const yearId = state.settings?.selectedAcademicYearId
       || state.academicYears?.find((year) => year.status === "Aktif")?.id
       || state.academicYears?.[0]?.id
       || "";
     const goods = (state.goods || []).filter((good) => !good.academicYearId || !yearId || good.academicYearId === yearId);
     const query = String(new URL(req.url, "http://localhost").searchParams.get("q") || "").trim().slice(0, 100).toLocaleLowerCase("id-ID");
-    const scannedItem = query ? (state.items || []).find((item) => String(item.code || "").trim().toLocaleLowerCase("id-ID") === query) : null;
-    const selectedGoods = goods.filter((good) => (!scannedItem || good.id === scannedItem.goodId)
-      && (!query || scannedItem || String(good.name || "").toLocaleLowerCase("id-ID").includes(query)));
-    const inventory = selectedGoods.slice(0, 500).map((good) => {
-      const itemRows = (state.items || []).filter((item) => item.goodId === good.id);
+    const scannedGood = query ? goods.find((good) => String(good.barcode || "").trim().toLocaleLowerCase("id-ID") === query) : null;
+    const selectedGoods = scannedGood
+      ? [scannedGood]
+      : goods.filter((good) => !query || [good.name, good.barcode, good.assetCode]
+          .some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(query)));
+    const publicGoods = selectedGoods.slice(0, 500).map((good) => {
       const total = Math.max(0, Number(good.quantity) || 0);
-      const damaged = Math.min(total, itemRows.filter((item) => item.condition === "Rusak").length);
-      const borrowed = Math.min(total - damaged, (state.loans || [])
+      const damaged = Math.min(total, Math.max(0, Number(good.damagedConditionCount) || 0));
+      const missing = Math.min(total - damaged, Math.max(0, Number(good.missingConditionCount) || 0));
+      const calculatedGood = Math.max(0, total - damaged - missing);
+      const goodCondition = good.goodConditionCount !== "" && good.goodConditionCount != null
+        && Number.isFinite(Number(good.goodConditionCount))
+        ? Math.min(calculatedGood, Math.max(0, Number(good.goodConditionCount)))
+        : calculatedGood;
+      const borrowed = Math.min(goodCondition, (state.loans || [])
         .filter((loan) => loan.goodId === good.id && ["Dipinjam", "Diterima"].includes(loan.status))
         .reduce((sum, loan) => sum + Math.max(0, Number(loan.quantity) || 0), 0));
-      const available = Math.max(0, total - damaged - borrowed);
+      const available = Math.max(0, goodCondition - borrowed);
       return {
         name: String(good.name || ""),
         type: state.types?.find((type) => type.id === good.typeId)?.name || "",
@@ -1822,11 +1831,12 @@ async function handleApi(req, res) {
         total,
         available,
         damaged,
+        missing,
         borrowed,
-        goodCondition: Math.max(0, total - damaged)
+        goodCondition
       };
     });
-    return send(res, 200, JSON.stringify({ school: { name: school.name, code: school.code }, items: inventory }));
+    return send(res, 200, JSON.stringify({ school: { name: school.name, code: school.code }, goods: publicGoods }));
   }
   if (req.method === "GET" && req.url === "/api/branding") {
     const branding = platformState().settings.branding || {};

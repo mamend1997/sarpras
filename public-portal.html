@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f97316">
-  <title>Portal Inventaris Sekolah — Sarprah</title>
+  <title>Portal Barang Sekolah — Sarprah</title>
   <link rel="stylesheet" href="/assets/css/public-portal.css">
 </head>
 <body>
@@ -12,23 +12,23 @@
     <header class="public-header">
       <a class="public-brand" href="/" aria-label="Sarprah">
         <span class="public-brand-mark" aria-hidden="true">S</span>
-        <span><b>Sarprah</b><small>Portal inventaris publik</small></span>
+        <span><b>Sarprah</b><small>Portal barang publik</small></span>
       </a>
-      <span class="public-badge"><span></span>Informasi inventaris</span>
+      <span class="public-badge"><span></span>Informasi barang</span>
     </header>
     <section class="public-hero">
       <div>
         <p class="public-eyebrow">TRANSPARANSI SARANA SEKOLAH</p>
-        <h1 id="schoolName">Inventaris sekolah</h1>
-        <p>Cari barang atau pindai QR item untuk melihat ketersediaan dan ringkasan kondisinya.</p>
+        <h1 id="schoolName">Data Barang Sekolah</h1>
+        <p>Cari barang atau pindai barcode barang untuk melihat jumlah tersedia dan ringkasan kondisinya.</p>
       </div>
       <div class="public-hero-icon" aria-hidden="true">⌕</div>
     </section>
-    <section class="public-search-card" aria-label="Cari inventaris">
+    <section class="public-search-card" aria-label="Cari barang">
       <form id="searchForm" class="public-search-form">
         <label for="inventorySearch">Nama barang atau kode QR</label>
         <div class="public-search-control">
-          <input id="inventorySearch" type="search" placeholder="Contoh: proyektor atau kode item" autocomplete="off">
+          <input id="inventorySearch" type="search" placeholder="Contoh: proyektor atau BRG-00001" autocomplete="off">
           <button class="public-button" type="submit">Cari barang</button>
         </div>
       </form>
@@ -44,14 +44,14 @@
     </section>
     <div class="public-content">
       <section class="public-results">
-        <div class="public-section-heading"><div><p class="public-eyebrow">DAFTAR INVENTARIS</p><h2>Barang tersedia untuk dicari</h2></div><span id="resultCount" class="public-count"></span></div>
+        <div class="public-section-heading"><div><p class="public-eyebrow">DATA BARANG</p><h2>Barang tersedia untuk dicari</h2></div><span id="resultCount" class="public-count"></span></div>
         <div id="inventoryResults" class="public-result-list" aria-live="polite"></div>
       </section>
       <aside id="inventoryDetail" class="public-detail" aria-live="polite">
         <div class="public-detail-empty"><span>▧</span><h2>Pilih barang</h2><p>Pilih barang dari hasil pencarian untuk melihat jumlah tersedia dan ringkasan kondisinya.</p></div>
       </aside>
     </div>
-    <footer class="public-footer">Portal publik menampilkan ringkasan inventaris saja. Data diperbarui oleh administrator sekolah.</footer>
+    <footer class="public-footer">Portal publik menampilkan ringkasan Data Barang. Data diperbarui oleh administrator sekolah.</footer>
   </main>
   <script src="/assets/js/public-portal.js"></script>
 </body>

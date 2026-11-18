@@ -10,7 +10,6 @@
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   })[char]);
-  let items = [];
   let scannerStream = null;
   let scannerTimer = 0;
   let detector = null;
@@ -20,51 +19,51 @@
     countRoot.textContent = "";
   }
 
-  function renderItems(rows) {
-    items = rows;
+  function renderGoods(rows) {
     countRoot.textContent = `${rows.length}${rows.length === 500 ? "+" : ""} barang`;
     if (!rows.length) {
       showMessage("Barang tidak ditemukan. Periksa kata kunci atau kode QR, lalu coba kembali.");
       return;
     }
-    resultRoot.innerHTML = rows.map((item, index) => `<article class="public-result-card">
-      <div class="public-result-copy"><b>${escapeHtml(item.name)}</b><small>${escapeHtml([item.category, item.type, item.unit].filter(Boolean).join(" · ") || "Inventaris sekolah")}</small></div>
-      <span class="public-result-stock">${Number(item.available) || 0} tersedia</span>
-      <button type="button" data-public-item="${index}">Detail</button>
+    resultRoot.innerHTML = rows.map((good, index) => `<article class="public-result-card">
+      <div class="public-result-copy"><b>${escapeHtml(good.name)}</b><small>${escapeHtml([good.category, good.type, good.unit].filter(Boolean).join(" · ") || "Data Barang")}</small></div>
+      <span class="public-result-stock">${Number(good.available) || 0} tersedia</span>
+      <button type="button" data-public-good="${index}">Detail</button>
     </article>`).join("");
-    resultRoot.querySelectorAll("[data-public-item]").forEach((button) => {
-      button.addEventListener("click", () => renderDetail(rows[Number(button.dataset.publicItem)]));
+    resultRoot.querySelectorAll("[data-public-good]").forEach((button) => {
+      button.addEventListener("click", () => renderDetail(rows[Number(button.dataset.publicGood)]));
     });
   }
 
-  function renderDetail(item) {
-    if (!item) return;
-    detailRoot.innerHTML = `<h2>${escapeHtml(item.name)}</h2>
-      <p class="public-detail-type">${escapeHtml([item.category, item.type, item.unit].filter(Boolean).join(" · ") || "Inventaris sekolah")}</p>
-      <div class="public-stock-highlight"><span>Jumlah tersedia</span><strong>${Number(item.available) || 0}${item.unit ? ` <small>${escapeHtml(item.unit)}</small>` : ""}</strong></div>
+  function renderDetail(good) {
+    if (!good) return;
+    detailRoot.innerHTML = `<h2>${escapeHtml(good.name)}</h2>
+      <p class="public-detail-type">${escapeHtml([good.category, good.type, good.unit].filter(Boolean).join(" · ") || "Data Barang")}</p>
+      <div class="public-stock-highlight"><span>Jumlah tersedia</span><strong>${Number(good.available) || 0}${good.unit ? ` <small>${escapeHtml(good.unit)}</small>` : ""}</strong></div>
       <div class="public-condition-list">
-        <div class="public-condition-row"><span>Kondisi baik / dapat digunakan</span><b class="public-good">${Number(item.goodCondition) || 0}</b></div>
-        <div class="public-condition-row"><span>Sedang dipinjam</span><b>${Number(item.borrowed) || 0}</b></div>
-        <div class="public-condition-row"><span>Rusak</span><b class="public-damaged">${Number(item.damaged) || 0}</b></div>
-        <div class="public-condition-row"><span>Total tercatat</span><b>${Number(item.total) || 0}</b></div>
+        <div class="public-condition-row"><span>Kondisi baik / dapat digunakan</span><b class="public-good">${Number(good.goodCondition) || 0}</b></div>
+        <div class="public-condition-row"><span>Sedang dipinjam</span><b>${Number(good.borrowed) || 0}</b></div>
+        <div class="public-condition-row"><span>Rusak</span><b class="public-damaged">${Number(good.damaged) || 0}</b></div>
+        <div class="public-condition-row"><span>Hilang</span><b>${Number(good.missing) || 0}</b></div>
+        <div class="public-condition-row"><span>Total barang</span><b>${Number(good.total) || 0}</b></div>
       </div>`;
   }
 
-  async function loadInventory(query = "") {
+  async function loadGoods(query = "") {
     if (!/^[A-Z0-9]{4}$/.test(code)) {
       showMessage("Kode sekolah tidak valid. Buka tautan portal publik lengkap dari sekolah.", true);
       return;
     }
-    resultRoot.innerHTML = `<div class="public-message">Memuat daftar inventaris…</div>`;
+    resultRoot.innerHTML = `<div class="public-message">Memuat Data Barang…</div>`;
     try {
       const response = await fetch(`/api/public/school/${encodeURIComponent(code)}/inventory?q=${encodeURIComponent(query.trim())}`);
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
-      $("#schoolName").textContent = result.school?.name || "Inventaris sekolah";
-      renderItems(Array.isArray(result.items) ? result.items : []);
-      if (result.items?.length === 1 && query.trim()) renderDetail(result.items[0]);
+      $("#schoolName").textContent = result.school?.name || "Data Barang Sekolah";
+      renderGoods(Array.isArray(result.goods) ? result.goods : []);
+      if (result.goods?.length === 1 && query.trim()) renderDetail(result.goods[0]);
     } catch (error) {
-      showMessage(error.message || "Data inventaris tidak dapat dimuat.", true);
+      showMessage(error.message || "Data Barang tidak dapat dimuat.", true);
     }
   }
 
@@ -86,7 +85,7 @@
       if (codes.length && codes[0].rawValue) {
         search.value = codes[0].rawValue.trim();
         stopScanner("Kode terbaca. Mencari inventaris…");
-        await loadInventory(search.value);
+        await loadGoods(search.value);
         return;
       }
     } catch (error) {
@@ -98,11 +97,11 @@
 
   $("#searchForm").addEventListener("submit", (event) => {
     event.preventDefault();
-    loadInventory(search.value);
+    loadGoods(search.value);
   });
   search.addEventListener("input", () => {
     window.clearTimeout(search._timer);
-    search._timer = window.setTimeout(() => loadInventory(search.value), 250);
+    search._timer = window.setTimeout(() => loadGoods(search.value), 250);
   });
   $("#startScan").addEventListener("click", async () => {
     if (!("BarcodeDetector" in window) || !navigator.mediaDevices?.getUserMedia) {
@@ -117,7 +116,7 @@
       $("#scannerPanel").hidden = false;
       $("#startScan").hidden = true;
       $("#stopScan").hidden = false;
-      scanMessage.textContent = "Kamera aktif. Arahkan ke barcode atau QR item.";
+      scanMessage.textContent = "Kamera aktif. Arahkan ke barcode barang.";
       scanFrame();
     } catch (error) {
       stopScanner(`Kamera tidak dapat dibuka: ${error.message}`);
@@ -125,5 +124,5 @@
   });
   $("#stopScan").addEventListener("click", () => stopScanner("Pemindaian kamera dihentikan."));
   window.addEventListener("pagehide", () => stopScanner());
-  loadInventory();
+  loadGoods();
 })();
