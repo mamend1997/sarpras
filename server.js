@@ -1828,6 +1828,7 @@ async function handleApi(req, res) {
         type: state.types?.find((type) => type.id === good.typeId)?.name || "",
         category: state.categories?.find((category) => category.id === good.categoryId)?.name || "",
         unit: state.units?.find((unit) => unit.id === good.unitId)?.name || "",
+        location: state.locations?.find((location) => location.id === good.locationId)?.name || "Belum ditentukan",
         total,
         available,
         damaged,

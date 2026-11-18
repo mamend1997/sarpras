@@ -49,7 +49,7 @@
     doubleDeclining: "Saldo Menurun Ganda (Double Declining-Balance)",
     sumOfYears: "Jumlah Angka Tahun (Sum-of-the-Years'-Digits)"
   };
-  const goodsImportHeaders = ["Nama Barang", "Kode Barang KIB (Opsional)", "Spesifikasi Barang (Opsional)", "Tanggal Barang Masuk (Opsional)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
+  const goodsImportHeaders = ["Nama Barang", "Kode Barang KIB (Opsional)", "Spesifikasi Barang (Opsional)", "Tanggal Barang Masuk (Wajib)", "Kepemilikan", "Sumber Dana", "Jenis Barang", "Kategori Barang", "Ruang / Lokasi", "Satuan", "Supplier", "Jumlah Barang", "Harga Barang (Rp)", "Status BHP (BHP/Barang Modal)"];
   const kibClasses = [
     { code: "A", label: "KIB A: Tanah" },
     { code: "B", label: "KIB B: Peralatan dan Mesin" },
@@ -82,8 +82,8 @@
     return Number.isSafeInteger(number) ? number : null;
   };
   const permissionRoles = ["Kepala Sekolah", "Wakasek Sarpras", "Guru"];
-  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "assetMovements", "loans", "procurements", "disposals", "depreciations", "reports", "activityLog", "trash", "helpTickets", "userGuide", "termsSla", "subscriptionBilling", "theme", "fileManager", "publicPortal"];
-  const defaultMenuPermissions = { dashboard: "view", goods: "edit", loans: "edit", procurements: "edit", disposals: "edit", reports: "view", activityLog: "view", helpTickets: "edit", userGuide: "view", termsSla: "view", subscriptionBilling: "view", theme: "view" };
+  const permissionPages = ["dashboard", "school", "printDesign", "types", "categories", "units", "locations", "ownerships", "suppliers", "funds", "academicYears", "goods", "checkGoods", "usages", "stocktakes", "barcode", "repairTickets", "maintenanceCalendar", "assetMovements", "loans", "procurements", "disposals", "depreciations", "reports", "activityLog", "trash", "helpTickets", "userGuide", "termsSla", "subscriptionBilling", "theme", "fileManager", "publicPortal"];
+  const defaultMenuPermissions = { dashboard: "view", goods: "edit", checkGoods: "view", loans: "edit", procurements: "edit", disposals: "edit", reports: "view", activityLog: "view", helpTickets: "edit", userGuide: "view", termsSla: "view", subscriptionBilling: "view", theme: "view" };
   const createDefaultPermissions = () => Object.fromEntries(permissionRoles.map((role) => [
     role,
     Object.fromEntries(permissionPages.map((key) => [key, defaultMenuPermissions[key] || "hidden"]))
@@ -140,7 +140,7 @@
     disposals: [{ id: "dp1", goodId: "gd1", locationId: "lo3", reason: "Kerusakan motherboard dan tidak dapat diperbaiki", date: dateOffset(-4), status: "Pengajuan" }],
     depreciations: [{ id: "de1", date: dateOffset(-30), goodId: "gd1", initialValue: 8750000, amount: 875000, finalValue: 7875000 }, { id: "de2", date: dateOffset(-30), goodId: "gd2", initialValue: 6200000, amount: 620000, finalValue: 5580000 }],
     accounts: [{ id: "ac1", name: "Admin Sekolah", email: "admin@sarprah.id", role: "Administrator", active: true, edit: true, remove: true }, { id: "ac2", name: "Wakasek Sarpras", email: "wakasek@sarprah.id", role: "Wakasek Sarpras", active: true, edit: true, remove: false }, { id: "ac3", name: "Kepala Sekolah", email: "kepsek@sarprah.id", role: "Kepala Sekolah", active: true, edit: false, remove: false }, { id: "ac4", name: "Guru", email: "guru@sarprah.id", role: "Guru", active: true, edit: false, remove: false }],
-    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", customHeaderLines: [], headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "procurements", "reports"], mobileNavHighlight: "goods", permissions: createDefaultPermissions() }
+    settings: { appName: "Sarprah", appTagline: "School asset manager", appLogo: "", printDesign: { showLogo: true, showNpsn: true, showContact: true, headerMode: "school", customHeaderText: "", customHeaderLines: [], headerFontSize: 16, logoSize: 56, headerBold: true, headerItalic: false }, loanReceiptNumberFormat: defaultLoanReceiptNumberFormat, loanReceiptNextSequence: 1, mobileNav: ["dashboard", "goods", "checkGoods", "procurements", "reports"], mobileNavHighlight: "goods", permissions: createDefaultPermissions() }
   };
 
   const themePalette = {
@@ -165,7 +165,9 @@
   let tenantBillingData = null;
   let registrationOtpRequired = false;
   let registrationOptionsLoaded = false;
+  let registrationOptionsPromise = null;
   let registrationOtpSentPhone = "";
+  let registrationSubmitting = false;
   let registrationEmailTouched = false;
   let storageUsageData = null;
   let pendingStateRecoveryKey = "";
@@ -202,6 +204,7 @@
     funds: ["Sumber Dana", "Kelola sumber pendanaan dan hibah aset.", "wallet"],
     academicYears: ["Tahun Pelajaran", "Kelola daftar tahun pelajaran sekolah.", "calendar-days"],
     goods: ["Data Barang", "Daftar master barang dan informasi pengadaan aset.", "package"],
+    checkGoods: ["Cek Barang", "Cari barang melalui barcode atau nama, lalu periksa jumlah dan kondisinya.", "scan-search"],
     usages: ["Penggunaan BHP", "Catat penggunaan barang habis pakai dan pantau stok.", "clipboard-list"],
     stocktakes: ["Stock Opname", "Rekam hasil pemeriksaan dan penyesuaian stok.", "clipboard-check"],
     barcode: ["Cetak Barcode", "Kelola dan cetak barcode untuk data barang.", "qr-code"],
@@ -231,7 +234,7 @@
     { section: "RINGKASAN", links: [{ id: "dashboard", label: "Dashboard", icon: "layout-dashboard" }] },
     { section: "PENGELOLAAN", groups: [
       { label: "Transaksi", icon: "arrow-left-right", children: [["loans", "Peminjaman"], ["procurements", "Pengadaan"], ["disposals", "Pemusnahan"], ["depreciations", "Penyusutan"]] },
-      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"], ["assetMovements", "Pindah Ruang Barang"], ["repairTickets", "Tiket Perbaikan"], ["maintenanceCalendar", "Kalender Pemeliharaan"]] },
+      { label: "Barang", icon: "package", children: [["goods", "Data Barang"], ["checkGoods", "Cek Barang"], ["usages", "Penggunaan BHP"], ["stocktakes", "Stock Opname"], ["barcode", "Cetak Barcode"], ["assetMovements", "Pindah Ruang Barang"], ["repairTickets", "Tiket Perbaikan"], ["maintenanceCalendar", "Kalender Pemeliharaan"]] },
       { label: "Data Master", icon: "database", children: [["school", "Data Sekolah"], ["printDesign", "Desain Kop & Tanda Tangan"], ["types", "Jenis Barang"], ["categories", "Kategori Barang"], ["units", "Satuan"], ["locations", "Ruang / Lokasi"], ["ownerships", "Kepemilikan"], ["suppliers", "Penyedia / Supplier"], ["funds", "Sumber Dana"], ["academicYears", "Tahun Pelajaran"]] }
     ] },
     { section: "BANTUAN & RIWAYAT", links: [{ id: "activityLog", label: "Log Aktivitas", icon: "history" }, { id: "trash", label: "Kotak Sampah", icon: "trash-2" }, { id: "helpTickets", label: "Bantuan & Tiket Kendala", icon: "life-buoy" }, { id: "userGuide", label: "Petunjuk Pengguna", icon: "book-open" }, { id: "termsSla", label: "Syarat & SLA", icon: "file-check-2" }] },
@@ -247,7 +250,7 @@
     suppliers: { title: "Penyedia / Supplier", description: "Daftar penyedia, alamat, dan kontak supplier sekolah.", singular: "Supplier", cols: [["name", "Nama Supplier"], ["address", "Alamat"], ["phone", "No. Telepon"], ["email", "Email"]], fields: [["name", "Nama Supplier", "text", true], ["address", "Alamat", "textarea", true], ["phone", "No. Telepon", "tel", true], ["email", "Email (opsional)", "email"]] },
     funds: { title: "Sumber Dana", description: "Sumber pendanaan untuk pengadaan aset.", singular: "Sumber Dana", cols: [["name", "Nama Sumber Dana"], ["description", "Keterangan"]], fields: [["name", "Nama Sumber Dana", "text", true], ["description", "Keterangan", "text"]] },
     academicYears: { title: "Tahun Pelajaran", description: "Kelola periode tahun ajaran dan salin data master serta barang dari tahun sebelumnya.", singular: "Tahun Pelajaran", cols: [["name", "Tahun Pelajaran"], ["startDate", "Tanggal Mulai"], ["endDate", "Tanggal Selesai"], ["status", "Status"]], fields: [["name", "Tahun Pelajaran", "text", true], ["startDate", "Tanggal Mulai", "date", true], ["endDate", "Tanggal Selesai", "date", true], ["copyPreviousData", "Salin data master dan barang beserta stok terakhir dari tahun sebelumnya", "checkbox"], ["status", "Status", "select", true, ["Aktif", "Arsip"]]] },
-    goods: { title: "Data Barang", description: "Informasi barang, tanggal barang masuk, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["assetCode", "Kode Barang KIB"], ["receivedDate", "Tanggal Barang Masuk"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["assetCode", "Kode Barang KIB (opsional)", "text"], ["receivedDate", "Tanggal Barang Masuk (opsional)", "date"], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
+    goods: { title: "Data Barang", description: "Informasi barang, tanggal barang masuk, stok, dan sumber pendanaannya.", singular: "Barang", cols: [["name", "Nama Barang"], ["assetCode", "Kode Barang KIB"], ["receivedDate", "Tanggal Barang Masuk"], ["specification", "Spesifikasi Barang"], ["ownershipId", "Kepemilikan"], ["fundId", "Sumber Dana"], ["typeId", "Jenis"], ["categoryId", "Kategori"], ["locationId", "Ruang / Lokasi"], ["unitId", "Satuan"], ["supplierId", "Supplier"], ["quantity", "Jumlah"], ["price", "Tarif Barang"], ["consumable", "Status BHP"]], fields: [["name", "Nama Barang", "text", true], ["receivedDate", "Tanggal Barang Masuk", "date"], ["specification", "Spesifikasi Barang (opsional)", "textarea"], ["ownershipId", "Kepemilikan", "select", true, "ownerships"], ["fundId", "Sumber Dana", "select", true, "funds"], ["typeId", "Jenis Barang", "select", true, "types"], ["categoryId", "Kategori", "select", true, "categories"], ["locationId", "Ruang / Lokasi Barang", "select", true, "locations"], ["unitId", "Satuan", "select", true, "units"], ["supplierId", "Supplier", "select", true, "suppliers"], ["quantity", "Jumlah Barang", "number", true], ["price", "Tarif Barang (Rp)", "number", true], ["consumable", "Status BHP", "select", true, ["BHP", "Barang Modal"]]] },
     usages: { title: "Penggunaan BHP", description: "Catat penggunaan barang habis pakai dan kurangi stok secara langsung.", singular: "Penggunaan BHP", cols: [["applicant", "Nama Pengguna"], ["goodId", "Nama Barang"], ["quantity", "Jumlah"], ["unitId", "Satuan"], ["date", "Tanggal"], ["note", "Keterangan"]], fields: [["goodId", "Barang BHP", "select", true, "bhpGoods"], ["applicant", "Nama Pengguna", "text", true], ["quantity", "Jumlah Barang", "number", true], ["unitId", "Satuan", "unit"], ["date", "Tanggal", "date", true], ["note", "Keterangan", "textarea"]] },
     stocktakes: { title: "Stock Opname", description: "Riwayat pemeriksaan dan koreksi jumlah stok barang.", singular: "Stock Opname", cols: [["date", "Tanggal"], ["goodId", "Nama Barang"], ["oldStock", "Stok Lama"], ["newStock", "Stok Baru"], ["total", "Total Stok"], ["note", "Keterangan"], ["checker", "Nama Pengecek"], ["missingQuantity", "Jumlah Hilang"], ["lossStatus", "Status Penanganan"]], fields: [["date", "Tanggal Opname", "date", true], ["goodId", "Nama Barang", "select", true, "goods"], ["oldStock", "Jumlah Stok Lama", "number", true], ["newStock", "Stok Baru", "number", true], ["note", "Keterangan", "text"], ["checker", "Nama Pengecek", "text", true], ["lossStatus", "Status Penanganan Kehilangan", "select", false, ["Perlu penelusuran", "Dilaporkan", "Ditemukan", "Selesai"]]] },
     repairTickets: { title: "Tiket Perbaikan", description: "Kelola laporan kerusakan dan tindak lanjut perbaikan.", singular: "Tiket Perbaikan", cols: [["ticketNo", "Nomor Tiket"], ["title", "Judul Laporan"], ["goodId", "Barang"], ["quantity", "Jumlah"], ["locationId", "Lokasi"], ["priority", "Prioritas"], ["status", "Status"], ["createdAt", "Tanggal"]], fields: [["title", "Judul Laporan", "text", true], ["description", "Deskripsi Kerusakan", "textarea", true], ["photo", "Foto Kerusakan (opsional)", "file"], ["goodId", "Barang", "select", true, "goods"], ["quantity", "Jumlah Barang", "number", true], ["locationId", "Lokasi", "select", true, "locations"], ["priority", "Prioritas", "select", true, ["Rendah", "Sedang", "Tinggi", "Urgent"]]] },
@@ -869,7 +872,7 @@
   function ensureMobileNavigationDefaults() {
     const settings = state.settings || (state.settings = {});
     let changed = false;
-    const normalizeMobilePage = (key) => ["items", "checkGoods"].includes(key) ? "goods" : key;
+    const normalizeMobilePage = (key) => key === "items" ? "goods" : key;
     if (!Array.isArray(settings.mobileNav)) {
       settings.mobileNav = [...seed.settings.mobileNav];
       changed = true;
@@ -879,6 +882,10 @@
         settings.mobileNav = mobileNav;
         changed = true;
       }
+    }
+    if (!settings.mobileNav.includes("checkGoods") && settings.mobileNav.length < 5) {
+      settings.mobileNav.push("checkGoods");
+      changed = true;
     }
     const mobileNavHighlight = normalizeMobilePage(settings.mobileNavHighlight);
     if (mobileNavHighlight !== settings.mobileNavHighlight) {
@@ -1317,7 +1324,7 @@
 
   function renderMobileNav() {
     const links = (state.settings?.mobileNav || seed.settings.mobileNav)
-      .map((key) => ["items", "checkGoods"].includes(key) ? "goods" : key)
+      .map((key) => key === "items" ? "goods" : key)
       .filter((key, index, values) => values.indexOf(key) === index && canViewPage(key));
     const visibleLinks = links.slice(0, 5);
     const highlightKey = visibleLinks.includes(state.settings?.mobileNavHighlight)
@@ -1331,7 +1338,7 @@
     const shortLabels = {
       dashboard: "Beranda", school: "Sekolah", types: "Jenis", categories: "Kategori",
       units: "Satuan", locations: "Lokasi", suppliers: "Supplier", funds: "Dana", academicYears: "Tahun",
-      goods: "Barang", usages: "BHP", stocktakes: "Opname", barcode: "QR",
+      goods: "Barang", checkGoods: "Cek", usages: "BHP", stocktakes: "Opname", barcode: "QR",
       repairTickets: "Tiket", maintenanceCalendar: "Kalender", assetMovements: "Pindah",
       waNotifications: "WA",
       loans: "Pinjam", procurements: "Beli", disposals: "Pemusnahan",
@@ -1346,7 +1353,7 @@
   }
 
   function navigate(next) {
-    if (["items", "checkGoods"].includes(next)) next = "goods";
+    if (next === "items") next = "goods";
     if (!meta[next]) return;
     if (!canViewPage(next)) next = permissionPages.find(canViewPage) || "";
     if (page === "accounts" && next !== "accounts") {
@@ -1423,6 +1430,14 @@
     input.setAttribute("aria-invalid", String(invalid));
     $("#registrationEmailError").hidden = !invalid;
   }
+  function setRegistrationMessage(message, type = "error") {
+    const result = $("#registrationResult");
+    result.textContent = message;
+    result.classList.toggle("login-success", type === "success");
+    result.classList.toggle("registration-warning", Boolean(message) && type === "warning");
+    result.classList.toggle("registration-error", Boolean(message) && type === "error");
+    result.classList.toggle("registration-info", Boolean(message) && type === "info");
+  }
   function setRegistrationPasswordVisibility(visible) {
     const password = $("#registrationPassword");
     const toggle = $("#registrationPasswordToggle");
@@ -1432,35 +1447,32 @@
     toggle.innerHTML = `<i data-lucide="${visible ? "eye-off" : "eye"}"></i>`;
     if (window.lucide) lucide.createIcons({ nodes: [toggle] });
   }
-  function updateRegistrationSubmitAvailability() {
-    const form = $("#schoolRegistrationForm");
-    const phoneMatches = registrationOtpSentPhone
-      && registrationPhoneKey(form.elements.phone.value) === registrationOtpSentPhone;
-    const otpComplete = !registrationOtpRequired || (phoneMatches && /^\d{6}$/.test(form.elements.otpCode.value.trim()));
-    $("#registerSchoolSubmit").disabled = !registrationOptionsLoaded || !otpComplete;
-  }
-  async function loadRegistrationOptions() {
+  function loadRegistrationOptions() {
+    if (registrationOptionsPromise) return registrationOptionsPromise;
     registrationOptionsLoaded = false;
-    updateRegistrationSubmitAvailability();
-    try {
-      const response = await fetch("/api/auth/registration-options");
-      if (!response.ok) throw new Error("Pengaturan pendaftaran tidak dapat dimuat.");
-      const options = await response.json();
-      registrationOtpRequired = options.whatsappOtpRequired === true;
-      registrationOptionsLoaded = true;
-      $("#registrationOtpPanel").classList.toggle("hidden", !registrationOtpRequired);
-      $("#registrationOtpHint").classList.toggle("hidden", !registrationOtpRequired);
-      const codeInput = $("#schoolRegistrationForm").elements.otpCode;
-      codeInput.required = registrationOtpRequired;
-      if (!registrationOtpRequired) {
-        registrationOtpSentPhone = "";
-        $("#registrationOtpCodeField").classList.add("hidden");
+    registrationOptionsPromise = (async () => {
+      try {
+        const response = await fetch("/api/auth/registration-options");
+        if (!response.ok) throw new Error("Pengaturan pendaftaran tidak dapat dimuat.");
+        const options = await response.json();
+        registrationOtpRequired = options.whatsappOtpRequired === true;
+        registrationOptionsLoaded = true;
+        $("#registrationOtpPanel").classList.toggle("hidden", !registrationOtpRequired);
+        $("#registrationOtpHint").classList.toggle("hidden", !registrationOtpRequired);
+        const codeInput = $("#schoolRegistrationForm").elements.otpCode;
+        codeInput.required = registrationOtpRequired;
+        if (!registrationOtpRequired) {
+          registrationOtpSentPhone = "";
+          $("#registrationOtpCodeField").classList.add("hidden");
+        }
+      } catch (error) {
+        registrationOptionsLoaded = false;
+        setRegistrationMessage(error.message || "Pengaturan pendaftaran tidak dapat dimuat.", "error");
+      } finally {
+        registrationOptionsPromise = null;
       }
-      updateRegistrationSubmitAvailability();
-    } catch (error) {
-      $("#registrationResult").textContent = error.message || "Pengaturan pendaftaran tidak dapat dimuat.";
-      updateRegistrationSubmitAvailability();
-    }
+    })();
+    return registrationOptionsPromise;
   }
   function canEditPage(key = page) {
     return activeUser?.role === "Administrator" || ["edit", "delete"].includes(pagePermission(activeUser?.role, key));
@@ -2161,14 +2173,15 @@
         <td>${integerId.format(Number(record.quantity) || 0)} ${esc(relatedName("units", good?.unitId))}</td>
         <td class="goods-price-cell">${currencyCell(record.unitPrice)}</td>
         <td class="goods-price-cell">${currencyCell((Number(record.quantity) || 0) * (Number(record.unitPrice) || 0))}</td>
+        <td>${esc(relatedName("locations", record.locationId))}</td>
         <td>${esc(relatedName("funds", record.fundId))}</td><td>${esc(relatedName("suppliers", record.supplierId || good?.supplierId))}</td>
         ${canManage ? `<td><button type="button" class="mini-action" title="Hapus riwayat barang masuk" aria-label="Hapus riwayat ${esc(good?.name || record.title)}" data-action="delete-goods-purchase" data-id="${esc(record.id)}"><i data-lucide="trash-2"></i></button></td>` : ""}</tr>`;
     }).join("");
     const selectionControls = canManage
       ? `<button type="button" class="btn-quiet" data-action="select-visible-goods-purchases"><i data-lucide="check-check"></i>Pilih semua</button><button type="button" class="btn-danger" id="deleteSelectedGoodsPurchases" data-action="delete-selected-goods-purchases" disabled><i data-lucide="trash-2"></i>Hapus terpilih <span id="selectedGoodsPurchaseCount"></span></button>`
       : "";
-    return `<section class="settings-card goods-purchase-history"><div class="goods-purchase-history-heading"><div><h3>Riwayat Barang Masuk / Penambahan Stok</h3><p>Setiap penambahan stok barang terdaftar dicatat berdasarkan tanggal, jumlah, harga, sumber dana, dan supplier.</p></div>${selectionControls ? `<div class="goods-toolbar-actions">${selectionControls}</div>` : ""}</div>
-      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectionHeader}<th>NO.</th><th>TANGGAL MASUK</th><th>NAMA BARANG</th><th>JUMLAH</th><th>HARGA SATUAN</th><th>TOTAL</th><th>SUMBER DANA</th><th>SUPPLIER</th>${canManage ? "<th>AKSI</th>" : ""}</tr></thead><tbody>${purchaseRows || `<tr><td class="empty-state" colspan="${8 + Number(canManage) * 2}">Belum ada riwayat penambahan stok.</td></tr>`}</tbody></table></div><div class="table-footer"><span>${purchases.length} riwayat barang masuk</span></div></div></section>`;
+    return `<section class="settings-card goods-purchase-history"><div class="goods-purchase-history-heading"><div><h3>Riwayat Barang Masuk / Penambahan Stok</h3><p>Setiap penambahan stok barang terdaftar dicatat berdasarkan tanggal, jumlah, harga, lokasi, sumber dana, dan supplier.</p></div>${selectionControls ? `<div class="goods-toolbar-actions">${selectionControls}</div>` : ""}</div>
+      <div class="table-shell"><div class="table-wrap"><table class="data-table"><thead><tr>${selectionHeader}<th>NO.</th><th>TANGGAL MASUK</th><th>NAMA BARANG</th><th>JUMLAH</th><th>HARGA SATUAN</th><th>TOTAL</th><th>RUANG / LOKASI</th><th>SUMBER DANA</th><th>SUPPLIER</th>${canManage ? "<th>AKSI</th>" : ""}</tr></thead><tbody>${purchaseRows || `<tr><td class="empty-state" colspan="${9 + Number(canManage) * 2}">Belum ada riwayat penambahan stok.</td></tr>`}</tbody></table></div><div class="table-footer"><span>${purchases.length} riwayat barang masuk</span></div></div></section>`;
   }
 
   function renderAssetMovements() {
@@ -3028,13 +3041,13 @@
   }
 
   function renderAccounts() {
-    const available = ["dashboard", "goods", "loans", "procurements", "disposals", "reports", "activityLog", "trash", "helpTickets", "userGuide", "backup"];
+    const available = ["dashboard", "goods", "checkGoods", "loans", "procurements", "disposals", "reports", "activityLog", "trash", "helpTickets", "userGuide", "backup"];
     if (!Array.isArray(mobileNavDraft)) {
       mobileNavDraft = [...(state.settings.mobileNav || seed.settings.mobileNav)]
-        .map((key) => ["items", "checkGoods"].includes(key) ? "goods" : key)
+        .map((key) => key === "items" ? "goods" : key)
         .filter((key, index, values) => values.indexOf(key) === index);
     }
-    if (mobileNavHighlightDraft === null) mobileNavHighlightDraft = ["items", "checkGoods"].includes(state.settings.mobileNavHighlight) ? "goods" : state.settings.mobileNavHighlight || "goods";
+    if (mobileNavHighlightDraft === null) mobileNavHighlightDraft = state.settings.mobileNavHighlight === "items" ? "goods" : state.settings.mobileNavHighlight || "goods";
     if (!mobileNavDraft.includes(mobileNavHighlightDraft)) mobileNavHighlightDraft = mobileNavDraft.includes("goods") ? "goods" : mobileNavDraft[Math.floor(mobileNavDraft.length / 2)] || "";
     const labels = Object.fromEntries([...available, ...permissionPages, "accounts", "backup", "waNotifications"].map((key) => [key, meta[key][0]]));
     const accessMenus = permissionPages.map((key) => `
@@ -3439,7 +3452,7 @@
       if (key === "depreciations" && name === "method" && value === "Garis Lurus") value = depreciationMethods.straightLine;
       const idAttr = `${key}-${name}`;
       if (key === "locations" && name === "code") return `<div class="form-field"><label for="${idAttr}">${esc(label)} *</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" required readonly><small class="form-help">Kode unik terisi otomatis.</small></div>`;
-      if (key === "goods" && name === "assetCode") return `<div class="form-field"><label for="${idAttr}">${esc(label)}</label><input id="${idAttr}" name="${name}" type="text" value="${esc(value)}" maxlength="80"><small class="form-help">Masukkan kode barang sesuai daftar kode aset yang berlaku di sekolah atau instansi.</small></div>`;
+      if (key === "goods" && name === "receivedDate") return `<div class="form-field"><label for="${idAttr}">${esc(label)}${record ? "" : " *"}</label><input id="${idAttr}" name="${name}" type="date" value="${esc(value)}" ${record ? "" : "required"}>${record ? `<small class="form-help">Tanggal masuk boleh dikosongkan saat mengubah barang lama.</small>` : ""}</div>`;
       if (key === "locations" && name === "area") return `<div class="form-field"><label for="${idAttr}">${esc(label)}</label><input id="${idAttr}" name="${name}" type="number" value="${esc(value)}" readonly><small class="form-help" id="locationAreaHelp" aria-live="polite">Luas dihitung otomatis dari panjang × lebar.</small></div>`;
       if (key === "usages" && name === "unitId") {
         const unitId = record?.unitId || getById("goods", record?.goodId)?.unitId || "";
@@ -3520,13 +3533,15 @@
 
   function showExistingGoodPurchaseModal() {
     if (!canEditPage("goods")) return showToast("Akun Anda tidak memiliki izin menambah stok barang.", true);
+    const locations = recordsForAcademicYear("locations").map((location) => `<option value="${esc(location.id)}">${esc(location.name)}</option>`).join("");
     const funds = recordsForAcademicYear("funds").map((fund) => `<option value="${esc(fund.id)}">${esc(fund.name)}</option>`).join("");
     const suppliers = recordsForAcademicYear("suppliers").map((supplier) => `<option value="${esc(supplier.id)}">${esc(supplier.name)}</option>`).join("");
     showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="existingGoodPurchaseTitle">
-      <div class="modal-header"><div><h2 id="existingGoodPurchaseTitle">Tambah barang yang sudah ada</h2><p>Catat pembelian dan tambahkan jumlahnya ke stok barang terdaftar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div>
+      <div class="modal-header"><div><h2 id="existingGoodPurchaseTitle">Tambah barang yang sudah ada</h2><p>Catat pembelian, lokasi penempatan, dan jumlah tambahan untuk stok barang terdaftar.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div>
       <form id="existingGoodPurchaseForm" class="modal-form"><div class="form-grid">
         <div class="form-field"><label for="existingGoodPurchaseDate">Tanggal Pembelian Barang *</label><input id="existingGoodPurchaseDate" name="date" type="date" value="${dateOffset(0)}" required></div>
         <div class="form-field existing-good-picker-field"><label for="existingGoodSearch">Nama Barang *</label><input id="existingGoodSearch" type="search" autocomplete="off" placeholder="Cari nama barang..." aria-controls="existingGoodSuggestions" aria-expanded="false" required><input id="existingGoodId" name="goodId" type="hidden"><div id="existingGoodSuggestions" class="existing-good-suggestions hidden" role="listbox"></div><small id="existingGoodSelection" class="form-help">Pilih barang yang sudah terdaftar.</small></div>
+        <div class="form-field"><label for="existingGoodLocation">Ruang / Lokasi Barang *</label><select id="existingGoodLocation" name="locationId" required><option value="">Pilih ruang / lokasi</option>${locations}</select><small class="form-help">Lokasi ini akan diperbarui pada Data Barang.</small></div>
         <div class="form-field"><label for="existingGoodFund">Sumber Dana *</label><select id="existingGoodFund" name="fundId" required><option value="">Pilih sumber dana</option>${funds}</select></div>
         <div class="form-field"><label for="existingGoodSupplier">Supplier *</label><select id="existingGoodSupplier" name="supplierId" required><option value="">Pilih supplier</option>${suppliers}</select></div>
         <div class="form-field"><label for="existingGoodQuantity">Jumlah Barang *</label><input id="existingGoodQuantity" name="quantity" type="number" min="1" step="1" required></div>
@@ -3567,6 +3582,7 @@
       if (!good || !recordsForAcademicYear("goods").some((record) => record.id === good.id)) return;
       $("#existingGoodId").value = good.id;
       search.value = good.name;
+      $("#existingGoodLocation").value = good.locationId || "";
       $("#existingGoodSelection").textContent = `Stok saat ini: ${integerId.format(Number(good.quantity) || 0)} ${relatedName("units", good.unitId)} · harga terakhir ${rupiah(good.price)}`;
       suggestions.classList.add("hidden");
       search.setAttribute("aria-expanded", "false");
@@ -3582,6 +3598,7 @@
     const purchaseDate = form.elements.date.value;
     const quantity = Number(form.elements.quantity.value);
     const unitPrice = parseGroupedInteger(form.elements.unitPrice.value);
+    const locationId = form.elements.locationId.value;
     const fundId = form.elements.fundId.value;
     const supplierId = form.elements.supplierId.value;
     if (!good || !recordsForAcademicYear("goods").some((record) => record.id === good.id)) {
@@ -3594,6 +3611,7 @@
     }
     if (!Number.isSafeInteger(quantity) || quantity <= 0) return showToast("Jumlah barang harus bilangan bulat lebih dari nol.", true);
     if (unitPrice === null || unitPrice < 0) return showToast("Tarif barang harus berupa angka nol atau lebih.", true);
+    if (!recordsForAcademicYear("locations").some((location) => location.id === locationId)) return showToast("Pilih ruang / lokasi barang yang valid.", true);
     if (!recordsForAcademicYear("funds").some((fund) => fund.id === fundId)) return showToast("Pilih sumber dana yang valid.", true);
     if (!recordsForAcademicYear("suppliers").some((supplier) => supplier.id === supplierId)) return showToast("Pilih supplier yang valid.", true);
     const previousQuantity = Math.max(0, Number(good.quantity) || 0);
@@ -3602,6 +3620,7 @@
     const previousGoodData = {
       receivedDate: good.receivedDate || "",
       price: Number(good.price) || 0,
+      locationId: good.locationId || "",
       fundId: good.fundId || "",
       supplierId: good.supplierId || "",
       stockAdditionRecordId: good.stockAdditionRecordId || ""
@@ -3609,6 +3628,7 @@
     good.quantity = previousQuantity + quantity;
     good.initialQuantity = previousInitial + quantity;
     good.price = unitPrice;
+    good.locationId = locationId;
     good.fundId = fundId;
     good.supplierId = supplierId;
     good.receivedDate = purchaseDate;
@@ -3620,6 +3640,7 @@
       title: `Pembelian barang: ${good.name}`,
       stockAddition: true,
       goodId: good.id,
+      locationId,
       priority: "Normal",
       quantity,
       unitPrice,
@@ -3926,6 +3947,7 @@
       const previous = record.previousGoodData || {};
       good.receivedDate = previous.receivedDate || "";
       good.price = Number(previous.price) || 0;
+      good.locationId = previous.locationId || "";
       good.fundId = previous.fundId || good.fundId;
       good.supplierId = previous.supplierId || good.supplierId;
       good.stockAdditionRecordId = previous.stockAdditionRecordId || "";
@@ -3943,6 +3965,7 @@
     if (!good.stockAdditionRecordId || String(record.date || "") >= String(good.receivedDate || "")) {
       good.receivedDate = record.date || good.receivedDate || "";
       good.price = Number(record.unitPrice) || 0;
+      good.locationId = record.locationId || good.locationId;
       good.fundId = record.fundId || good.fundId;
       good.supplierId = record.supplierId || good.supplierId;
       good.stockAdditionRecordId = record.id;
@@ -5641,7 +5664,7 @@
           name: column("Nama Barang", "Nama"),
           assetCode: column("Kode Barang KIB (Opsional)", "Kode Barang KIB", "Kode Barang"),
           specification: column("Spesifikasi Barang (Opsional)", "Spesifikasi Barang", "Spesifikasi"),
-          receivedDate: column("Tanggal Barang Masuk (Opsional)", "Tanggal Barang Masuk", "Tanggal Masuk"),
+          receivedDate: column("Tanggal Barang Masuk (Wajib)", "Tanggal Barang Masuk (Opsional)", "Tanggal Barang Masuk", "Tanggal Masuk"),
           ownership: column("Kepemilikan", "Milik"),
           ownerOther: column("Nama Pemilik Lainnya", "Pemilik Lainnya"),
           fund: column("Sumber Dana"),
@@ -5718,7 +5741,7 @@
       <td><select data-import-row="${index}" data-import-field="consumable" aria-label="Status BHP"><option value="">Pilih status</option><option value="true" ${row.consumable === "true" ? "selected" : ""}>BHP</option><option value="false" ${row.consumable === "false" ? "selected" : ""}>Barang Modal</option></select></td>
       <td><span class="goods-import-row-error" id="goodsImportRowError${index}"></span></td>
     </tr>`).join("");
-    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal modal-wide" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Pratinjau dan Lengkapi Barang</h2><p>Semua kolom kecuali kode KIB, spesifikasi, dan tanggal masuk wajib valid.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div id="goodsImportValidation" class="goods-import-validation" aria-live="polite"></div><div class="goods-import-preview-wrap"><table class="goods-import-table"><thead><tr><th>No.</th><th>Nama Barang *</th><th>Kode Barang KIB</th><th>Spesifikasi</th><th>Tanggal Masuk</th><th>Kepemilikan *</th><th>Sumber Dana *</th><th>Jenis *</th><th>Kategori *</th><th>Ruang / Lokasi *</th><th>Satuan *</th><th>Supplier *</th><th>Jumlah *</th><th>Harga *</th><th>Status BHP *</th><th>Validasi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="button" class="btn-primary" id="saveGoodsImport"><i data-lucide="save"></i>Simpan barang</button></div></div></section></div>`, true);
+    showModal(`<div class="modal-backdrop" id="modalBackdrop"><section class="modal modal-wide" role="dialog" aria-modal="true"><div class="modal-header"><div><h2>Pratinjau dan Lengkapi Barang</h2><p>Semua kolom wajib valid kecuali kode KIB dan spesifikasi.</p></div><button type="button" class="modal-close" data-action="close"><i data-lucide="x"></i></button></div><div class="modal-form"><div id="goodsImportValidation" class="goods-import-validation" aria-live="polite"></div><div class="goods-import-preview-wrap"><table class="goods-import-table"><thead><tr><th>No.</th><th>Nama Barang *</th><th>Kode Barang KIB</th><th>Spesifikasi</th><th>Tanggal Masuk *</th><th>Kepemilikan *</th><th>Sumber Dana *</th><th>Jenis *</th><th>Kategori *</th><th>Ruang / Lokasi *</th><th>Satuan *</th><th>Supplier *</th><th>Jumlah *</th><th>Harga *</th><th>Status BHP *</th><th>Validasi</th></tr></thead><tbody>${rows}</tbody></table></div><div class="modal-footer"><button type="button" class="btn-quiet" data-action="close">Batal</button><button type="button" class="btn-primary" id="saveGoodsImport"><i data-lucide="save"></i>Simpan barang</button></div></div></section></div>`, true);
     if ($("#modalRoot")) {
       $("#modalRoot").oninput = updateGoodsImportFromPreview;
       $("#modalRoot").onchange = updateGoodsImportFromPreview;
@@ -5763,7 +5786,11 @@
       if (type && category && category.typeId !== type.id) errors.push("Kategori tidak sesuai dengan jenis");
       if (parseGroupedInteger(row.quantity) === null) errors.push("Jumlah harus bilangan bulat");
       if (parseGroupedInteger(row.price) === null) errors.push("Harga harus bilangan bulat");
-      if (row.receivedDate && (!/^\d{4}-\d{2}-\d{2}$/.test(row.receivedDate) || Number.isNaN(new Date(`${row.receivedDate}T00:00:00`).getTime()))) errors.push("Tanggal barang masuk tidak valid");
+      if (!row.receivedDate) errors.push("Tanggal barang masuk wajib diisi");
+      else {
+        const receivedDate = new Date(`${row.receivedDate}T00:00:00Z`);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(row.receivedDate) || !Number.isFinite(receivedDate.getTime()) || receivedDate.toISOString().slice(0, 10) !== row.receivedDate) errors.push("Tanggal barang masuk tidak valid");
+      }
       if (!["true", "false"].includes(row.consumable)) errors.push("Status BHP wajib dipilih");
       return errors;
     });
@@ -6185,7 +6212,7 @@
     $("#showSchoolRegistration").addEventListener("click", () => {
       $("#loginForm").classList.add("hidden");
       $("#schoolRegistrationPanel").classList.remove("hidden");
-      $("#registrationResult").textContent = "";
+      setRegistrationMessage("");
       $("#schoolRegistrationForm").reset();
       setRegistrationPasswordVisibility(false);
       updateRegistrationPasswordRules();
@@ -6195,7 +6222,6 @@
       registrationOtpSentPhone = "";
       $("#registrationOtpCodeField").classList.add("hidden");
       $("#registrationOtpHint").textContent = "Kirim OTP dan isi kode 6 digit sebelum mendaftar.";
-      updateRegistrationSubmitAvailability();
       loadRegistrationOptions();
       $("#schoolRegistrationForm").elements.schoolName.focus();
     });
@@ -6205,7 +6231,7 @@
       if (!form.elements.phone.reportValidity()) return;
       const button = event.currentTarget;
       button.disabled = true;
-      $("#registrationResult").textContent = "Mengirim kode OTP...";
+      setRegistrationMessage("Mengirim kode OTP...", "info");
       try {
         const response = await fetch("/api/auth/register-school/otp/send", {
           method: "POST",
@@ -6215,11 +6241,12 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Kode OTP tidak dapat dikirim.");
         registrationOtpSentPhone = registrationPhoneKey(phone);
+        form.elements.otpCode.value = "";
+        form.elements.otpCode.setAttribute("aria-invalid", "false");
         $("#registrationOtpCodeField").classList.remove("hidden");
         $("#registrationOtpHint").textContent = "Kode OTP telah dikirim. Isi kode 6 digit untuk melanjutkan pendaftaran.";
-        updateRegistrationSubmitAvailability();
         form.elements.otpCode.focus();
-        $("#registrationResult").textContent = "Kode OTP telah dikirim melalui WhatsApp dan berlaku 10 menit.";
+        setRegistrationMessage("Kode OTP telah dikirim melalui WhatsApp dan berlaku 10 menit.", "info");
         button.textContent = "Tunggu sebelum meminta kode baru";
         window.setTimeout(() => {
           button.disabled = false;
@@ -6227,19 +6254,24 @@
         }, Math.max(1000, Number(result.retryAfter || 60) * 1000));
       } catch (error) {
         button.disabled = false;
-        $("#registrationResult").textContent = error.message || "Kode OTP tidak dapat dikirim.";
+        setRegistrationMessage(error.message || "Kode OTP tidak dapat dikirim.", "error");
       }
     });
     $("#schoolRegistrationForm").elements.phone.addEventListener("input", (event) => {
       if (registrationOtpSentPhone && registrationPhoneKey(event.target.value) !== registrationOtpSentPhone) {
         registrationOtpSentPhone = "";
         $("#schoolRegistrationForm").elements.otpCode.value = "";
+        $("#schoolRegistrationForm").elements.otpCode.setAttribute("aria-invalid", "false");
         $("#registrationOtpHint").textContent = "Nomor WhatsApp berubah. Kirim ulang OTP dan isi kode terbaru.";
-        $("#registrationResult").textContent = "Nomor WhatsApp berubah. Kirim ulang kode OTP untuk nomor ini.";
+        setRegistrationMessage("Nomor WhatsApp berubah. Kirim ulang kode OTP untuk nomor ini.", "warning");
       }
-      updateRegistrationSubmitAvailability();
     });
-    $("#schoolRegistrationForm").elements.otpCode.addEventListener("input", updateRegistrationSubmitAvailability);
+    $("#schoolRegistrationForm").addEventListener("input", (event) => {
+      const field = event.target;
+      if (field.matches("input") && field.value.trim() && field.validity.valid) {
+        field.setAttribute("aria-invalid", "false");
+      }
+    });
     $("#registrationEmail").addEventListener("blur", () => {
       registrationEmailTouched = true;
       updateRegistrationEmailValidation();
@@ -6253,27 +6285,59 @@
     $("#schoolRegistrationForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
+      if (registrationSubmitting) return;
       const password = form.elements.password.value;
+      const requiredFields = [
+        [form.elements.schoolName, "Nama sekolah"],
+        [form.elements.adminName, "Nama Administrator"],
+        [form.elements.email, "Email Administrator"],
+        [form.elements.phone, "Nomor WhatsApp"],
+        [form.elements.password, "Kata sandi"]
+      ];
+      const missingFields = requiredFields.filter(([field]) => !field.value.trim());
+      requiredFields.forEach(([field]) => field.setAttribute("aria-invalid", String(!field.value.trim())));
+      if (missingFields.length) {
+        setRegistrationMessage(`Lengkapi terlebih dahulu: ${missingFields.map(([, label]) => label).join(", ")}.`, "warning");
+        missingFields[0][0].focus();
+        return;
+      }
+      registrationEmailTouched = true;
+      updateRegistrationEmailValidation();
+      if (!form.elements.email.validity.valid) {
+        setRegistrationMessage("Masukkan alamat email yang valid terlebih dahulu.", "warning");
+        form.elements.email.focus();
+        return;
+      }
       if (!updateRegistrationPasswordRules()) {
-        $("#registrationResult").textContent = "Kata sandi harus memenuhi semua persyaratan.";
+        form.elements.password.setAttribute("aria-invalid", "true");
+        setRegistrationMessage("Kata sandi belum memenuhi semua persyaratan. Periksa checklist sebelum melanjutkan.", "warning");
         $("#registrationPassword").focus();
+        return;
+      }
+      form.elements.password.setAttribute("aria-invalid", "false");
+      if (!registrationOptionsLoaded) await loadRegistrationOptions();
+      if (!registrationOptionsLoaded) {
+        setRegistrationMessage("Pengaturan pendaftaran belum berhasil dimuat. Coba lagi beberapa saat lagi.", "warning");
         return;
       }
       if (registrationOtpRequired) {
         if (!registrationOtpSentPhone || registrationPhoneKey(form.elements.phone.value) !== registrationOtpSentPhone) {
-          $("#registrationResult").textContent = "Tekan tombol Kirim kode OTP WhatsApp terlebih dahulu.";
+          setRegistrationMessage("Lengkapi terlebih dahulu: kirim kode OTP WhatsApp setelah memastikan nomor yang diisi sudah benar.", "warning");
           $("#sendRegistrationOtp").focus();
           return;
         }
-        if (!/^\d{6}$/.test(form.elements.otpCode.value.trim())) {
-          $("#registrationResult").textContent = "Isi kode OTP 6 digit yang dikirim ke WhatsApp sebelum mendaftar.";
+        const otpValid = /^\d{6}$/.test(form.elements.otpCode.value.trim());
+        form.elements.otpCode.setAttribute("aria-invalid", String(!otpValid));
+        if (!otpValid) {
+          setRegistrationMessage("Masukkan kode OTP 6 digit yang dikirim ke WhatsApp terlebih dahulu.", "warning");
           form.elements.otpCode.focus();
           return;
         }
       }
       const submit = form.querySelector('button[type="submit"]');
-      submit.disabled = true;
-      $("#registrationResult").textContent = "Mendaftarkan sekolah...";
+      registrationSubmitting = true;
+      submit.setAttribute("aria-busy", "true");
+      setRegistrationMessage("Mendaftarkan sekolah...", "info");
       try {
         const response = await fetch("/api/auth/register-school", {
           method: "POST",
@@ -6293,11 +6357,11 @@
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Pendaftaran sekolah gagal.");
-        $("#registrationResult").textContent = `Pendaftaran berhasil. Kode sekolah Anda: ${result.school.code}. Simpan kode ini untuk login.`;
-        $("#registrationResult").classList.add("login-success");
+        setRegistrationMessage(`Pendaftaran berhasil. Kode sekolah Anda: ${result.school.code}. Simpan kode ini untuk login.`, "success");
         $("#loginSchoolCode").value = result.school.code;
         $("#loginEmail").value = form.elements.email.value.trim().toLowerCase();
         form.reset();
+        form.querySelectorAll("[aria-invalid]").forEach((field) => field.setAttribute("aria-invalid", "false"));
         setRegistrationPasswordVisibility(false);
         updateRegistrationPasswordRules();
         registrationEmailTouched = false;
@@ -6305,12 +6369,11 @@
         registrationOtpSentPhone = "";
         $("#registrationOtpCodeField").classList.add("hidden");
         $("#registrationOtpHint").textContent = "Kirim OTP dan isi kode 6 digit sebelum mendaftar.";
-        updateRegistrationSubmitAvailability();
       } catch (error) {
-        $("#registrationResult").textContent = error.message || "Pendaftaran sekolah gagal.";
-        $("#registrationResult").classList.remove("login-success");
+        setRegistrationMessage(error.message || "Pendaftaran sekolah gagal.", "error");
       } finally {
-        updateRegistrationSubmitAvailability();
+        registrationSubmitting = false;
+        submit.removeAttribute("aria-busy");
       }
     });
     $("#loginForm").addEventListener("submit", async (event) => {

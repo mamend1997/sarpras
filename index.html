@@ -40,7 +40,7 @@
     <section id="schoolRegistrationPanel" class="login-form hidden">
       <div class="mobile-login-brand"><span class="brand-mark" data-app-brand><i data-lucide="boxes"></i></span><b data-app-name>Sarprah</b></div>
       <p class="eyebrow text-orange-600">MULAI MENGELOLA SARPRAS</p><h2>Daftarkan sekolah</h2>
-      <form id="schoolRegistrationForm">
+      <form id="schoolRegistrationForm" novalidate>
         <label class="field-label">Nama sekolah<input name="schoolName" type="text" maxlength="180" required></label>
         <label class="field-label mt-4">Nama Administrator<input name="adminName" type="text" maxlength="120" required></label>
         <label class="field-label mt-4">Email Administrator<input id="registrationEmail" class="registration-email-input" name="email" type="email" autocomplete="email" aria-describedby="registrationEmailError" required></label>
@@ -58,9 +58,9 @@
           <li data-password-rule="number"><span class="password-rule-check" aria-hidden="true">○</span><span>Mengandung angka (0-9)</span></li>
           <li data-password-rule="symbol"><span class="password-rule-check" aria-hidden="true">○</span><span>Mengandung simbol (contoh: !@#)</span></li>
         </ul>
-        <button id="registerSchoolSubmit" class="btn-primary w-full mt-6" type="submit" disabled><i data-lucide="school"></i>Daftarkan sekolah</button>
+        <button id="registerSchoolSubmit" class="btn-primary w-full mt-6" type="submit"><i data-lucide="school"></i>Daftarkan sekolah</button>
       </form>
-      <p id="registrationResult" class="login-error" aria-live="polite"></p>
+      <p id="registrationResult" class="login-error" role="alert" aria-live="assertive"></p>
       <p class="login-register-link"><button id="backToSchoolLogin" type="button">Kembali ke login</button></p>
     </section></div>
   </div>

@@ -26,7 +26,7 @@
       return;
     }
     resultRoot.innerHTML = rows.map((good, index) => `<article class="public-result-card">
-      <div class="public-result-copy"><b>${escapeHtml(good.name)}</b><small>${escapeHtml([good.category, good.type, good.unit].filter(Boolean).join(" · ") || "Data Barang")}</small></div>
+      <div class="public-result-copy"><b>${escapeHtml(good.name)}</b><small>${escapeHtml([good.category, good.type, good.unit].filter(Boolean).join(" · ") || "Data Barang")}</small><small class="public-result-location">Lokasi: ${escapeHtml(good.location || "Belum ditentukan")}</small></div>
       <span class="public-result-stock">${Number(good.available) || 0} tersedia</span>
       <button type="button" data-public-good="${index}">Detail</button>
     </article>`).join("");
@@ -41,6 +41,7 @@
       <p class="public-detail-type">${escapeHtml([good.category, good.type, good.unit].filter(Boolean).join(" · ") || "Data Barang")}</p>
       <div class="public-stock-highlight"><span>Jumlah tersedia</span><strong>${Number(good.available) || 0}${good.unit ? ` <small>${escapeHtml(good.unit)}</small>` : ""}</strong></div>
       <div class="public-condition-list">
+        <div class="public-condition-row"><span>Lokasi barang</span><b>${escapeHtml(good.location || "Belum ditentukan")}</b></div>
         <div class="public-condition-row"><span>Kondisi baik / dapat digunakan</span><b class="public-good">${Number(good.goodCondition) || 0}</b></div>
         <div class="public-condition-row"><span>Sedang dipinjam</span><b>${Number(good.borrowed) || 0}</b></div>
         <div class="public-condition-row"><span>Rusak</span><b class="public-damaged">${Number(good.damaged) || 0}</b></div>
@@ -84,7 +85,7 @@
       const codes = await detector.detect($("#scannerVideo"));
       if (codes.length && codes[0].rawValue) {
         search.value = codes[0].rawValue.trim();
-        stopScanner("Kode terbaca. Mencari inventaris…");
+        stopScanner("Kode terbaca. Mencari Data Barang…");
         await loadGoods(search.value);
         return;
       }

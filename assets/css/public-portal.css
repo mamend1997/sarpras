@@ -57,9 +57,10 @@ button, input { font: inherit; }
 .public-result-list { display: grid; gap: 10px; }
 .public-result-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 16px; border: 1px solid var(--public-line); border-radius: 14px; background: var(--public-surface); transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease; }
 .public-result-card:hover { transform: translateY(-1px); border-color: #fdba74; box-shadow: 0 8px 24px #1f29370d; }
-.public-result-copy { min-width: 0; }
+.public-result-copy { min-width: 0; flex: 1; }
 .public-result-copy b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .public-result-copy small { display: block; margin-top: 4px; color: var(--public-muted); font-size: 11px; }
+.public-result-copy .public-result-location { color: #475569; overflow-wrap: anywhere; }
 .public-result-stock { flex: 0 0 auto; color: #15803d; font-size: 12px; font-weight: 700; }
 .public-result-card button { padding: 7px 10px; border: 1px solid var(--public-line); border-radius: 8px; color: #374151; background: white; font-size: 11px; font-weight: 700; cursor: pointer; }
 .public-detail { position: sticky; top: 18px; padding: 20px; border: 1px solid var(--public-line); border-radius: 17px; background: white; box-shadow: 0 8px 28px #1f293708; }
