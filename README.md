@@ -6,6 +6,7 @@ Aplikasi web manajemen sarana dan prasarana sekolah. Antarmuka menggunakan HTML,
 
 - Halaman sekolah: `http://localhost:3000/`. Sekolah baru dapat mendaftar dari tombol **Daftarkan sekolah**; kode tenant acak 4 karakter huruf/angka ditampilkan setelah pendaftaran berhasil.
 - Halaman Super Admin: `http://localhost:3000/super-admin`. Pada penggunaan pertama, buat akun Super Admin khusus. Selanjutnya halaman ini meminta login.
+- **Branding Sistem** Super Admin menerapkan nama dan logo platform pada aplikasi sekolah dan control center Super Admin, termasuk nama tab browser serta favicon.
 - Setiap tenant menyimpan inventaris, akun, dan tiket secara terpisah. Super Admin dapat mengatur sekolah, paket dan masa langganan, pembayaran, fitur, branding, QRIS, syarat/SLA, pengumuman, maintenance, panduan, tiket, WhatsApp, audit, serta backup/restore.
 - Pada **Super Admin → Backup & Restore**, jadwalkan backup harian seluruh platform ke Telegram menggunakan token bot dan Chat ID tujuan. Jadwal awal pukul 16.00 WIB; token disimpan terenkripsi dan file mencakup data semua tenant, sehingga chat tujuan harus dijaga kerahasiaannya.
 - Restore backup sekolah ke tenant baru memulihkan data sekolah sambil mempertahankan akun Administrator yang sedang login, agar kredensial pendaftaran tetap dapat digunakan.

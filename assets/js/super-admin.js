@@ -140,6 +140,7 @@
     if (!session.user) return showGate();
     admin = session.user;
     data = await api("/api/platform/data");
+    applyPlatformBranding(data.settings?.branding);
     $("#gate").classList.add("hidden");
     $("#platform").classList.remove("hidden");
     $("#adminName").textContent = admin.name || admin.username;
@@ -151,12 +152,33 @@
       `<button type="button" class="${key === view ? "active" : ""}" data-view="${key}"><span class="nav-icon">${icon}</span>${esc(label)}</button>`
     ).join("");
   }
+  function applyPlatformBranding(branding = {}) {
+    const appName = String(branding.appName || "Sarprah").trim() || "Sarprah";
+    const appLogo = typeof branding.logo === "string" ? branding.logo : typeof branding.appLogo === "string" ? branding.appLogo : "";
+    const initials = appName.split(/\s+/).slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "SP";
+    document.title = `${appName} · Super Admin`;
+    document.querySelectorAll("[data-platform-brand-name]").forEach((node) => { node.textContent = appName; });
+    document.querySelectorAll("[data-platform-brand-mark]").forEach((node) => {
+      node.classList.toggle("has-logo", Boolean(appLogo));
+      node.innerHTML = appLogo ? `<img src="${esc(appLogo)}" alt="${esc(appName)}">` : esc(initials);
+    });
+    const favicon = $("#platformFavicon");
+    if (appLogo) {
+      favicon.href = appLogo;
+      favicon.type = appLogo.match(/^data:(image\/(?:png|jpeg|webp|svg\+xml));/)?.[1] || "image/png";
+    } else {
+      favicon.href = favicon.dataset.defaultHref || favicon.href;
+      favicon.type = "image/svg+xml";
+    }
+  }
   async function refreshData() {
     data = await api("/api/platform/data");
+    applyPlatformBranding(data.settings?.branding);
     renderView();
   }
   async function savePlatform(partial) {
     data = await api("/api/platform/data", "PUT", partial);
+    applyPlatformBranding(data.settings?.branding);
     toast("Perubahan berhasil disimpan.");
     renderView();
   }
@@ -313,7 +335,7 @@
   }
   function brandingView() {
     const b = data.settings.branding || {};
-    return `${intro("Branding sistem", "Tentukan nama, tagline, dan logo yang muncul pada aplikasi sekolah.")}${panel("Identitas platform", `<form id="brandingForm">${field("Nama aplikasi", "appName", b.appName || "Sarprah", "text", "required maxlength=80")}${field("Tagline", "tagline", b.tagline || "", "text", "maxlength=160")}<label class="field">Logo aplikasi (gambar)<input name="logoFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"></label>${b.logo ? `<p class="help-text">Logo sudah tersimpan. Kosongkan file untuk mempertahankan logo.</p>` : ""}<div class="modal-actions"><button class="primary">Simpan branding</button></div></form>`)}`;
+    return `${intro("Branding sistem", "Tentukan nama, tagline, dan logo yang muncul pada aplikasi sekolah serta panel Super Admin.")}${panel("Identitas platform", `<form id="brandingForm">${field("Nama aplikasi", "appName", b.appName || "Sarprah", "text", "required maxlength=80")}${field("Tagline", "tagline", b.tagline || "", "text", "maxlength=160")}<label class="field">Logo aplikasi (gambar)<input name="logoFile" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp"></label>${b.logo ? `<p class="help-text">Logo sudah tersimpan. Kosongkan file untuk mempertahankan logo.</p>` : ""}<div class="modal-actions"><button class="primary">Simpan branding</button></div></form>`)}`;
   }
   function pricingView() {
     const settings = data.settings;
@@ -671,6 +693,7 @@
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeModal(); });
   async function init() {
     try {
+      applyPlatformBranding(await api("/api/branding"));
       const status = await api("/api/platform/setup-status");
       if (!status.configured) return showGate({ setup: true });
       await openPlatform();
