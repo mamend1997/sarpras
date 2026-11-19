@@ -45,8 +45,8 @@
         <label class="field-label mt-4">Nama Administrator<input name="adminName" type="text" maxlength="120" required></label>
         <label class="field-label mt-4">Email Administrator<input id="registrationEmail" class="registration-email-input" name="email" type="email" autocomplete="email" aria-describedby="registrationEmailError" required></label>
         <small id="registrationEmailError" class="registration-field-error" role="status" hidden>Masukkan alamat email yang valid, termasuk tanda @ dan domain.</small>
-        <label class="field-label mt-4">Nomor WhatsApp<input name="phone" type="tel" inputmode="tel" autocomplete="tel" value="+62" aria-describedby="registrationPhoneHint" required></label>
-        <small id="registrationPhoneHint" class="form-help">Contoh: +628123456789. Isi digit nomor setelah kode negara +62.</small>
+        <label class="field-label mt-4">Nomor WhatsApp<span class="registration-phone-control"><span class="registration-phone-prefix" aria-hidden="true">+62</span><input name="phone" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="13" pattern="[0-9]{8,13}" aria-describedby="registrationPhoneHint" required></span></label>
+        <small id="registrationPhoneHint" class="form-help">Contoh: 8123456789. Isi digit nomor setelah kode negara +62.</small>
         <div id="registrationOtpPanel" class="hidden mt-4">
           <button id="sendRegistrationOtp" class="btn-secondary w-full" type="button">Kirim kode OTP WhatsApp</button>
           <small id="registrationOtpHint" class="registration-otp-hint">Kirim OTP dan isi kode 6 digit sebelum mendaftar.</small>

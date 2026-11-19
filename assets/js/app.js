@@ -6690,7 +6690,7 @@
     $("#sendRegistrationOtp").addEventListener("click", async (event) => {
       const form = $("#schoolRegistrationForm");
       const phoneField = form.elements.phone;
-      const phone = phoneField.value.trim();
+      const phone = `+62${phoneField.value.trim()}`;
       if (!validWhatsAppNumber(phone)) {
         phoneField.setCustomValidity("Masukkan nomor WhatsApp lengkap setelah kode negara +62.");
         phoneField.reportValidity();
@@ -6726,8 +6726,10 @@
       }
     });
     $("#schoolRegistrationForm").elements.phone.addEventListener("input", (event) => {
-      event.target.setCustomValidity("");
-      if (registrationOtpSentPhone && registrationPhoneKey(event.target.value) !== registrationOtpSentPhone) {
+      const phoneField = event.target;
+      phoneField.value = phoneField.value.replace(/\D/g, "").slice(0, 13);
+      phoneField.setCustomValidity("");
+      if (registrationOtpSentPhone && registrationPhoneKey(phoneField.value) !== registrationOtpSentPhone) {
         registrationOtpSentPhone = "";
         $("#schoolRegistrationForm").elements.otpCode.value = "";
         $("#schoolRegistrationForm").elements.otpCode.setAttribute("aria-invalid", "false");
@@ -6770,7 +6772,7 @@
         missingFields[0][0].focus();
         return;
       }
-      if (!validWhatsAppNumber(form.elements.phone.value)) {
+      if (!validWhatsAppNumber(`+62${form.elements.phone.value.trim()}`)) {
         form.elements.phone.setCustomValidity("Masukkan nomor WhatsApp lengkap setelah kode negara +62.");
         form.elements.phone.reportValidity();
         setRegistrationMessage("Masukkan nomor WhatsApp yang valid terlebih dahulu.", "warning");
@@ -6822,7 +6824,7 @@
           body: JSON.stringify({
             school: {
               name: form.elements.schoolName.value.trim(),
-              phone: form.elements.phone.value.trim()
+              phone: `+62${form.elements.phone.value.trim()}`
             },
             admin: {
               name: form.elements.adminName.value.trim(),

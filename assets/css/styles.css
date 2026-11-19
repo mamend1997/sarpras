@@ -321,3 +321,7 @@ html{font-size:15px}body{font-size:15px}body :not(h1):not(h2):not(h3):not(h4):no
 .goods-name-duplicate-warning[hidden]{display:none}
 .goods-name-duplicate-field input[aria-invalid="true"]{border-color:#d94b4b!important;box-shadow:0 0 0 2px rgba(217,75,75,.12)}
 @media(max-width:520px){.login-form-wrap #schoolRegistrationPanel{width:100%;padding-right:2px;padding-left:2px}.registration-warning,.registration-error,.registration-info{font-size:12px;padding:9px 10px}}
+.registration-phone-control{display:flex;align-items:center;margin-top:6px;border:1px solid #e8ebef;border-radius:7px;background:#fff;transition:.15s}
+.registration-phone-control:focus-within{border-color:#f6a266;box-shadow:0 0 0 3px #fff3e9}
+.registration-phone-prefix{padding:0 10px;color:#667085;font-size:10px;font-weight:600}
+.login-form-wrap #schoolRegistrationPanel .registration-phone-control input{width:100%;min-width:0;margin-top:0;border:0;border-radius:0;background:transparent;box-shadow:none}
